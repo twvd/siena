@@ -1,3 +1,10 @@
+use std::fmt;
+
+use anyhow::Result;
+use thiserror::Error;
+
+use super::instruction_table::INSTRUCTION_TABLE;
+
 /// Instruction addressing mode
 pub enum AddressingMode {
     /// Absolute
@@ -81,6 +88,44 @@ pub enum AddressingMode {
     /// (Stack,S),Y
     /// 2 bytes, $OP $LL
     StackSPtr16Y,
+}
+
+impl AddressingMode {
+    pub fn get_fetch_len(&self, m: bool, x: bool) -> usize {
+        let m = if m { 1 } else { 0 };
+        let x = if x { 1 } else { 0 };
+
+        match self {
+            Self::Absolute => 3,
+            Self::AbsoluteX => 3,
+            Self::AbsoluteY => 3,
+            Self::AbsolutePtr16 => 3,
+            Self::AbsolutePtr24 => 3,
+            Self::AbsoluteXPtr16 => 3,
+            Self::Accumulator => 1,
+            Self::Direct => 2,
+            Self::DirectX => 2,
+            Self::DirectY => 2,
+            Self::DirectPtr16 => 2,
+            Self::DirectPtr24 => 2,
+            Self::DirectXPtr16 => 2,
+            Self::DirectPtr16Y => 2,
+            Self::DirectPtr24Y => 2,
+            Self::Immediate8 => 2,
+            Self::Immediate16 => 3,
+            Self::Implied => 1,
+            Self::Long => 4,
+            Self::LongX => 4,
+            Self::Relative8 => 2,
+            Self::Relative16 => 2,
+            Self::SrcDest => 3,
+            Self::StackS => 2,
+            Self::StackSPtr16Y => 2,
+
+            Self::ImmediateM => 2 + m,
+            Self::ImmediateX => 2 + x,
+        }
+    }
 }
 
 /// Instruction types
@@ -178,6 +223,12 @@ pub enum InstructionType {
     Undefined,
 }
 
+#[derive(Debug, Error)]
+enum DecodeErr {
+    #[error("End of instruction stream")]
+    EndOfStream,
+}
+
 /// A definition in the instruction (op code) table
 pub struct InstructionDef {
     /// String representation
@@ -192,4 +243,76 @@ pub struct InstructionDef {
 
     /// Instruction type
     pub instr_type: InstructionType,
+}
+
+/// A decoded instruction
+pub struct Instruction {
+    /// Reference to definition in instruction table
+    pub def: &'static InstructionDef,
+
+    /// Immediate values
+    pub immediate: [u32; 2],
+
+    /// Raw bytes
+    pub raw: Vec<u8>,
+
+    /// Instruction length
+    pub len: usize,
+}
+
+impl Instruction {
+    /// Try to decode a single instruction from an iterator.
+    pub fn decode(stream: &mut impl Iterator<Item = u8>, m: bool, x: bool) -> Result<Instruction> {
+        let mut raw: Vec<u8> = vec![];
+        let mut rd = || -> Result<u8> {
+            let b = stream.next().ok_or(DecodeErr::EndOfStream)?;
+            raw.push(b);
+            Ok(b)
+        };
+
+        let def = &INSTRUCTION_TABLE[rd()? as usize];
+        let mut args = [0; 4];
+        let len = def.mode.get_fetch_len(m, x);
+        for i in 0..(len - 1) {
+            args[i] = rd()?;
+        }
+
+        // Transform immediate values
+        let mut immediate = [0; 2];
+        match def.mode {
+            AddressingMode::SrcDest => {
+                immediate[0] = args[0] as u32;
+                immediate[1] = args[0] as u32;
+            }
+            _ => immediate[0] = u32::from_le_bytes(args),
+        }
+
+        Ok(Instruction {
+            def,
+            immediate,
+            raw,
+            len,
+        })
+    }
+}
+
+impl fmt::Display for Instruction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut s = self.def.mnemonic.to_string();
+
+        match self.def.mode {
+            AddressingMode::SrcDest => {
+                s = s.replacen('@', format!("${:02X}", self.immediate[0]).as_str(), 1);
+                s = s.replacen('@', format!("${:02X}", self.immediate[1]).as_str(), 1);
+            }
+            _ => match self.def.len - 1 {
+                1 => s = s.replacen('@', format!("${:02X}", self.immediate[0]).as_str(), 1),
+                2 => s = s.replacen('@', format!("${:04X}", self.immediate[0]).as_str(), 1),
+                3 => s = s.replacen('@', format!("${:06X}", self.immediate[0]).as_str(), 1),
+                _ => (),
+            },
+        }
+
+        write!(f, "{:02X?} {}", self.raw, s.as_str())
+    }
 }

@@ -11,3 +11,4 @@ downcast-rs = "1.2.0"
 num-derive = "0.4.0"
 num-traits = "0.2.16"
 strum = { version = "0.25.0", features = ["derive"] }
+thiserror = "1.0.49"
