@@ -3,7 +3,7 @@ use anyhow::Result;
 use crate::snes::bus::{Address, Bus, BusIterator};
 use crate::tickable::Ticks;
 
-use super::instruction::Instruction;
+use super::instruction::{Instruction, InstructionType};
 use super::regs::{Flag, RegisterFile};
 
 /// Main SNES CPU (65816)
@@ -65,12 +65,15 @@ where
     }
 
     /// Executes one CPU step (one instruction).
-    pub fn step(&mut self) -> Result<Ticks> {
+    pub fn step(&mut self) -> Result<()> {
         let instr = self.fetch_next_instr()?;
+
+        let cycles = self.execute_instruction(&instr)?;
+
         // TODO program bank?
         self.regs.pc = self.regs.pc.wrapping_add(instr.len as u16);
 
-        Ok(1)
+        Ok(())
     }
 
     /// Tick peripherals
@@ -79,6 +82,7 @@ where
             return Ok(());
         }
 
+        self.cycles += 1;
         self.bus.tick(cycles)
     }
 
@@ -88,5 +92,17 @@ where
         let v = self.bus.read(addr);
         self.tick_bus(1).unwrap();
         v
+    }
+
+    fn execute_instruction(&mut self, instr: &Instruction) -> Result<()> {
+        match instr.def.instr_type {
+            InstructionType::SEI => {
+                self.regs.write_flags(&[(Flag::I, true)]);
+                self.tick_bus(4)?;
+            }
+            _ => todo!(),
+        }
+
+        Ok(())
     }
 }
