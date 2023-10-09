@@ -2,9 +2,10 @@ use std::fmt;
 
 use num_derive::ToPrimitive;
 use num_traits::ToPrimitive;
+use strum::{Display, EnumIter, IntoEnumIterator};
 
 /// Bit positions of the flags in the P register.
-#[derive(ToPrimitive, Debug, Copy, Clone)]
+#[derive(EnumIter, ToPrimitive, Debug, Copy, Clone, Display)]
 pub enum Flag {
     /// Negative
     N = 7,
@@ -12,8 +13,8 @@ pub enum Flag {
     V = 6,
     /// Accumulator/memory width (native mode)
     M = 5,
-    /// Index register width (native mode) / Break flag (emulation mode)
-    XB = 4,
+    /// Index register width (native mode)
+    X = 4,
     /// Decimal mode
     D = 3,
     /// Interrupt disable
@@ -25,8 +26,8 @@ pub enum Flag {
 }
 
 impl Flag {
-    pub const X: Self = Self::XB;
-    pub const B: Self = Self::XB;
+    /// Break flag (emulation mode)
+    pub const B: Self = Self::X;
 }
 
 /// Bit-width of a register (see Register::width())
@@ -122,6 +123,7 @@ pub struct RegisterFile {
     pub s: u16,
     pub x: u16,
     pub y: u16,
+    pub emulation: bool,
 }
 
 impl RegisterFile {
@@ -136,7 +138,13 @@ impl RegisterFile {
             s: 0,
             x: 0,
             y: 0,
+            emulation: true,
         }
+    }
+
+    /// Get the complete (24-bit) program counter
+    pub fn get_full_pc(&self) -> u32 {
+        (self.k as u32) << 16 | self.pc as u32
     }
 
     /// Write a value to a register.
@@ -299,10 +307,21 @@ impl RegisterFile {
 
 impl fmt::Display for RegisterFile {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let flags: String = Flag::iter()
+            .map(|f| (f, f.to_string().chars().nth(0).unwrap()))
+            .map(|(f, fc)| {
+                if self.p & 1 << f.to_u8().unwrap() != 0 {
+                    fc.to_uppercase().next().unwrap()
+                } else {
+                    fc.to_lowercase().next().unwrap()
+                }
+            })
+            .collect::<String>();
+
         write!(
             f,
-            "C:{:02X} DBR:{:04X} D:{:04X} K|PC:{:02X}|{:04X} P:{:02X} S:{:04X} X:{:04X} Y:{:04X}",
-            self.c, self.dbr, self.d, self.k, self.pc, self.p, self.s, self.x, self.y,
+            "C:{:04X} DBR:{:04X} D:{:04X} K|PC:{:02X}|{:04X} S:{:04X} X:{:04X} Y:{:04X} P:{:02X} ({}) E:{}",
+            self.c, self.dbr, self.d, self.k, self.pc, self.s, self.x, self.y, self.p, flags, self.emulation
         )
     }
 }
