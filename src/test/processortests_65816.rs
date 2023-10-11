@@ -3,7 +3,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 
-use crate::snes::bus::testbus::{Access, Testbus};
+use crate::snes::bus::testbus::Testbus;
 use crate::snes::bus::{Address, BusMember};
 use crate::snes::cpu_65816::cpu::Cpu65816;
 use crate::snes::cpu_65816::regs::RegisterFile;
@@ -29,7 +29,6 @@ macro_rules! cpu_test {
 }
 
 fn parse_regs(v: &Value) -> RegisterFile {
-    dbg!(&v);
     let p8 = |r| v[r].as_u64().unwrap().try_into().unwrap();
     let p16 = |r| v[r].as_u64().unwrap().try_into().unwrap();
     RegisterFile {
@@ -52,7 +51,6 @@ fn parse_regs(v: &Value) -> RegisterFile {
 
 fn parse_ram(v: &Value) -> HashMap<Address, u8> {
     HashMap::from_iter(v.as_array().unwrap().into_iter().map(|a| {
-        dbg!(&a);
         (
             a[0].as_u64().unwrap().try_into().unwrap(),
             a[1].as_u64().unwrap().try_into().unwrap(),
@@ -107,14 +105,23 @@ fn run_testcase(testcase: &Value) {
             .filter(|c| !c.is_null()),
     ) {
         let exp_addr: Address = expected[0].as_u64().unwrap().try_into().unwrap();
-        let exp_val: u8 = expected[1].as_u64().unwrap().try_into().unwrap();
 
-        if trace.addr != exp_addr || trace.val != exp_val {
+        if trace.addr != exp_addr {
             dbg!(&testcase);
             dbg_hex!(&bus_trace);
-            dbg_hex!(&trace);
+            dbg!(&trace);
             dbg!(&expected);
             panic!("Invalid trace");
+        }
+        if !expected[1].is_null() {
+            let exp_val: u8 = expected[1].as_u64().unwrap().try_into().unwrap();
+            if trace.val != exp_val {
+                dbg!(&testcase);
+                dbg_hex!(&bus_trace);
+                dbg!(&trace);
+                dbg!(&expected);
+                panic!("Invalid trace");
+            }
         }
     }
 }
