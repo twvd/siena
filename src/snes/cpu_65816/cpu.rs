@@ -8,8 +8,8 @@ use super::regs::{Flag, RegisterFile};
 
 /// Main SNES CPU (65816)
 pub struct Cpu65816<TBus: Bus> {
-    bus: TBus,
-    regs: RegisterFile,
+    pub bus: TBus,
+    pub regs: RegisterFile,
     cycles: Ticks,
 }
 
