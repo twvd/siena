@@ -192,7 +192,7 @@ fn run_testcase(testcase: &Value) {
 //cpu_test!(instr_3f, 0x3f);
 //cpu_test!(instr_40, 0x40);
 //cpu_test!(instr_41, 0x41);
-//cpu_test!(instr_42, 0x42);
+cpu_test!(instr_42, 0x42);
 //cpu_test!(instr_43, 0x43);
 //cpu_test!(instr_44, 0x44);
 //cpu_test!(instr_45, 0x45);
@@ -360,7 +360,7 @@ cpu_test!(instr_78, 0x78);
 //cpu_test!(instr_e7, 0xe7);
 //cpu_test!(instr_e8, 0xe8);
 //cpu_test!(instr_e9, 0xe9);
-//cpu_test!(instr_ea, 0xea);
+cpu_test!(instr_ea, 0xea);
 //cpu_test!(instr_eb, 0xeb);
 //cpu_test!(instr_ec, 0xec);
 //cpu_test!(instr_ed, 0xed);

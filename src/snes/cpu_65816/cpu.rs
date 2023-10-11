@@ -97,6 +97,9 @@ where
 
     fn execute_instruction(&mut self, instr: &Instruction) -> Result<()> {
         match instr.def.instr_type {
+            InstructionType::NOP | InstructionType::WDM => {
+                self.tick_bus(2)?;
+            }
             InstructionType::SEI => {
                 self.regs.write_flags(&[(Flag::I, true)]);
                 self.tick_bus(4)?;
