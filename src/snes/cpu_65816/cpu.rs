@@ -51,12 +51,13 @@ where
         let mut fetched: Vec<u8> = vec![];
 
         for p in 0.. {
+            let pc = (self.regs.k as Address) << 16 | self.regs.pc.wrapping_add(p) as Address;
             match Instruction::decode(
                 &mut fetched.clone().into_iter(),
                 self.regs.test_flag(Flag::M),
                 self.regs.test_flag(Flag::X),
             ) {
-                Err(_) => fetched.push(self.read_tick(self.regs.get_full_pc().wrapping_add(p))),
+                Err(_) => fetched.push(self.read_tick(pc)),
                 Ok(i) => return Ok(i),
             }
         }
@@ -68,7 +69,7 @@ where
     pub fn step(&mut self) -> Result<()> {
         let instr = self.fetch_next_instr()?;
 
-        let cycles = self.execute_instruction(&instr)?;
+        let _cycles = self.execute_instruction(&instr)?;
 
         // TODO program bank?
         self.regs.pc = self.regs.pc.wrapping_add(instr.len as u16);
