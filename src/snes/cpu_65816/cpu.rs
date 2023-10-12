@@ -108,6 +108,10 @@ where
             InstructionType::SEI => self.op_sex(Flag::I),
             InstructionType::XBA => self.op_xba(),
             InstructionType::XCE => self.op_xce(),
+            InstructionType::TCD => self.op_txx(Register::C, Register::D, true),
+            InstructionType::TCS => self.op_txx(Register::C, Register::S, false),
+            InstructionType::TDC => self.op_txx(Register::D, Register::C, true),
+            InstructionType::TSC => self.op_txx(Register::S, Register::C, true),
             _ => todo!(),
         }
     }
@@ -147,5 +151,17 @@ where
         self.regs
             .write_flags(&[(Flag::Z, result & 0xFF == 0), (Flag::N, result & 0x80 != 0)]);
         self.tick_bus(2)
+    }
+
+    /// Txx - Transfer some register to another register
+    fn op_txx(&mut self, from: Register, to: Register, flags: bool) -> Result<()> {
+        let v = self.regs.read(from);
+        self.regs.write(to, v);
+
+        if flags {
+            self.regs
+                .write_flags(&[(Flag::N, v & 0x8000 != 0), (Flag::Z, v == 0)]);
+        }
+        self.tick_bus(1)
     }
 }
