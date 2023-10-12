@@ -10,7 +10,7 @@ use super::regs::{Flag, RegisterFile};
 pub struct Cpu65816<TBus: Bus> {
     pub bus: TBus,
     pub regs: RegisterFile,
-    cycles: Ticks,
+    pub cycles: Ticks,
 }
 
 impl<TBus> Cpu65816<TBus>
@@ -83,7 +83,7 @@ where
             return Ok(());
         }
 
-        self.cycles += 1;
+        self.cycles += cycles;
         self.bus.tick(cycles)
     }
 
@@ -97,7 +97,8 @@ where
 
     fn execute_instruction(&mut self, instr: &Instruction) -> Result<()> {
         match instr.def.instr_type {
-            InstructionType::NOP | InstructionType::WDM => self.tick_bus(2),
+            InstructionType::NOP => self.tick_bus(1),
+            InstructionType::WDM => Ok(()),
             InstructionType::CLC => self.op_clx(Flag::C),
             InstructionType::CLD => self.op_clx(Flag::D),
             InstructionType::CLI => self.op_clx(Flag::I),
@@ -111,11 +112,11 @@ where
 
     fn op_clx(&mut self, f: Flag) -> Result<()> {
         self.regs.write_flags(&[(f, false)]);
-        self.tick_bus(4)
+        self.tick_bus(1)
     }
 
     fn op_sex(&mut self, f: Flag) -> Result<()> {
         self.regs.write_flags(&[(f, true)]);
-        self.tick_bus(4)
+        self.tick_bus(1)
     }
 }

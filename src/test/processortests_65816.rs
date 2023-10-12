@@ -124,6 +124,12 @@ fn run_testcase(testcase: &Value) {
             }
         }
     }
+
+    let test_cycles = testcase["cycles"].as_array().unwrap().len();
+    if cpu.cycles != test_cycles {
+        dbg!(&testcase);
+        panic!("Saw {} cycles, should be {}", cpu.cycles, test_cycles);
+    }
 }
 
 //cpu_test!(instr_00, 0x00);
