@@ -383,7 +383,7 @@ cpu_test!(instr_ea, 0xea);
 cpu_test!(instr_f8, 0xf8);
 //cpu_test!(instr_f9, 0xf9);
 //cpu_test!(instr_fa, 0xfa);
-//cpu_test!(instr_fb, 0xfb);
+cpu_test!(instr_fb, 0xfb);
 //cpu_test!(instr_fc, 0xfc);
 //cpu_test!(instr_fd, 0xfd);
 //cpu_test!(instr_fe, 0xfe);

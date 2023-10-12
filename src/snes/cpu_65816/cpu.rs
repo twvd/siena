@@ -4,7 +4,7 @@ use crate::snes::bus::{Address, Bus, BusIterator};
 use crate::tickable::Ticks;
 
 use super::instruction::{Instruction, InstructionType};
-use super::regs::{Flag, RegisterFile};
+use super::regs::{Flag, Register, RegisterFile};
 
 /// Main SNES CPU (65816)
 pub struct Cpu65816<TBus: Bus> {
@@ -106,6 +106,7 @@ where
             InstructionType::SEC => self.op_sex(Flag::C),
             InstructionType::SED => self.op_sex(Flag::D),
             InstructionType::SEI => self.op_sex(Flag::I),
+            InstructionType::XCE => self.op_xce(),
             _ => todo!(),
         }
     }
@@ -117,6 +118,19 @@ where
 
     fn op_sex(&mut self, f: Flag) -> Result<()> {
         self.regs.write_flags(&[(f, true)]);
+        self.tick_bus(1)
+    }
+
+    fn op_xce(&mut self) -> Result<()> {
+        let c = self.regs.test_flag(Flag::C);
+        self.regs.write_flags(&[(Flag::C, self.regs.emulation)]);
+        self.regs.emulation = c;
+        if self.regs.emulation {
+            self.regs.write_flags(&[(Flag::M, true), (Flag::X, true)]);
+            self.regs.write(Register::XH, 0);
+            self.regs.write(Register::YH, 0);
+            self.regs.write(Register::SH, 1);
+        }
         self.tick_bus(1)
     }
 }
