@@ -97,16 +97,25 @@ where
 
     fn execute_instruction(&mut self, instr: &Instruction) -> Result<()> {
         match instr.def.instr_type {
-            InstructionType::NOP | InstructionType::WDM => {
-                self.tick_bus(2)?;
-            }
-            InstructionType::SEI => {
-                self.regs.write_flags(&[(Flag::I, true)]);
-                self.tick_bus(4)?;
-            }
+            InstructionType::NOP | InstructionType::WDM => self.tick_bus(2),
+            InstructionType::CLC => self.op_clx(Flag::C),
+            InstructionType::CLD => self.op_clx(Flag::D),
+            InstructionType::CLI => self.op_clx(Flag::I),
+            InstructionType::CLV => self.op_clx(Flag::V),
+            InstructionType::SEC => self.op_sex(Flag::C),
+            InstructionType::SED => self.op_sex(Flag::D),
+            InstructionType::SEI => self.op_sex(Flag::I),
             _ => todo!(),
         }
+    }
 
-        Ok(())
+    fn op_clx(&mut self, f: Flag) -> Result<()> {
+        self.regs.write_flags(&[(f, false)]);
+        self.tick_bus(4)
+    }
+
+    fn op_sex(&mut self, f: Flag) -> Result<()> {
+        self.regs.write_flags(&[(f, true)]);
+        self.tick_bus(4)
     }
 }
