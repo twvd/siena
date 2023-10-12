@@ -367,7 +367,7 @@ cpu_test!(instr_d8, 0xd8);
 //cpu_test!(instr_e8, 0xe8);
 //cpu_test!(instr_e9, 0xe9);
 cpu_test!(instr_ea, 0xea);
-//cpu_test!(instr_eb, 0xeb);
+cpu_test!(instr_eb, 0xeb);
 //cpu_test!(instr_ec, 0xec);
 //cpu_test!(instr_ed, 0xed);
 //cpu_test!(instr_ee, 0xee);

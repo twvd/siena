@@ -106,21 +106,25 @@ where
             InstructionType::SEC => self.op_sex(Flag::C),
             InstructionType::SED => self.op_sex(Flag::D),
             InstructionType::SEI => self.op_sex(Flag::I),
+            InstructionType::XBA => self.op_xba(),
             InstructionType::XCE => self.op_xce(),
             _ => todo!(),
         }
     }
 
+    /// CLx - Clear x
     fn op_clx(&mut self, f: Flag) -> Result<()> {
         self.regs.write_flags(&[(f, false)]);
         self.tick_bus(1)
     }
 
+    /// SEx - Set x
     fn op_sex(&mut self, f: Flag) -> Result<()> {
         self.regs.write_flags(&[(f, true)]);
         self.tick_bus(1)
     }
 
+    /// XCE - Exchange Carry and Emulation
     fn op_xce(&mut self) -> Result<()> {
         let c = self.regs.test_flag(Flag::C);
         self.regs.write_flags(&[(Flag::C, self.regs.emulation)]);
@@ -132,5 +136,16 @@ where
             self.regs.write(Register::SH, 1);
         }
         self.tick_bus(1)
+    }
+
+    /// XBA - Exchange B and A
+    fn op_xba(&mut self) -> Result<()> {
+        let c = self.regs.read(Register::C);
+        let result = c >> 8 | c << 8;
+        self.regs.write(Register::C, result);
+
+        self.regs
+            .write_flags(&[(Flag::Z, result & 0xFF == 0), (Flag::N, result & 0x80 != 0)]);
+        self.tick_bus(2)
     }
 }
