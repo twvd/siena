@@ -71,7 +71,8 @@ fn run_testcase(testcase: &Value) {
     bus.reset_trace();
 
     let mut cpu = Cpu65816::<Testbus>::new(bus, 0);
-    cpu.regs = regs_initial;
+    cpu.regs = regs_initial.clone();
+
     cpu.step().unwrap();
 
     // Extract the bus trace now so we don't record the
@@ -81,8 +82,9 @@ fn run_testcase(testcase: &Value) {
 
     if cpu.regs != regs_final {
         dbg!(testcase);
-        dbg_hex!(regs_final);
-        dbg_hex!(cpu.regs);
+        println!("Initial: {}", regs_initial);
+        println!("Expected:{}", regs_final);
+        println!("Actual:  {}", cpu.regs);
         panic!("Registers incorrect");
     }
 
@@ -270,7 +272,7 @@ cpu_test!(instr_7b, 0x7b);
 //cpu_test!(instr_87, 0x87);
 //cpu_test!(instr_88, 0x88);
 //cpu_test!(instr_89, 0x89);
-//cpu_test!(instr_8a, 0x8a);
+cpu_test!(instr_8a, 0x8a);
 //cpu_test!(instr_8b, 0x8b);
 //cpu_test!(instr_8c, 0x8c);
 //cpu_test!(instr_8d, 0x8d);
@@ -284,10 +286,10 @@ cpu_test!(instr_7b, 0x7b);
 //cpu_test!(instr_95, 0x95);
 //cpu_test!(instr_96, 0x96);
 //cpu_test!(instr_97, 0x97);
-//cpu_test!(instr_98, 0x98);
+cpu_test!(instr_98, 0x98);
 //cpu_test!(instr_99, 0x99);
-//cpu_test!(instr_9a, 0x9a);
-//cpu_test!(instr_9b, 0x9b);
+cpu_test!(instr_9a, 0x9a);
+cpu_test!(instr_9b, 0x9b);
 //cpu_test!(instr_9c, 0x9c);
 //cpu_test!(instr_9d, 0x9d);
 //cpu_test!(instr_9e, 0x9e);
@@ -300,9 +302,9 @@ cpu_test!(instr_7b, 0x7b);
 //cpu_test!(instr_a5, 0xa5);
 //cpu_test!(instr_a6, 0xa6);
 //cpu_test!(instr_a7, 0xa7);
-//cpu_test!(instr_a8, 0xa8);
+cpu_test!(instr_a8, 0xa8);
 //cpu_test!(instr_a9, 0xa9);
-//cpu_test!(instr_aa, 0xaa);
+cpu_test!(instr_aa, 0xaa);
 //cpu_test!(instr_ab, 0xab);
 //cpu_test!(instr_ac, 0xac);
 //cpu_test!(instr_ad, 0xad);
@@ -318,8 +320,8 @@ cpu_test!(instr_7b, 0x7b);
 //cpu_test!(instr_b7, 0xb7);
 cpu_test!(instr_b8, 0xb8);
 //cpu_test!(instr_b9, 0xb9);
-//cpu_test!(instr_ba, 0xba);
-//cpu_test!(instr_bb, 0xbb);
+cpu_test!(instr_ba, 0xba);
+cpu_test!(instr_bb, 0xbb);
 //cpu_test!(instr_bc, 0xbc);
 //cpu_test!(instr_bd, 0xbd);
 //cpu_test!(instr_be, 0xbe);

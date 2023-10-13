@@ -108,10 +108,18 @@ where
             InstructionType::SEI => self.op_sex(Flag::I),
             InstructionType::XBA => self.op_xba(),
             InstructionType::XCE => self.op_xce(),
-            InstructionType::TCD => self.op_txx(Register::C, Register::D, true),
-            InstructionType::TCS => self.op_txx(Register::C, Register::S, false),
-            InstructionType::TDC => self.op_txx(Register::D, Register::C, true),
-            InstructionType::TSC => self.op_txx(Register::S, Register::C, true),
+            InstructionType::TCD => self.op_txx_16b(Register::C, Register::D, true),
+            InstructionType::TCS => self.op_txx_16b(Register::C, Register::S, false),
+            InstructionType::TDC => self.op_txx_16b(Register::D, Register::C, true),
+            InstructionType::TSC => self.op_txx_16b(Register::S, Register::C, true),
+            InstructionType::TAX => self.op_txx(Register::C, Register::X, Flag::X),
+            InstructionType::TAY => self.op_txx(Register::C, Register::Y, Flag::X),
+            InstructionType::TSX => self.op_txx(Register::S, Register::X, Flag::X),
+            InstructionType::TXA => self.op_txx(Register::X, Register::C, Flag::M),
+            InstructionType::TXS => self.op_txx_16b(Register::X, Register::S, false),
+            InstructionType::TXY => self.op_txx(Register::X, Register::Y, Flag::X),
+            InstructionType::TYA => self.op_txx(Register::Y, Register::C, Flag::M),
+            InstructionType::TYX => self.op_txx(Register::Y, Register::X, Flag::X),
             _ => todo!(),
         }
     }
@@ -154,11 +162,31 @@ where
     }
 
     /// Txx - Transfer some register to another register
-    fn op_txx(&mut self, from: Register, to: Register, flags: bool) -> Result<()> {
+    /// (always 16-bit)
+    fn op_txx_16b(&mut self, from: Register, to: Register, flags: bool) -> Result<()> {
         let v = self.regs.read(from);
         self.regs.write(to, v);
 
         if flags {
+            self.regs
+                .write_flags(&[(Flag::N, v & 0x8000 != 0), (Flag::Z, v == 0)]);
+        }
+        self.tick_bus(1)
+    }
+
+    /// Txx - Transfer some register to another register
+    /// (obeying X/M flags)
+    fn op_txx(&mut self, from: Register, to: Register, flag: Flag) -> Result<()> {
+        let v = self.regs.read(from);
+        if self.regs.test_flag(flag) {
+            // 8-bit mode
+            self.regs
+                .write(to, (self.regs.read(to) & 0xFF00) | (v & 0xFF));
+            self.regs
+                .write_flags(&[(Flag::N, v & 0x80 != 0), (Flag::Z, v & 0xFF == 0)]);
+        } else {
+            // 16-bit mode
+            self.regs.write(to, v);
             self.regs
                 .write_flags(&[(Flag::N, v & 0x8000 != 0), (Flag::Z, v == 0)]);
         }

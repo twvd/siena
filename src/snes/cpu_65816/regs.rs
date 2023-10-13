@@ -112,7 +112,7 @@ impl Register {
 }
 
 /// Complete CPU register file
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct RegisterFile {
     pub c: u16,
     pub dbr: u8,
