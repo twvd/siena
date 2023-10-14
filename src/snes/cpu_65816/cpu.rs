@@ -111,6 +111,7 @@ where
         self.tick_bus(1).unwrap();
     }
 
+    /// Executes an instruction.
     fn execute_instruction(&mut self, instr: &Instruction) -> Result<()> {
         match instr.def.instr_type {
             InstructionType::NOP => self.tick_bus(1),
@@ -137,9 +138,48 @@ where
             InstructionType::TYA => self.op_txx(Register::Y, Register::C, Flag::M),
             InstructionType::TYX => self.op_txx(Register::Y, Register::X, Flag::X),
             InstructionType::STZ => self.op_stz(&instr),
+            InstructionType::STA => self.op_stx_reg(&instr, Register::C, Flag::M),
+            InstructionType::STX => self.op_stx_reg(&instr, Register::X, Flag::X),
+            InstructionType::STY => self.op_stx_reg(&instr, Register::Y, Flag::X),
 
             _ => todo!(),
         }
+    }
+
+    /// Resolves an address from instruction data, registers, etc.
+    /// based on the addressing mode.
+    fn resolve_address(&self, instr: &Instruction) -> Result<Address> {
+        Ok(match instr.def.mode {
+            AddressingMode::Direct => Address::from(
+                self.regs
+                    .read(Register::D)
+                    .wrapping_add(instr.imm::<u16>()?),
+            ),
+            AddressingMode::DirectX => Address::from(
+                self.regs
+                    .read(Register::D)
+                    .wrapping_add(instr.imm::<u16>()?)
+                    .wrapping_add(self.regs.read(Register::X)),
+            ),
+            AddressingMode::DirectY => Address::from(
+                self.regs
+                    .read(Register::D)
+                    .wrapping_add(instr.imm::<u16>()?)
+                    .wrapping_add(self.regs.read(Register::Y)),
+            ),
+            AddressingMode::Absolute => {
+                Address::from(self.regs.read(Register::DBR)) << 16
+                    | Address::from(instr.imm::<u16>()?)
+            }
+            AddressingMode::AbsoluteX => {
+                (Address::from(self.regs.read(Register::DBR)) << 16
+                    | Address::from(instr.imm::<u16>()?))
+                .wrapping_add(Address::from(self.regs.read(Register::X)))
+                    & ADDRESS_MASK
+            }
+
+            _ => todo!(),
+        })
     }
 
     /// CLx - Clear x
@@ -213,55 +253,41 @@ where
 
     /// STZ - Store zero
     fn op_stz(&mut self, instr: &Instruction) -> Result<()> {
+        self.op_store(instr, 0, Flag::M)
+    }
+
+    /// STA/STX/STY - Store register
+    fn op_stx_reg(&mut self, instr: &Instruction, reg: Register, flag: Flag) -> Result<()> {
+        self.op_store(instr, self.regs.read(reg), flag)
+    }
+
+    /// Store operations
+    fn op_store(&mut self, instr: &Instruction, value: u16, flag: Flag) -> Result<()> {
         let addr = self.resolve_address(instr)?;
 
         // Extra internal cycles
-        if (instr.def.mode == AddressingMode::Direct || instr.def.mode == AddressingMode::DirectX)
-            && self.regs.read(Register::DL) != 0
-        {
-            self.tick_bus(1)?;
+        if self.regs.read(Register::DL) != 0 {
+            match instr.def.mode {
+                AddressingMode::Direct | AddressingMode::DirectX | AddressingMode::DirectY => {
+                    self.tick_bus(1)?
+                }
+                _ => (),
+            };
         }
-        if instr.def.mode == AddressingMode::DirectX || instr.def.mode == AddressingMode::AbsoluteX
-        {
-            self.tick_bus(1)?;
+        match instr.def.mode {
+            AddressingMode::DirectX
+            | AddressingMode::DirectY
+            | AddressingMode::AbsoluteX
+            | AddressingMode::AbsoluteY => self.tick_bus(1)?,
+            _ => (),
         }
 
-        if self.regs.test_flag(Flag::M) {
-            self.write_tick(addr, 0);
+        if self.regs.test_flag(flag) {
+            self.write_tick(addr, value as u8);
         } else {
-            self.write16_tick_a16(addr, 0);
+            self.write16_tick_a16(addr, value);
         }
 
         Ok(())
-    }
-
-    /// Resolves an address from instruction data, registers, etc.
-    /// based on the addressing mode.
-    fn resolve_address(&self, instr: &Instruction) -> Result<Address> {
-        Ok(match instr.def.mode {
-            AddressingMode::Direct => Address::from(
-                self.regs
-                    .read(Register::D)
-                    .wrapping_add(instr.imm::<u16>()?),
-            ),
-            AddressingMode::DirectX => Address::from(
-                self.regs
-                    .read(Register::D)
-                    .wrapping_add(instr.imm::<u16>()?)
-                    .wrapping_add(self.regs.read(Register::X)),
-            ),
-            AddressingMode::Absolute => {
-                Address::from(self.regs.read(Register::DBR)) << 16
-                    | Address::from(instr.imm::<u16>()?)
-            }
-            AddressingMode::AbsoluteX => {
-                (Address::from(self.regs.read(Register::DBR)) << 16
-                    | Address::from(instr.imm::<u16>()?))
-                .wrapping_add(Address::from(self.regs.read(Register::X)))
-                    & ADDRESS_MASK
-            }
-
-            _ => todo!(),
-        })
     }
 }
