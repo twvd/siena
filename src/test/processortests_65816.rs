@@ -3,7 +3,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 
-use crate::snes::bus::testbus::Testbus;
+use crate::snes::bus::testbus::{Access, Testbus};
 use crate::snes::bus::{Address, BusMember};
 use crate::snes::cpu_65816::cpu::Cpu65816;
 use crate::snes::cpu_65816::regs::RegisterFile;
@@ -98,17 +98,25 @@ fn run_testcase(testcase: &Value) {
             );
         }
     }
+    let testcase_cycles = testcase["cycles"].as_array().unwrap();
+    let test_cycles = testcase_cycles.len();
+    if cpu.cycles != test_cycles {
+        dbg!(&testcase);
+        dbg_hex!(&bus_trace);
+        panic!("Saw {} cycles, should be {}", cpu.cycles, test_cycles);
+    }
 
-    for (trace, expected) in bus_trace.iter().zip(
-        testcase["cycles"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .filter(|c| !c.is_null()),
-    ) {
+    for trace in &bus_trace {
+        let expected = &testcase_cycles[trace.cycle];
         let exp_addr: Address = expected[0].as_u64().unwrap().try_into().unwrap();
 
-        if trace.addr != exp_addr {
+        let exp_access = match expected[2].as_str().unwrap().chars().nth(3).unwrap() {
+            'r' => Access::Read,
+            'w' => Access::Write,
+            _ => unreachable!(),
+        };
+
+        if trace.addr != exp_addr || trace.access != exp_access {
             dbg!(&testcase);
             dbg_hex!(&bus_trace);
             dbg!(&trace);
@@ -125,12 +133,6 @@ fn run_testcase(testcase: &Value) {
                 panic!("Invalid trace");
             }
         }
-    }
-
-    let test_cycles = testcase["cycles"].as_array().unwrap().len();
-    if cpu.cycles != test_cycles {
-        dbg!(&testcase);
-        panic!("Saw {} cycles, should be {}", cpu.cycles, test_cycles);
     }
 }
 
