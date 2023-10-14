@@ -6,6 +6,7 @@ use thiserror::Error;
 use super::instruction_table::INSTRUCTION_TABLE;
 
 /// Instruction addressing mode
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum AddressingMode {
     /// Absolute
     /// 3 bytes, $OP $LL $HH
@@ -293,6 +294,17 @@ impl Instruction {
             raw,
             len,
         })
+    }
+
+    /// Reads the immediate value for addressing modes that
+    /// have one immediate value.
+    pub fn imm<T: std::convert::TryFrom<u32>>(&self) -> Result<T>
+    where
+        anyhow::Error: From<T::Error>,
+    {
+        assert_ne!(self.def.mode, AddressingMode::SrcDest);
+        assert_ne!(self.def.mode, AddressingMode::Implied);
+        Ok(self.immediate[0].try_into()?)
     }
 }
 

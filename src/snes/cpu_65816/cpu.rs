@@ -1,9 +1,9 @@
 use anyhow::Result;
 
-use crate::snes::bus::{Address, Bus, BusIterator};
+use crate::snes::bus::{Address, Bus, BusIterator, ADDRESS_MASK};
 use crate::tickable::Ticks;
 
-use super::instruction::{Instruction, InstructionType};
+use super::instruction::{AddressingMode, Instruction, InstructionType};
 use super::regs::{Flag, Register, RegisterFile};
 
 /// Main SNES CPU (65816)
@@ -70,8 +70,6 @@ where
         let instr = self.fetch_next_instr()?;
 
         let _cycles = self.execute_instruction(&instr)?;
-
-        // TODO program bank?
         self.regs.pc = self.regs.pc.wrapping_add(instr.len as u16);
 
         Ok(())
@@ -93,6 +91,24 @@ where
         let v = self.bus.read(addr);
         self.tick_bus(1).unwrap();
         v
+    }
+
+    /// Writes a memory location while ticking peripherals
+    /// for the access time.
+    fn write_tick(&mut self, addr: Address, val: u8) {
+        self.bus.write(addr, val);
+        self.tick_bus(1).unwrap();
+    }
+
+    /// Writes 16-bit to a memory location while ticking
+    /// peripherals for the access time.
+    /// 16-bit address wrap.
+    fn write16_tick_a16(&mut self, addr: Address, val: u16) {
+        self.bus.write(addr, (val & 0xFF) as u8);
+        self.tick_bus(1).unwrap();
+        let hi_addr = addr & 0xFFFF0000 | Address::from((addr as u16).wrapping_add(1));
+        self.bus.write(hi_addr, (val >> 8) as u8);
+        self.tick_bus(1).unwrap();
     }
 
     fn execute_instruction(&mut self, instr: &Instruction) -> Result<()> {
@@ -120,6 +136,8 @@ where
             InstructionType::TXY => self.op_txx(Register::X, Register::Y, Flag::X),
             InstructionType::TYA => self.op_txx(Register::Y, Register::C, Flag::M),
             InstructionType::TYX => self.op_txx(Register::Y, Register::X, Flag::X),
+            InstructionType::STZ => self.op_stz(&instr),
+
             _ => todo!(),
         }
     }
@@ -191,5 +209,59 @@ where
                 .write_flags(&[(Flag::N, v & 0x8000 != 0), (Flag::Z, v == 0)]);
         }
         self.tick_bus(1)
+    }
+
+    /// STZ - Store zero
+    fn op_stz(&mut self, instr: &Instruction) -> Result<()> {
+        let addr = self.resolve_address(instr)?;
+
+        // Extra internal cycles
+        if (instr.def.mode == AddressingMode::Direct || instr.def.mode == AddressingMode::DirectX)
+            && self.regs.read(Register::DL) != 0
+        {
+            self.tick_bus(1)?;
+        }
+        if instr.def.mode == AddressingMode::DirectX || instr.def.mode == AddressingMode::AbsoluteX
+        {
+            self.tick_bus(1)?;
+        }
+
+        if self.regs.test_flag(Flag::M) {
+            self.write_tick(addr, 0);
+        } else {
+            self.write16_tick_a16(addr, 0);
+        }
+
+        Ok(())
+    }
+
+    /// Resolves an address from instruction data, registers, etc.
+    /// based on the addressing mode.
+    fn resolve_address(&self, instr: &Instruction) -> Result<Address> {
+        Ok(match instr.def.mode {
+            AddressingMode::Direct => Address::from(
+                self.regs
+                    .read(Register::D)
+                    .wrapping_add(instr.imm::<u16>()?),
+            ),
+            AddressingMode::DirectX => Address::from(
+                self.regs
+                    .read(Register::D)
+                    .wrapping_add(instr.imm::<u16>()?)
+                    .wrapping_add(self.regs.read(Register::X)),
+            ),
+            AddressingMode::Absolute => {
+                Address::from(self.regs.read(Register::DBR)) << 16
+                    | Address::from(instr.imm::<u16>()?)
+            }
+            AddressingMode::AbsoluteX => {
+                (Address::from(self.regs.read(Register::DBR)) << 16
+                    | Address::from(instr.imm::<u16>()?))
+                .wrapping_add(Address::from(self.regs.read(Register::X)))
+                    & ADDRESS_MASK
+            }
+
+            _ => todo!(),
+        })
     }
 }
