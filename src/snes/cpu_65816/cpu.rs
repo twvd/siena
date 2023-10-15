@@ -271,6 +271,18 @@ where
                     .read(Register::S)
                     .wrapping_add(instr.imm::<u16>()?),
             ),
+            AddressingMode::StackSPtr16Y => {
+                (Address::from(self.regs.read(Register::DBR)) << 16
+                    | Address::from(
+                        self.read16_tick_a16(Address::from(
+                            self.regs
+                                .read(Register::S)
+                                .wrapping_add(instr.imm::<u16>()?),
+                        )),
+                    ))
+                .wrapping_add(self.regs.read(Register::Y).into())
+                    & ADDRESS_MASK
+            }
 
             _ => todo!(),
         })
@@ -380,7 +392,8 @@ where
             | AddressingMode::DirectY
             | AddressingMode::AbsoluteX
             | AddressingMode::AbsoluteY
-            | AddressingMode::StackS => self.tick_bus(1)?,
+            | AddressingMode::StackS
+            | AddressingMode::StackSPtr16Y => self.tick_bus(1)?,
             _ => (),
         }
 
@@ -391,7 +404,7 @@ where
         // More internal cycles for modes that do stuff AFTER
         // address resolution bus activity.
         match instr.def.mode {
-            AddressingMode::DirectPtr16Y => self.tick_bus(1)?,
+            AddressingMode::DirectPtr16Y | AddressingMode::StackSPtr16Y => self.tick_bus(1)?,
             _ => (),
         }
 

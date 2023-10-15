@@ -284,7 +284,7 @@ cpu_test!(instr_8e, 0x8e);
 //cpu_test!(instr_90, 0x90);
 cpu_test!(instr_91, 0x91);
 cpu_test!(instr_92, 0x92);
-//cpu_test!(instr_93, 0x93);
+cpu_test!(instr_93, 0x93);
 cpu_test!(instr_94, 0x94);
 cpu_test!(instr_95, 0x95);
 cpu_test!(instr_96, 0x96);
