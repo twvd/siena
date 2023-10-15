@@ -283,6 +283,13 @@ where
                 .wrapping_add(self.regs.read(Register::Y).into())
                     & ADDRESS_MASK
             }
+            AddressingMode::Long => instr.imm::<u32>()? & ADDRESS_MASK,
+            AddressingMode::LongX => {
+                instr
+                    .imm::<u32>()?
+                    .wrapping_add(self.regs.read(Register::X).into())
+                    & ADDRESS_MASK
+            }
 
             _ => todo!(),
         })
