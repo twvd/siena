@@ -93,13 +93,29 @@ where
         v
     }
 
-    /// Reads a memory location while ticking peripherals
-    /// for the access time.
+    /// Reads 16-bits from a memory location while ticking
+    /// peripherals for the access time.
+    /// Address wraps at 16-bits.
     fn read16_tick_a16(&mut self, addr: Address) -> u16 {
         let mut v = self.bus.read(addr) as u16;
         self.tick_bus(1).unwrap();
         let hi_addr = addr & 0xFFFF0000 | Address::from((addr as u16).wrapping_add(1));
         v |= (self.bus.read(hi_addr) as u16) << 8;
+        self.tick_bus(1).unwrap();
+        v
+    }
+
+    /// Reads 24-bits from a memory location while ticking
+    /// peripherals for the access time.
+    /// Address wraps at 16-bits.
+    fn read24_tick_a16(&mut self, addr: Address) -> u32 {
+        let mut v = self.bus.read(addr) as u32;
+        self.tick_bus(1).unwrap();
+        let mid_addr = addr & 0xFFFF0000 | Address::from((addr as u16).wrapping_add(1));
+        v |= (self.bus.read(mid_addr) as u32) << 8;
+        self.tick_bus(1).unwrap();
+        let hi_addr = addr & 0xFFFF0000 | Address::from((addr as u16).wrapping_add(2));
+        v |= (self.bus.read(hi_addr) as u32) << 16;
         self.tick_bus(1).unwrap();
         v
     }
@@ -182,6 +198,13 @@ where
                         )),
                     )
             }
+            AddressingMode::DirectPtr24 => Address::from(
+                self.read24_tick_a16(Address::from(
+                    self.regs
+                        .read(Register::D)
+                        .wrapping_add(instr.imm::<u16>()?),
+                )),
+            ),
             AddressingMode::DirectPtr16Y => {
                 ((Address::from(self.regs.read(Register::DBR)) << 16)
                     | Address::from(
@@ -191,6 +214,17 @@ where
                                 .wrapping_add(instr.imm::<u16>()?),
                         )),
                     ))
+                .wrapping_add(self.regs.read(Register::Y).into())
+                    & ADDRESS_MASK
+            }
+            AddressingMode::DirectPtr24Y => {
+                Address::from(
+                    self.read24_tick_a16(Address::from(
+                        self.regs
+                            .read(Register::D)
+                            .wrapping_add(instr.imm::<u16>()?),
+                    )),
+                )
                 .wrapping_add(self.regs.read(Register::Y).into())
                     & ADDRESS_MASK
             }
@@ -313,6 +347,8 @@ where
                 AddressingMode::Direct
                 | AddressingMode::DirectPtr16
                 | AddressingMode::DirectPtr16Y
+                | AddressingMode::DirectPtr24
+                | AddressingMode::DirectPtr24Y
                 | AddressingMode::DirectXPtr16
                 | AddressingMode::DirectX
                 | AddressingMode::DirectY => self.tick_bus(1)?,
