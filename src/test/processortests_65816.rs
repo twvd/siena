@@ -290,7 +290,7 @@ cpu_test!(instr_95, 0x95);
 cpu_test!(instr_96, 0x96);
 cpu_test!(instr_97, 0x97);
 cpu_test!(instr_98, 0x98);
-//cpu_test!(instr_99, 0x99);
+cpu_test!(instr_99, 0x99);
 cpu_test!(instr_9a, 0x9a);
 cpu_test!(instr_9b, 0x9b);
 cpu_test!(instr_9c, 0x9c);

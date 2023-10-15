@@ -266,6 +266,12 @@ where
                 .wrapping_add(Address::from(self.regs.read(Register::X)))
                     & ADDRESS_MASK
             }
+            AddressingMode::AbsoluteY => {
+                (Address::from(self.regs.read(Register::DBR)) << 16
+                    | Address::from(instr.imm::<u16>()?))
+                .wrapping_add(Address::from(self.regs.read(Register::Y)))
+                    & ADDRESS_MASK
+            }
             AddressingMode::StackS => Address::from(
                 self.regs
                     .read(Register::S)
