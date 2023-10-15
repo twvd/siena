@@ -182,6 +182,18 @@ where
                         )),
                     )
             }
+            AddressingMode::DirectPtr16Y => {
+                ((Address::from(self.regs.read(Register::DBR)) << 16)
+                    | Address::from(
+                        self.read16_tick_a16(Address::from(
+                            self.regs
+                                .read(Register::D)
+                                .wrapping_add(instr.imm::<u16>()?),
+                        )),
+                    ))
+                .wrapping_add(self.regs.read(Register::Y).into())
+                    & ADDRESS_MASK
+            }
             AddressingMode::DirectXPtr16 => {
                 (Address::from(self.regs.read(Register::DBR)) << 16)
                     | Address::from(
@@ -295,17 +307,21 @@ where
 
     /// Store operations
     fn op_store(&mut self, instr: &Instruction, value: u16, flag: Flag) -> Result<()> {
-        // Extra internal cycles
+        // Internal cycles for adding D, if applicable (D > 0).
         if self.regs.read(Register::DL) != 0 {
             match instr.def.mode {
                 AddressingMode::Direct
                 | AddressingMode::DirectPtr16
+                | AddressingMode::DirectPtr16Y
                 | AddressingMode::DirectXPtr16
                 | AddressingMode::DirectX
                 | AddressingMode::DirectY => self.tick_bus(1)?,
                 _ => (),
             };
         }
+
+        // Extra internal cycles for modes that add a register
+        // to the address before resolution.
         match instr.def.mode {
             AddressingMode::DirectX
             | AddressingMode::DirectXPtr16
@@ -315,7 +331,16 @@ where
             _ => (),
         }
 
+        // Resolve address now to have the bus activity right at
+        // this point.
         let addr = self.resolve_address(instr)?;
+
+        // More internal cycles for modes that do stuff AFTER
+        // address resolution bus activity.
+        match instr.def.mode {
+            AddressingMode::DirectPtr16Y => self.tick_bus(1)?,
+            _ => (),
+        }
 
         if self.regs.test_flag(flag) {
             self.write_tick(addr, value as u8);
