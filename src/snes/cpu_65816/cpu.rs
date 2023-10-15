@@ -138,6 +138,17 @@ where
         self.tick_bus(1).unwrap();
     }
 
+    /// Writes 16-bit to a memory location while ticking
+    /// peripherals for the access time.
+    /// 24-bit address wrap.
+    fn write16_tick_a24(&mut self, addr: Address, val: u16) {
+        self.bus.write(addr, (val & 0xFF) as u8);
+        self.tick_bus(1).unwrap();
+        let hi_addr = addr.wrapping_add(1);
+        self.bus.write(hi_addr, (val >> 8) as u8);
+        self.tick_bus(1).unwrap();
+    }
+
     /// Executes an instruction.
     fn execute_instruction(&mut self, instr: &Instruction) -> Result<()> {
         match instr.def.instr_type {
@@ -381,7 +392,13 @@ where
         if self.regs.test_flag(flag) {
             self.write_tick(addr, value as u8);
         } else {
-            self.write16_tick_a16(addr, value);
+            // Select different data address wraps
+            match instr.def.mode {
+                AddressingMode::Direct | AddressingMode::DirectX => {
+                    self.write16_tick_a16(addr, value)
+                }
+                _ => self.write16_tick_a24(addr, value),
+            }
         }
 
         Ok(())
