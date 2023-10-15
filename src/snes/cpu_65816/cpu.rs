@@ -93,6 +93,17 @@ where
         v
     }
 
+    /// Reads a memory location while ticking peripherals
+    /// for the access time.
+    fn read16_tick_a16(&mut self, addr: Address) -> u16 {
+        let mut v = self.bus.read(addr) as u16;
+        self.tick_bus(1).unwrap();
+        let hi_addr = addr & 0xFFFF0000 | Address::from((addr as u16).wrapping_add(1));
+        v |= (self.bus.read(hi_addr) as u16) << 8;
+        self.tick_bus(1).unwrap();
+        v
+    }
+
     /// Writes a memory location while ticking peripherals
     /// for the access time.
     fn write_tick(&mut self, addr: Address, val: u8) {
@@ -148,7 +159,7 @@ where
 
     /// Resolves an address from instruction data, registers, etc.
     /// based on the addressing mode.
-    fn resolve_address(&self, instr: &Instruction) -> Result<Address> {
+    fn resolve_address(&mut self, instr: &Instruction) -> Result<Address> {
         Ok(match instr.def.mode {
             AddressingMode::Direct => Address::from(
                 self.regs
@@ -161,6 +172,27 @@ where
                     .wrapping_add(instr.imm::<u16>()?)
                     .wrapping_add(self.regs.read(Register::X)),
             ),
+            AddressingMode::DirectPtr16 => {
+                (Address::from(self.regs.read(Register::DBR)) << 16)
+                    | Address::from(
+                        self.read16_tick_a16(Address::from(
+                            self.regs
+                                .read(Register::D)
+                                .wrapping_add(instr.imm::<u16>()?),
+                        )),
+                    )
+            }
+            AddressingMode::DirectXPtr16 => {
+                (Address::from(self.regs.read(Register::DBR)) << 16)
+                    | Address::from(
+                        self.read16_tick_a16(Address::from(
+                            self.regs
+                                .read(Register::D)
+                                .wrapping_add(instr.imm::<u16>()?)
+                                .wrapping_add(self.regs.read(Register::X)),
+                        )),
+                    )
+            }
             AddressingMode::DirectY => Address::from(
                 self.regs
                     .read(Register::D)
@@ -263,24 +295,27 @@ where
 
     /// Store operations
     fn op_store(&mut self, instr: &Instruction, value: u16, flag: Flag) -> Result<()> {
-        let addr = self.resolve_address(instr)?;
-
         // Extra internal cycles
         if self.regs.read(Register::DL) != 0 {
             match instr.def.mode {
-                AddressingMode::Direct | AddressingMode::DirectX | AddressingMode::DirectY => {
-                    self.tick_bus(1)?
-                }
+                AddressingMode::Direct
+                | AddressingMode::DirectPtr16
+                | AddressingMode::DirectXPtr16
+                | AddressingMode::DirectX
+                | AddressingMode::DirectY => self.tick_bus(1)?,
                 _ => (),
             };
         }
         match instr.def.mode {
             AddressingMode::DirectX
+            | AddressingMode::DirectXPtr16
             | AddressingMode::DirectY
             | AddressingMode::AbsoluteX
             | AddressingMode::AbsoluteY => self.tick_bus(1)?,
             _ => (),
         }
+
+        let addr = self.resolve_address(instr)?;
 
         if self.regs.test_flag(flag) {
             self.write_tick(addr, value as u8);

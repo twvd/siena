@@ -92,6 +92,7 @@ fn run_testcase(testcase: &Value) {
         let val = bus.read(addr);
         if exp_val != val {
             dbg!(testcase);
+            dbg_hex!(bus_trace);
             panic!(
                 "Addr {:06X} - expected {:02X}, saw {:02X}",
                 addr, exp_val, val
@@ -265,7 +266,7 @@ cpu_test!(instr_7b, 0x7b);
 //cpu_test!(instr_7e, 0x7e);
 //cpu_test!(instr_7f, 0x7f);
 //cpu_test!(instr_80, 0x80);
-//cpu_test!(instr_81, 0x81);
+cpu_test!(instr_81, 0x81);
 //cpu_test!(instr_82, 0x82);
 //cpu_test!(instr_83, 0x83);
 cpu_test!(instr_84, 0x84);
@@ -282,7 +283,7 @@ cpu_test!(instr_8e, 0x8e);
 //cpu_test!(instr_8f, 0x8f);
 //cpu_test!(instr_90, 0x90);
 //cpu_test!(instr_91, 0x91);
-//cpu_test!(instr_92, 0x92);
+cpu_test!(instr_92, 0x92);
 //cpu_test!(instr_93, 0x93);
 cpu_test!(instr_94, 0x94);
 cpu_test!(instr_95, 0x95);
