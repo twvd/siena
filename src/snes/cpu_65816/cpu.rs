@@ -266,6 +266,11 @@ where
                 .wrapping_add(Address::from(self.regs.read(Register::X)))
                     & ADDRESS_MASK
             }
+            AddressingMode::StackS => Address::from(
+                self.regs
+                    .read(Register::S)
+                    .wrapping_add(instr.imm::<u16>()?),
+            ),
 
             _ => todo!(),
         })
@@ -374,7 +379,8 @@ where
             | AddressingMode::DirectXPtr16
             | AddressingMode::DirectY
             | AddressingMode::AbsoluteX
-            | AddressingMode::AbsoluteY => self.tick_bus(1)?,
+            | AddressingMode::AbsoluteY
+            | AddressingMode::StackS => self.tick_bus(1)?,
             _ => (),
         }
 
@@ -394,7 +400,7 @@ where
         } else {
             // Select different data address wraps
             match instr.def.mode {
-                AddressingMode::Direct | AddressingMode::DirectX => {
+                AddressingMode::Direct | AddressingMode::DirectX | AddressingMode::StackS => {
                     self.write16_tick_a16(addr, value)
                 }
                 _ => self.write16_tick_a24(addr, value),
