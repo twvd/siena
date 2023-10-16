@@ -320,7 +320,7 @@ impl fmt::Display for RegisterFile {
 
         write!(
             f,
-            "C:{:04X} DBR:{:04X} D:{:04X} K|PC:{:02X}|{:04X} S:{:04X} X:{:04X} Y:{:04X} P:{:02X} ({}) E:{}",
+            "C:{:04X} DBR:{:02X} D:{:04X} K|PC:{:02X}|{:04X} S:{:04X} X:{:04X} Y:{:04X} P:{:02X} ({}) E:{}",
             self.c, self.dbr, self.d, self.k, self.pc, self.s, self.x, self.y, self.p, flags, self.emulation
         )
     }

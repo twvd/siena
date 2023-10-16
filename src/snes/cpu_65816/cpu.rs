@@ -105,6 +105,18 @@ where
         v
     }
 
+    /// Reads 16-bits from a memory location while ticking
+    /// peripherals for the access time.
+    /// Address wraps at 24-bits.
+    fn read16_tick_a24(&mut self, addr: Address) -> u16 {
+        let mut v = self.bus.read(addr) as u16;
+        self.tick_bus(1).unwrap();
+        let hi_addr = addr.wrapping_add(1);
+        v |= (self.bus.read(hi_addr) as u16) << 8;
+        self.tick_bus(1).unwrap();
+        v
+    }
+
     /// Reads 24-bits from a memory location while ticking
     /// peripherals for the access time.
     /// Address wraps at 16-bits.
@@ -179,6 +191,9 @@ where
             InstructionType::STA => self.op_stx_reg(&instr, Register::C, Flag::M),
             InstructionType::STX => self.op_stx_reg(&instr, Register::X, Flag::X),
             InstructionType::STY => self.op_stx_reg(&instr, Register::Y, Flag::X),
+            InstructionType::LDA => self.op_load(&instr, Register::C, Flag::M),
+            InstructionType::LDX => self.op_load(&instr, Register::X, Flag::X),
+            InstructionType::LDY => self.op_load(&instr, Register::Y, Flag::X),
 
             _ => todo!(),
         }
@@ -186,20 +201,30 @@ where
 
     /// Resolves an address from instruction data, registers, etc.
     /// based on the addressing mode.
-    fn resolve_address(&mut self, instr: &Instruction) -> Result<Address> {
+    /// Also returns if a page boundary was crossed for indexed
+    /// modes where this is relevant.
+    fn resolve_address(&mut self, instr: &Instruction) -> Result<(Address, bool)> {
+        let idx = |base: Address, idx: Address| {
+            (
+                base.wrapping_add(idx) & ADDRESS_MASK,
+                base & !0xFF != base.wrapping_add(idx) & !0xFF & ADDRESS_MASK,
+            )
+        };
+        let noidx = |base: Address| (base, false);
+
         Ok(match instr.def.mode {
-            AddressingMode::Direct => Address::from(
+            AddressingMode::Direct => noidx(Address::from(
                 self.regs
                     .read(Register::D)
                     .wrapping_add(instr.imm::<u16>()?),
-            ),
-            AddressingMode::DirectX => Address::from(
+            )),
+            AddressingMode::DirectX => noidx(Address::from(
                 self.regs
                     .read(Register::D)
                     .wrapping_add(instr.imm::<u16>()?)
-                    .wrapping_add(self.regs.read(Register::X)),
-            ),
-            AddressingMode::DirectPtr16 => {
+                    .wrapping_add(self.regs.read(Register::X).into()),
+            )),
+            AddressingMode::DirectPtr16 => noidx(
                 (Address::from(self.regs.read(Register::DBR)) << 16)
                     | Address::from(
                         self.read16_tick_a16(Address::from(
@@ -207,39 +232,37 @@ where
                                 .read(Register::D)
                                 .wrapping_add(instr.imm::<u16>()?),
                         )),
-                    )
-            }
-            AddressingMode::DirectPtr24 => Address::from(
+                    ),
+            ),
+            AddressingMode::DirectPtr24 => noidx(Address::from(
                 self.read24_tick_a16(Address::from(
                     self.regs
                         .read(Register::D)
                         .wrapping_add(instr.imm::<u16>()?),
                 )),
-            ),
-            AddressingMode::DirectPtr16Y => {
-                ((Address::from(self.regs.read(Register::DBR)) << 16)
+            )),
+            AddressingMode::DirectPtr16Y => idx(
+                (Address::from(self.regs.read(Register::DBR)) << 16)
                     | Address::from(
                         self.read16_tick_a16(Address::from(
                             self.regs
                                 .read(Register::D)
                                 .wrapping_add(instr.imm::<u16>()?),
                         )),
-                    ))
-                .wrapping_add(self.regs.read(Register::Y).into())
-                    & ADDRESS_MASK
-            }
-            AddressingMode::DirectPtr24Y => {
+                    ),
+                self.regs.read(Register::Y).into(),
+            ),
+            AddressingMode::DirectPtr24Y => idx(
                 Address::from(
                     self.read24_tick_a16(Address::from(
                         self.regs
                             .read(Register::D)
                             .wrapping_add(instr.imm::<u16>()?),
                     )),
-                )
-                .wrapping_add(self.regs.read(Register::Y).into())
-                    & ADDRESS_MASK
-            }
-            AddressingMode::DirectXPtr16 => {
+                ),
+                self.regs.read(Register::Y).into(),
+            ),
+            AddressingMode::DirectXPtr16 => noidx(
                 (Address::from(self.regs.read(Register::DBR)) << 16)
                     | Address::from(
                         self.read16_tick_a16(Address::from(
@@ -248,36 +271,34 @@ where
                                 .wrapping_add(instr.imm::<u16>()?)
                                 .wrapping_add(self.regs.read(Register::X)),
                         )),
-                    )
-            }
-            AddressingMode::DirectY => Address::from(
+                    ),
+            ),
+            AddressingMode::DirectY => noidx(Address::from(
                 self.regs
                     .read(Register::D)
                     .wrapping_add(instr.imm::<u16>()?)
                     .wrapping_add(self.regs.read(Register::Y)),
-            ),
-            AddressingMode::Absolute => {
+            )),
+            AddressingMode::Absolute => noidx(
                 Address::from(self.regs.read(Register::DBR)) << 16
-                    | Address::from(instr.imm::<u16>()?)
-            }
-            AddressingMode::AbsoluteX => {
-                (Address::from(self.regs.read(Register::DBR)) << 16
-                    | Address::from(instr.imm::<u16>()?))
-                .wrapping_add(Address::from(self.regs.read(Register::X)))
-                    & ADDRESS_MASK
-            }
-            AddressingMode::AbsoluteY => {
-                (Address::from(self.regs.read(Register::DBR)) << 16
-                    | Address::from(instr.imm::<u16>()?))
-                .wrapping_add(Address::from(self.regs.read(Register::Y)))
-                    & ADDRESS_MASK
-            }
-            AddressingMode::StackS => Address::from(
+                    | Address::from(instr.imm::<u16>()?),
+            ),
+            AddressingMode::AbsoluteX => idx(
+                Address::from(self.regs.read(Register::DBR)) << 16
+                    | Address::from(instr.imm::<u16>()?),
+                self.regs.read(Register::X).into(),
+            ),
+            AddressingMode::AbsoluteY => idx(
+                Address::from(self.regs.read(Register::DBR)) << 16
+                    | Address::from(instr.imm::<u16>()?),
+                self.regs.read(Register::Y).into(),
+            ),
+            AddressingMode::StackS => noidx(Address::from(
                 self.regs
                     .read(Register::S)
                     .wrapping_add(instr.imm::<u16>()?),
-            ),
-            AddressingMode::StackSPtr16Y => {
+            )),
+            AddressingMode::StackSPtr16Y => noidx(
                 (Address::from(self.regs.read(Register::DBR)) << 16
                     | Address::from(
                         self.read16_tick_a16(Address::from(
@@ -287,15 +308,15 @@ where
                         )),
                     ))
                 .wrapping_add(self.regs.read(Register::Y).into())
-                    & ADDRESS_MASK
-            }
-            AddressingMode::Long => instr.imm::<u32>()? & ADDRESS_MASK,
-            AddressingMode::LongX => {
+                    & ADDRESS_MASK,
+            ),
+            AddressingMode::Long => noidx(instr.imm::<u32>()? & ADDRESS_MASK),
+            AddressingMode::LongX => noidx(
                 instr
                     .imm::<u32>()?
                     .wrapping_add(self.regs.read(Register::X).into())
-                    & ADDRESS_MASK
-            }
+                    & ADDRESS_MASK,
+            ),
 
             _ => todo!(),
         })
@@ -412,7 +433,7 @@ where
 
         // Resolve address now to have the bus activity right at
         // this point.
-        let addr = self.resolve_address(instr)?;
+        let (addr, _) = self.resolve_address(instr)?;
 
         // More internal cycles for modes that do stuff AFTER
         // address resolution bus activity.
@@ -431,6 +452,81 @@ where
                 }
                 _ => self.write16_tick_a24(addr, value),
             }
+        }
+
+        Ok(())
+    }
+
+    /// Load operations
+    fn op_load(&mut self, instr: &Instruction, destreg: Register, flag: Flag) -> Result<()> {
+        // Internal cycles for adding D, if applicable (D > 0).
+        if self.regs.read(Register::DL) != 0 {
+            match instr.def.mode {
+                AddressingMode::Direct
+                | AddressingMode::DirectPtr16
+                | AddressingMode::DirectPtr16Y
+                | AddressingMode::DirectPtr24
+                | AddressingMode::DirectPtr24Y
+                | AddressingMode::DirectXPtr16
+                | AddressingMode::DirectX
+                | AddressingMode::DirectY => self.tick_bus(1)?,
+                _ => (),
+            };
+        }
+
+        // Extra internal cycles for modes that add a register
+        // to the address before resolution.
+        match instr.def.mode {
+            AddressingMode::DirectX
+            | AddressingMode::DirectXPtr16
+            | AddressingMode::DirectY
+            | AddressingMode::StackS
+            | AddressingMode::StackSPtr16Y => self.tick_bus(1)?,
+            _ => (),
+        }
+
+        // Resolve address now to have the bus activity right at
+        // this point.
+        let (addr, crosses_page) = self.resolve_address(instr)?;
+
+        // Extra cycle if crossing a page boundary || !X
+        match instr.def.mode {
+            AddressingMode::AbsoluteX
+            | AddressingMode::AbsoluteY
+            | AddressingMode::DirectPtr16Y => {
+                if !self.regs.test_flag(Flag::X) || crosses_page {
+                    self.tick_bus(1)?
+                }
+            }
+            _ => (),
+        }
+
+        // More internal cycles for modes that do stuff AFTER
+        // address resolution bus activity.
+        match instr.def.mode {
+            AddressingMode::StackSPtr16Y => self.tick_bus(1)?,
+            _ => (),
+        }
+
+        if self.regs.test_flag(flag) {
+            // 8-bit mode
+            let val = self.read_tick(addr);
+            let regval = self.regs.read(destreg);
+            self.regs.write(destreg, regval & 0xFF00 | val as u16);
+            self.regs
+                .write_flags(&[(Flag::N, val & 0x80 != 0), (Flag::Z, val == 0)]);
+        } else {
+            // 16-bit mode
+            let val = match instr.def.mode {
+                AddressingMode::Direct | AddressingMode::DirectX | AddressingMode::StackS => {
+                    self.read16_tick_a16(addr)
+                }
+                _ => self.read16_tick_a24(addr),
+            };
+
+            self.regs.write(destreg, val);
+            self.regs
+                .write_flags(&[(Flag::N, val & 0x8000 != 0), (Flag::Z, val == 0)]);
         }
 
         Ok(())

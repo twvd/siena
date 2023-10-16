@@ -68,10 +68,10 @@ fn run_testcase(testcase: &Value) {
     for (addr, val) in ram_initial {
         bus.write(addr, val);
     }
-    bus.reset_trace();
 
     let mut cpu = Cpu65816::<Testbus>::new(bus, 0);
     cpu.regs = regs_initial.clone();
+    cpu.bus.reset_trace();
 
     cpu.step().unwrap();
 
@@ -99,11 +99,13 @@ fn run_testcase(testcase: &Value) {
             );
         }
     }
+
     let testcase_cycles = testcase["cycles"].as_array().unwrap();
     let test_cycles = testcase_cycles.len();
     if cpu.cycles != test_cycles {
         dbg!(&testcase);
         dbg_hex!(&bus_trace);
+        println!("{}", cpu.dump_state());
         panic!("Saw {} cycles, should be {}", cpu.cycles, test_cycles);
     }
 
@@ -298,37 +300,37 @@ cpu_test!(instr_9d, 0x9d);
 cpu_test!(instr_9e, 0x9e);
 cpu_test!(instr_9f, 0x9f);
 //cpu_test!(instr_a0, 0xa0);
-//cpu_test!(instr_a1, 0xa1);
+cpu_test!(instr_a1, 0xa1);
 //cpu_test!(instr_a2, 0xa2);
-//cpu_test!(instr_a3, 0xa3);
-//cpu_test!(instr_a4, 0xa4);
-//cpu_test!(instr_a5, 0xa5);
-//cpu_test!(instr_a6, 0xa6);
-//cpu_test!(instr_a7, 0xa7);
+cpu_test!(instr_a3, 0xa3);
+cpu_test!(instr_a4, 0xa4);
+cpu_test!(instr_a5, 0xa5);
+cpu_test!(instr_a6, 0xa6);
+cpu_test!(instr_a7, 0xa7);
 cpu_test!(instr_a8, 0xa8);
 //cpu_test!(instr_a9, 0xa9);
 cpu_test!(instr_aa, 0xaa);
 //cpu_test!(instr_ab, 0xab);
-//cpu_test!(instr_ac, 0xac);
-//cpu_test!(instr_ad, 0xad);
-//cpu_test!(instr_ae, 0xae);
-//cpu_test!(instr_af, 0xaf);
+cpu_test!(instr_ac, 0xac);
+cpu_test!(instr_ad, 0xad);
+cpu_test!(instr_ae, 0xae);
+cpu_test!(instr_af, 0xaf);
 //cpu_test!(instr_b0, 0xb0);
-//cpu_test!(instr_b1, 0xb1);
-//cpu_test!(instr_b2, 0xb2);
-//cpu_test!(instr_b3, 0xb3);
-//cpu_test!(instr_b4, 0xb4);
-//cpu_test!(instr_b5, 0xb5);
-//cpu_test!(instr_b6, 0xb6);
-//cpu_test!(instr_b7, 0xb7);
+cpu_test!(instr_b1, 0xb1);
+cpu_test!(instr_b2, 0xb2);
+cpu_test!(instr_b3, 0xb3);
+cpu_test!(instr_b4, 0xb4);
+cpu_test!(instr_b5, 0xb5);
+cpu_test!(instr_b6, 0xb6);
+cpu_test!(instr_b7, 0xb7);
 cpu_test!(instr_b8, 0xb8);
-//cpu_test!(instr_b9, 0xb9);
+cpu_test!(instr_b9, 0xb9);
 cpu_test!(instr_ba, 0xba);
 cpu_test!(instr_bb, 0xbb);
-//cpu_test!(instr_bc, 0xbc);
-//cpu_test!(instr_bd, 0xbd);
-//cpu_test!(instr_be, 0xbe);
-//cpu_test!(instr_bf, 0xbf);
+cpu_test!(instr_bc, 0xbc);
+cpu_test!(instr_bd, 0xbd);
+cpu_test!(instr_be, 0xbe);
+cpu_test!(instr_bf, 0xbf);
 //cpu_test!(instr_c0, 0xc0);
 //cpu_test!(instr_c1, 0xc1);
 //cpu_test!(instr_c2, 0xc2);
