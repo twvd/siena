@@ -123,8 +123,8 @@ impl AddressingMode {
             Self::StackS => 2,
             Self::StackSPtr16Y => 2,
 
-            Self::ImmediateM => 2 + m,
-            Self::ImmediateX => 2 + x,
+            Self::ImmediateM => 3 - m,
+            Self::ImmediateX => 3 - x,
         }
     }
 }
