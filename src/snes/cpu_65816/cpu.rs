@@ -191,6 +191,16 @@ where
             InstructionType::STA => self.op_stx_reg(&instr, Register::C, Flag::M),
             InstructionType::STX => self.op_stx_reg(&instr, Register::X, Flag::X),
             InstructionType::STY => self.op_stx_reg(&instr, Register::Y, Flag::X),
+            InstructionType::LDA if instr.def.mode == AddressingMode::ImmediateM => {
+                self.op_load_imm(&instr, Register::C, Flag::M)
+            }
+            InstructionType::LDX if instr.def.mode == AddressingMode::ImmediateX => {
+                self.op_load_imm(&instr, Register::X, Flag::X)
+            }
+            InstructionType::LDY if instr.def.mode == AddressingMode::ImmediateX => {
+                self.op_load_imm(&instr, Register::Y, Flag::X)
+            }
+
             InstructionType::LDA => self.op_load(&instr, Register::C, Flag::M),
             InstructionType::LDX => self.op_load(&instr, Register::X, Flag::X),
             InstructionType::LDY => self.op_load(&instr, Register::Y, Flag::X),
@@ -524,6 +534,26 @@ where
                 _ => self.read16_tick_a24(addr),
             };
 
+            self.regs.write(destreg, val);
+            self.regs
+                .write_flags(&[(Flag::N, val & 0x8000 != 0), (Flag::Z, val == 0)]);
+        }
+
+        Ok(())
+    }
+
+    /// Load operations (immediate addressing mode)
+    fn op_load_imm(&mut self, instr: &Instruction, destreg: Register, flag: Flag) -> Result<()> {
+        if self.regs.test_flag(flag) {
+            // 8-bit mode
+            let val = instr.imm::<u8>()?;
+            let regval = self.regs.read(destreg);
+            self.regs.write(destreg, regval & 0xFF00 | val as u16);
+            self.regs
+                .write_flags(&[(Flag::N, val & 0x80 != 0), (Flag::Z, val == 0)]);
+        } else {
+            // 16-bit mode
+            let val = instr.imm::<u16>()?;
             self.regs.write(destreg, val);
             self.regs
                 .write_flags(&[(Flag::N, val & 0x8000 != 0), (Flag::Z, val == 0)]);
