@@ -169,7 +169,10 @@ impl RegisterFile {
             // Pure 8-bit registers
             Register::DBR => self.dbr = reg8(),
             Register::K => self.k = reg8(),
-            Register::P => self.p = reg8(),
+            Register::P => {
+                self.p = reg8();
+                self.update_flags();
+            }
 
             // Lower/higher 8-bit of 16-bit registers
             Register::A => self.c = reg16_low(self.c),
@@ -297,11 +300,20 @@ impl RegisterFile {
             }
         }
         self.p = p;
+        self.update_flags();
     }
 
     /// Test a flag in P.
     pub fn test_flag(&self, f: Flag) -> bool {
         self.p & (1u8 << f.to_u8().unwrap()) != 0
+    }
+
+    /// Take actions resulting of a flags update.
+    fn update_flags(&mut self) {
+        if self.test_flag(Flag::X) {
+            self.x &= 0xFF;
+            self.y &= 0xFF;
+        }
     }
 }
 

@@ -204,6 +204,8 @@ where
             InstructionType::LDA => self.op_load(&instr, Register::C, Flag::M),
             InstructionType::LDX => self.op_load(&instr, Register::X, Flag::X),
             InstructionType::LDY => self.op_load(&instr, Register::Y, Flag::X),
+            InstructionType::REP => self.op_rep(&instr),
+            InstructionType::SEP => self.op_sep(&instr),
 
             _ => todo!(),
         }
@@ -559,6 +561,24 @@ where
                 .write_flags(&[(Flag::N, val & 0x8000 != 0), (Flag::Z, val == 0)]);
         }
 
+        Ok(())
+    }
+
+    /// REP - REset P
+    fn op_rep(&mut self, instr: &Instruction) -> Result<()> {
+        let mask = instr.imm::<u8>()?;
+        let p = self.regs.read8(Register::P);
+        self.regs.write(Register::P, (p & !mask).try_into()?);
+        self.tick_bus(1)?;
+        Ok(())
+    }
+
+    /// SEP - SEt P
+    fn op_sep(&mut self, instr: &Instruction) -> Result<()> {
+        let mask = instr.imm::<u8>()?;
+        let p = self.regs.read8(Register::P);
+        self.regs.write(Register::P, (p | mask).try_into()?);
+        self.tick_bus(1)?;
         Ok(())
     }
 }
