@@ -192,16 +192,6 @@ where
             InstructionType::STA => self.op_stx_reg(&instr, Register::C, Flag::M),
             InstructionType::STX => self.op_stx_reg(&instr, Register::X, Flag::X),
             InstructionType::STY => self.op_stx_reg(&instr, Register::Y, Flag::X),
-            InstructionType::LDA if instr.def.mode == AddressingMode::ImmediateM => {
-                self.op_load_imm(&instr, Register::C, Flag::M)
-            }
-            InstructionType::LDX if instr.def.mode == AddressingMode::ImmediateX => {
-                self.op_load_imm(&instr, Register::X, Flag::X)
-            }
-            InstructionType::LDY if instr.def.mode == AddressingMode::ImmediateX => {
-                self.op_load_imm(&instr, Register::Y, Flag::X)
-            }
-
             InstructionType::LDA => self.op_load(&instr, Register::C, Flag::M),
             InstructionType::LDX => self.op_load(&instr, Register::X, Flag::X),
             InstructionType::LDY => self.op_load(&instr, Register::Y, Flag::X),
@@ -215,9 +205,7 @@ where
     }
 
     /// Resolves an address from instruction data, registers, etc.
-    /// based on the addressing mode.
-    /// Also returns if a page boundary was crossed for indexed
-    /// modes where this is relevant.
+    /// based on the addressing mode and consumes cycles.
     fn resolve_address(
         &mut self,
         instr: &Instruction,
@@ -397,6 +385,37 @@ where
         Ok(address)
     }
 
+    /// Retrieves address and fetches instruction data.
+    fn fetch_data(
+        &mut self,
+        instr: &Instruction,
+        abs_extra_cycle: bool,
+        pb_extra_cycle: bool,
+        width_flag: Flag,
+    ) -> Result<u16> {
+        Ok(match instr.def.mode {
+            AddressingMode::Immediate8
+            | AddressingMode::Immediate16
+            | AddressingMode::ImmediateM
+            | AddressingMode::ImmediateX => instr.imm::<u16>()?,
+            _ => {
+                let addr = self.resolve_address(instr, abs_extra_cycle, pb_extra_cycle)?;
+
+                if self.regs.test_flag(width_flag) {
+                    // 8-bit mode
+                    self.read_tick(addr).into()
+                } else {
+                    // 16-bit mode
+                    match instr.def.mode {
+                        AddressingMode::Direct
+                        | AddressingMode::DirectX
+                        | AddressingMode::StackS => self.read16_tick_a16(addr),
+                        _ => self.read16_tick_a24(addr),
+                    }
+                }
+            }
+        })
+    }
     /// CLx - Clear x
     fn op_clx(&mut self, f: Flag) -> Result<()> {
         self.regs.write_flags(&[(f, false)]);
@@ -497,44 +516,16 @@ where
 
     /// Load operations
     fn op_load(&mut self, instr: &Instruction, destreg: Register, flag: Flag) -> Result<()> {
-        let addr = self.resolve_address(instr, false, true)?;
+        let val = self.fetch_data(instr, false, true, flag)?;
 
         if self.regs.test_flag(flag) {
             // 8-bit mode
-            let val = self.read_tick(addr);
             let regval = self.regs.read(destreg);
             self.regs.write(destreg, regval & 0xFF00 | val as u16);
             self.regs
                 .write_flags(&[(Flag::N, val & 0x80 != 0), (Flag::Z, val == 0)]);
         } else {
             // 16-bit mode
-            let val = match instr.def.mode {
-                AddressingMode::Direct | AddressingMode::DirectX | AddressingMode::StackS => {
-                    self.read16_tick_a16(addr)
-                }
-                _ => self.read16_tick_a24(addr),
-            };
-
-            self.regs.write(destreg, val);
-            self.regs
-                .write_flags(&[(Flag::N, val & 0x8000 != 0), (Flag::Z, val == 0)]);
-        }
-
-        Ok(())
-    }
-
-    /// Load operations (immediate addressing mode)
-    fn op_load_imm(&mut self, instr: &Instruction, destreg: Register, flag: Flag) -> Result<()> {
-        if self.regs.test_flag(flag) {
-            // 8-bit mode
-            let val = instr.imm::<u8>()?;
-            let regval = self.regs.read(destreg);
-            self.regs.write(destreg, regval & 0xFF00 | val as u16);
-            self.regs
-                .write_flags(&[(Flag::N, val & 0x80 != 0), (Flag::Z, val == 0)]);
-        } else {
-            // 16-bit mode
-            let val = instr.imm::<u16>()?;
             self.regs.write(destreg, val);
             self.regs
                 .write_flags(&[(Flag::N, val & 0x8000 != 0), (Flag::Z, val == 0)]);
@@ -563,18 +554,7 @@ where
 
     /// ADC - Add (accumulator)
     fn op_add(&mut self, instr: &Instruction) -> Result<()> {
-        let addr = self.resolve_address(instr, false, true)?;
-
-        let data: u16 = if self.regs.test_flag(Flag::M) {
-            self.read_tick(addr).into()
-        } else {
-            match instr.def.mode {
-                AddressingMode::Direct | AddressingMode::DirectX | AddressingMode::StackS => {
-                    self.read16_tick_a16(addr)
-                }
-                _ => self.read16_tick_a24(addr),
-            }
-        };
+        let data = self.fetch_data(instr, false, true, Flag::M)?;
 
         let result = match (self.regs.test_flag(Flag::D), self.regs.test_flag(Flag::M)) {
             (true, false) => alu::add16_dec(
@@ -618,18 +598,7 @@ where
 
     /// SBC - SuBtract (accumulator)
     fn op_sbc(&mut self, instr: &Instruction) -> Result<()> {
-        let addr = self.resolve_address(instr, false, true)?;
-
-        let data: u16 = if self.regs.test_flag(Flag::M) {
-            self.read_tick(addr).into()
-        } else {
-            match instr.def.mode {
-                AddressingMode::Direct | AddressingMode::DirectX | AddressingMode::StackS => {
-                    self.read16_tick_a16(addr)
-                }
-                _ => self.read16_tick_a24(addr),
-            }
-        };
+        let data = self.fetch_data(instr, false, true, Flag::M)?;
 
         let result = match (self.regs.test_flag(Flag::D), self.regs.test_flag(Flag::M)) {
             (true, false) => alu::sub16_dec(
