@@ -264,6 +264,8 @@ where
             InstructionType::EOR => self.op_eor(instr),
             InstructionType::ORA => self.op_ora(instr),
             InstructionType::BIT => self.op_bit(instr),
+            InstructionType::TRB => self.op_trb(instr),
+            InstructionType::TSB => self.op_tsb(instr),
 
             _ => todo!(),
         }
@@ -856,6 +858,52 @@ where
                     (Flag::V, data & 0x4000 != 0),
                 ]),
             }
+        }
+
+        Ok(())
+    }
+
+    /// TRB - Test and Reset bits
+    fn op_trb(&mut self, instr: &Instruction) -> Result<()> {
+        let val = self.regs.read(Register::C);
+        let (data, addr) = self.fetch_data(instr, false, true, Flag::M)?;
+
+        // Calculation cycle
+        self.tick_bus(1)?;
+
+        if self.regs.test_flag(Flag::M) {
+            // 8-bit
+            let result = val as u8 & data as u8;
+            self.regs.write_flags(&[(Flag::Z, result == 0)]);
+            self.write_tick(addr, data as u8 & !val as u8);
+        } else {
+            // 16-bit
+            let result = val & data;
+            self.regs.write_flags(&[(Flag::Z, result == 0)]);
+            self.write16_tick_a_desc(instr, addr, data & !val);
+        }
+
+        Ok(())
+    }
+
+    /// TSB - Test and Set bits
+    fn op_tsb(&mut self, instr: &Instruction) -> Result<()> {
+        let val = self.regs.read(Register::C);
+        let (data, addr) = self.fetch_data(instr, false, true, Flag::M)?;
+
+        // Calculation cycle
+        self.tick_bus(1)?;
+
+        if self.regs.test_flag(Flag::M) {
+            // 8-bit
+            let result = (val as u8) & (data as u8);
+            self.regs.write_flags(&[(Flag::Z, result == 0)]);
+            self.write_tick(addr, data as u8 | val as u8);
+        } else {
+            // 16-bit
+            let result = val & data;
+            self.regs.write_flags(&[(Flag::Z, result == 0)]);
+            self.write16_tick_a_desc(instr, addr, data | val);
         }
 
         Ok(())
