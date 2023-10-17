@@ -140,7 +140,7 @@ where
         self.tick_bus(1).unwrap();
     }
 
-    /// Writes 16-bit to a memory location while ticking
+    /// Writes 16-bit (LE) to a memory location while ticking
     /// peripherals for the access time.
     /// 16-bit address wrap.
     fn write16_tick_a16(&mut self, addr: Address, val: u16) {
@@ -151,7 +151,18 @@ where
         self.tick_bus(1).unwrap();
     }
 
-    /// Writes 16-bit to a memory location while ticking
+    /// Writes 16-bit (LE) to a memory location while ticking
+    /// peripherals for the access time.
+    /// 16-bit address wrap, descending access order.
+    fn write16_tick_a16_desc(&mut self, addr: Address, val: u16) {
+        let hi_addr = addr & 0xFFFF0000 | Address::from((addr as u16).wrapping_add(1));
+        self.bus.write(hi_addr, (val >> 8) as u8);
+        self.tick_bus(1).unwrap();
+        self.bus.write(addr, (val & 0xFF) as u8);
+        self.tick_bus(1).unwrap();
+    }
+
+    /// Writes 16-bit (LE) to a memory location while ticking
     /// peripherals for the access time.
     /// 24-bit address wrap.
     fn write16_tick_a24(&mut self, addr: Address, val: u16) {
@@ -160,6 +171,41 @@ where
         let hi_addr = addr.wrapping_add(1);
         self.bus.write(hi_addr, (val >> 8) as u8);
         self.tick_bus(1).unwrap();
+    }
+
+    /// Writes 16-bit (LE) to a memory location while ticking
+    /// peripherals for the access time.
+    /// 24-bit address wrap, descending access order.
+    fn write16_tick_a24_desc(&mut self, addr: Address, val: u16) {
+        let hi_addr = addr.wrapping_add(1);
+        self.bus.write(hi_addr, (val >> 8) as u8);
+        self.tick_bus(1).unwrap();
+        self.bus.write(addr, (val & 0xFF) as u8);
+        self.tick_bus(1).unwrap();
+    }
+
+    /// Writes 16-bit (LE) to a memory location while ticking
+    /// peripherals for the access time.
+    /// Selects wrap based on addressing mode.
+    fn write16_tick_a(&mut self, instr: &Instruction, addr: Address, value: u16) {
+        match instr.def.mode {
+            AddressingMode::Direct | AddressingMode::DirectX | AddressingMode::StackS => {
+                self.write16_tick_a16(addr, value)
+            }
+            _ => self.write16_tick_a24(addr, value),
+        }
+    }
+
+    /// Writes 16-bit (LE) to a memory location while ticking
+    /// peripherals for the access time.
+    /// Selects wrap based on addressing mode, descending access order.
+    fn write16_tick_a_desc(&mut self, instr: &Instruction, addr: Address, value: u16) {
+        match instr.def.mode {
+            AddressingMode::Direct | AddressingMode::DirectX | AddressingMode::StackS => {
+                self.write16_tick_a16_desc(addr, value)
+            }
+            _ => self.write16_tick_a24_desc(addr, value),
+        }
     }
 
     /// Executes an instruction.
@@ -212,6 +258,8 @@ where
             }
             InstructionType::INX => self.op_incdec_reg(Register::X, 1, Flag::X),
             InstructionType::INY => self.op_incdec_reg(Register::Y, 1, Flag::X),
+            InstructionType::DEC => self.op_incdec(instr, -1),
+            InstructionType::INC => self.op_incdec(instr, 1),
 
             _ => todo!(),
         }
@@ -405,27 +453,30 @@ where
         abs_extra_cycle: bool,
         pb_extra_cycle: bool,
         width_flag: Flag,
-    ) -> Result<u16> {
+    ) -> Result<(u16, Address)> {
         Ok(match instr.def.mode {
             AddressingMode::Immediate8
             | AddressingMode::Immediate16
             | AddressingMode::ImmediateM
-            | AddressingMode::ImmediateX => instr.imm::<u16>()?,
+            | AddressingMode::ImmediateX => (instr.imm::<u16>()?, Address::MAX),
             _ => {
                 let addr = self.resolve_address(instr, abs_extra_cycle, pb_extra_cycle)?;
 
-                if self.regs.test_flag(width_flag) {
-                    // 8-bit mode
-                    self.read_tick(addr).into()
-                } else {
-                    // 16-bit mode
-                    match instr.def.mode {
-                        AddressingMode::Direct
-                        | AddressingMode::DirectX
-                        | AddressingMode::StackS => self.read16_tick_a16(addr),
-                        _ => self.read16_tick_a24(addr),
-                    }
-                }
+                (
+                    if self.regs.test_flag(width_flag) {
+                        // 8-bit mode
+                        self.read_tick(addr).into()
+                    } else {
+                        // 16-bit mode
+                        match instr.def.mode {
+                            AddressingMode::Direct
+                            | AddressingMode::DirectX
+                            | AddressingMode::StackS => self.read16_tick_a16(addr),
+                            _ => self.read16_tick_a24(addr),
+                        }
+                    },
+                    addr,
+                )
             }
         })
     }
@@ -515,13 +566,7 @@ where
         if self.regs.test_flag(flag) {
             self.write_tick(addr, value as u8);
         } else {
-            // Select different data address wraps
-            match instr.def.mode {
-                AddressingMode::Direct | AddressingMode::DirectX | AddressingMode::StackS => {
-                    self.write16_tick_a16(addr, value)
-                }
-                _ => self.write16_tick_a24(addr, value),
-            }
+            self.write16_tick_a(instr, addr, value);
         }
 
         Ok(())
@@ -529,7 +574,7 @@ where
 
     /// Load operations
     fn op_load(&mut self, instr: &Instruction, destreg: Register, flag: Flag) -> Result<()> {
-        let val = self.fetch_data(instr, false, true, flag)?;
+        let (val, _) = self.fetch_data(instr, false, true, flag)?;
 
         if self.regs.test_flag(flag) {
             // 8-bit mode
@@ -567,7 +612,7 @@ where
 
     /// ADC - Add (accumulator)
     fn op_add(&mut self, instr: &Instruction) -> Result<()> {
-        let data = self.fetch_data(instr, false, true, Flag::M)?;
+        let (data, _) = self.fetch_data(instr, false, true, Flag::M)?;
 
         let result = match (self.regs.test_flag(Flag::D), self.regs.test_flag(Flag::M)) {
             (true, false) => alu::add16_dec(
@@ -611,7 +656,7 @@ where
 
     /// SBC - SuBtract (accumulator)
     fn op_sbc(&mut self, instr: &Instruction) -> Result<()> {
-        let data = self.fetch_data(instr, false, true, Flag::M)?;
+        let (data, _) = self.fetch_data(instr, false, true, Flag::M)?;
 
         let result = match (self.regs.test_flag(Flag::D), self.regs.test_flag(Flag::M)) {
             (true, false) => alu::sub16_dec(
@@ -655,7 +700,7 @@ where
 
     /// CMP/CPX/CPY - Compare
     fn op_compare(&mut self, instr: &Instruction, to: Register, width_flag: Flag) -> Result<()> {
-        let data = self.fetch_data(instr, false, true, width_flag)?;
+        let (data, _) = self.fetch_data(instr, false, true, width_flag)?;
         let val = self.regs.read(to);
 
         let result = if self.regs.test_flag(width_flag) {
@@ -691,5 +736,29 @@ where
         }
 
         self.tick_bus(1)
+    }
+
+    /// Increment/decrement (memory variant)
+    fn op_incdec(&mut self, instr: &Instruction, data: i32) -> Result<()> {
+        let (val, addr) = self.fetch_data(instr, true, false, Flag::M)?;
+
+        // Calculation cycle
+        self.tick_bus(1)?;
+
+        if self.regs.test_flag(Flag::M) {
+            // 8-bit
+            let result = (((val & 0xFF) as i32 + data) & 0xFF) as u8;
+            self.write_tick(addr, result);
+            self.regs
+                .write_flags(&[(Flag::Z, result == 0), (Flag::N, result & 0x80 != 0)]);
+        } else {
+            // 16-bit
+            let result = (val as i32 + data) as u16;
+            self.write16_tick_a_desc(instr, addr, result);
+            self.regs
+                .write_flags(&[(Flag::Z, result == 0), (Flag::N, result & 0x8000 != 0)]);
+        }
+
+        Ok(())
     }
 }
