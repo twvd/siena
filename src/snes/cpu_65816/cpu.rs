@@ -202,6 +202,16 @@ where
             InstructionType::CMP => self.op_compare(&instr, Register::C, Flag::M),
             InstructionType::CPX => self.op_compare(&instr, Register::X, Flag::X),
             InstructionType::CPY => self.op_compare(&instr, Register::Y, Flag::X),
+            InstructionType::DEC if instr.def.mode == AddressingMode::Accumulator => {
+                self.op_incdec_reg(Register::C, -1, Flag::M)
+            }
+            InstructionType::DEX => self.op_incdec_reg(Register::X, -1, Flag::X),
+            InstructionType::DEY => self.op_incdec_reg(Register::Y, -1, Flag::X),
+            InstructionType::INC if instr.def.mode == AddressingMode::Accumulator => {
+                self.op_incdec_reg(Register::C, 1, Flag::M)
+            }
+            InstructionType::INX => self.op_incdec_reg(Register::X, 1, Flag::X),
+            InstructionType::INY => self.op_incdec_reg(Register::Y, 1, Flag::X),
 
             _ => todo!(),
         }
@@ -661,5 +671,25 @@ where
         ]);
 
         Ok(())
+    }
+
+    /// Increment/decrement (register variant)
+    fn op_incdec_reg(&mut self, reg: Register, data: i32, width_flag: Flag) -> Result<()> {
+        let val = self.regs.read(reg);
+        if self.regs.test_flag(width_flag) {
+            // 8-bit
+            let result = (((val & 0xFF) as i32 + data) & 0xFF) as u16;
+            self.regs.write(reg, val & 0xFF00 | result);
+            self.regs
+                .write_flags(&[(Flag::Z, result == 0), (Flag::N, result & 0x80 != 0)]);
+        } else {
+            // 16-bit
+            let result = (val as i32 + data) as u16;
+            self.regs.write(reg, result);
+            self.regs
+                .write_flags(&[(Flag::Z, result == 0), (Flag::N, result & 0x8000 != 0)]);
+        }
+
+        self.tick_bus(1)
     }
 }
