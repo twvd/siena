@@ -61,6 +61,9 @@ pub fn add16(acc: u16, d: u16, carry: bool) -> AluResult {
 
 /// 8-bit add (binary mode)
 pub fn add8(acc: u16, d: u16, carry: bool) -> AluResult {
+    assert!(acc <= u8::MAX.into());
+    assert!(d <= u8::MAX.into());
+
     let c = if carry { 1 } else { 0 };
 
     let result: u16 = acc + d + c;
@@ -76,6 +79,9 @@ pub fn add8(acc: u16, d: u16, carry: bool) -> AluResult {
 
 /// 8-bit add (decimal mode)
 pub fn add8_dec(acc: u16, d: u16, carry: bool) -> AluResult {
+    assert!(acc <= u8::MAX.into());
+    assert!(d <= u8::MAX.into());
+
     let mut c = if carry { 1 } else { 0 };
     let mut result: u16 = (acc & 0x000F) + (d & 0x000F) + c;
     if result > 0x0009 {
@@ -114,6 +120,9 @@ pub fn sub16(acc: u16, d: u16, carry: bool) -> AluResult {
 
 /// 8-bit subtract (binary mode)
 pub fn sub8(acc: u16, d: u16, carry: bool) -> AluResult {
+    assert!(acc <= u8::MAX.into());
+    assert!(d <= u8::MAX.into());
+
     let c = if carry { 1 } else { 0 };
 
     let result = acc.wrapping_add(!d & 0xFF).wrapping_add(c);
@@ -129,6 +138,9 @@ pub fn sub8(acc: u16, d: u16, carry: bool) -> AluResult {
 
 /// 8-bit subtract (decimal mode)
 pub fn sub8_dec(acc: u16, d: u16, carry: bool) -> AluResult {
+    assert!(acc <= u8::MAX.into());
+    assert!(d <= u8::MAX.into());
+
     let d = !d as i16;
     let mut c = if carry { 1 } else { 0 };
     let acc = acc as i16;

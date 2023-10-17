@@ -199,6 +199,9 @@ where
             InstructionType::SEP => self.op_sep(&instr),
             InstructionType::ADC => self.op_add(&instr),
             InstructionType::SBC => self.op_sbc(&instr),
+            InstructionType::CMP => self.op_compare(&instr, Register::C, Flag::M),
+            InstructionType::CPX => self.op_compare(&instr, Register::X, Flag::X),
+            InstructionType::CPY => self.op_compare(&instr, Register::Y, Flag::X),
 
             _ => todo!(),
         }
@@ -635,6 +638,26 @@ where
             (Flag::V, result.v),
             (Flag::Z, result.z),
             (Flag::C, result.c),
+        ]);
+
+        Ok(())
+    }
+
+    /// CMP/CPX/CPY - Compare
+    fn op_compare(&mut self, instr: &Instruction, to: Register, width_flag: Flag) -> Result<()> {
+        let data = self.fetch_data(instr, false, true, width_flag)?;
+        let val = self.regs.read(to);
+
+        let result = if self.regs.test_flag(width_flag) {
+            alu::sub8(val & 0xFF, data & 0xFF, true)
+        } else {
+            alu::sub16(val, data, true)
+        };
+
+        self.regs.write_flags(&[
+            (Flag::N, result.n),
+            (Flag::C, result.c),
+            (Flag::Z, result.z),
         ]);
 
         Ok(())
