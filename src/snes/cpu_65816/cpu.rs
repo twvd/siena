@@ -262,6 +262,7 @@ where
             InstructionType::INC => self.op_incdec(instr, 1),
             InstructionType::AND => self.op_and(instr),
             InstructionType::EOR => self.op_eor(instr),
+            InstructionType::ORA => self.op_ora(instr),
 
             _ => todo!(),
         }
@@ -798,6 +799,27 @@ where
         } else {
             // 16-bit
             let result = val ^ data;
+            self.regs.write(Register::C, result);
+            self.regs
+                .write_flags(&[(Flag::Z, result == 0), (Flag::N, result & 0x8000 != 0)]);
+        }
+
+        Ok(())
+    }
+
+    /// ORA - Bitwise Or
+    fn op_ora(&mut self, instr: &Instruction) -> Result<()> {
+        let val = self.regs.read(Register::C);
+        let (data, _) = self.fetch_data(instr, false, true, Flag::M)?;
+        if self.regs.test_flag(Flag::M) {
+            // 8-bit
+            let result = (val | data) & 0xFF;
+            self.regs.write(Register::A, result);
+            self.regs
+                .write_flags(&[(Flag::Z, result == 0), (Flag::N, result & 0x80 != 0)]);
+        } else {
+            // 16-bit
+            let result = val | data;
             self.regs.write(Register::C, result);
             self.regs
                 .write_flags(&[(Flag::Z, result == 0), (Flag::N, result & 0x8000 != 0)]);
