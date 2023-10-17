@@ -180,13 +180,9 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x23 - AND $32,S
     // m.....m., 2 bytes, 5-m cycles
     instr!("AND @,S", AddressingMode::StackS, InstructionType::AND, 2),
-    // 0x24 undefined
-    instr!(
-        "UNDEFINED",
-        AddressingMode::Implied,
-        InstructionType::Undefined,
-        1
-    ),
+    // 0x24 - BIT $10
+    // mm....m., 2 bytes, 4-m+w cycles
+    instr!("BIT @", AddressingMode::Direct, InstructionType::BIT, 2),
     // 0x25 - AND $10
     // m.....m., 2 bytes, 4-m+w cycles
     instr!("AND @", AddressingMode::Direct, InstructionType::AND, 2),
@@ -218,13 +214,9 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x2B - PLD
     // *.....*., 1 bytes, 5 cycles
     instr!("PLD", AddressingMode::Implied, InstructionType::PLD, 1),
-    // 0x2C undefined
-    instr!(
-        "UNDEFINED",
-        AddressingMode::Implied,
-        InstructionType::Undefined,
-        1
-    ),
+    // 0x2C - BIT $9876
+    // mm....m., 3 bytes, 5-m cycles
+    instr!("BIT @", AddressingMode::Absolute, InstructionType::BIT, 3),
     // 0x2D - AND $9876
     // m.....m., 3 bytes, 5-m cycles
     instr!("AND @", AddressingMode::Absolute, InstructionType::AND, 3),
@@ -261,13 +253,9 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         InstructionType::AND,
         2
     ),
-    // 0x34 undefined
-    instr!(
-        "UNDEFINED",
-        AddressingMode::Implied,
-        InstructionType::Undefined,
-        1
-    ),
+    // 0x34 - BIT $10,X
+    // mm....m., 2 bytes, 5-m+w cycles
+    instr!("BIT @,X", AddressingMode::DirectX, InstructionType::BIT, 2),
     // 0x35 - AND $10,X
     // m.....m., 2 bytes, 5-m+w cycles
     instr!("AND @,X", AddressingMode::DirectX, InstructionType::AND, 2),
@@ -299,12 +287,13 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x3B - TSC
     // *.....*., 1 bytes, 2 cycles
     instr!("TSC", AddressingMode::Implied, InstructionType::TSC, 1),
-    // 0x3C undefined
+    // 0x3C - BIT $9876,X
+    // mm....m., 3 bytes, 6-m-x+x*p cycles
     instr!(
-        "UNDEFINED",
-        AddressingMode::Implied,
-        InstructionType::Undefined,
-        1
+        "BIT @,X",
+        AddressingMode::AbsoluteX,
+        InstructionType::BIT,
+        3
     ),
     // 0x3D - AND $9876,X
     // m.....m., 3 bytes, 6-m-x+x*p cycles
@@ -679,12 +668,13 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x88 - DEY
     // x.....x., 1 bytes, 2 cycles
     instr!("DEY", AddressingMode::Implied, InstructionType::DEY, 1),
-    // 0x89 undefined
+    // 0x89 - BIT #$54
+    // ......m., 3-m bytes, 3-m cycles
     instr!(
-        "UNDEFINED",
-        AddressingMode::Implied,
-        InstructionType::Undefined,
-        1
+        "BIT #@",
+        AddressingMode::ImmediateM,
+        InstructionType::BIT,
+        3
     ),
     // 0x8A - TXA
     // m.....m., 1 bytes, 2 cycles

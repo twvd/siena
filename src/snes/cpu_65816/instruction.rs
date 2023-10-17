@@ -221,6 +221,7 @@ pub enum InstructionType {
     TXS,
     TXY,
     EOR,
+    BIT,
     Undefined,
 }
 

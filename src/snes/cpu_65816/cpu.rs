@@ -263,6 +263,7 @@ where
             InstructionType::AND => self.op_and(instr),
             InstructionType::EOR => self.op_eor(instr),
             InstructionType::ORA => self.op_ora(instr),
+            InstructionType::BIT => self.op_bit(instr),
 
             _ => todo!(),
         }
@@ -823,6 +824,38 @@ where
             self.regs.write(Register::C, result);
             self.regs
                 .write_flags(&[(Flag::Z, result == 0), (Flag::N, result & 0x8000 != 0)]);
+        }
+
+        Ok(())
+    }
+
+    /// BIT - Test bits
+    fn op_bit(&mut self, instr: &Instruction) -> Result<()> {
+        let val = self.regs.read(Register::C);
+        let (data, _) = self.fetch_data(instr, false, true, Flag::M)?;
+        if self.regs.test_flag(Flag::M) {
+            // 8-bit
+            let result = val & data & 0xFF;
+
+            match instr.def.mode {
+                AddressingMode::ImmediateM => self.regs.write_flags(&[(Flag::Z, result == 0)]),
+                _ => self.regs.write_flags(&[
+                    (Flag::Z, result == 0),
+                    (Flag::N, data & 0x80 != 0),
+                    (Flag::V, data & 0x40 != 0),
+                ]),
+            }
+        } else {
+            // 16-bit
+            let result = val & data;
+            match instr.def.mode {
+                AddressingMode::ImmediateM => self.regs.write_flags(&[(Flag::Z, result == 0)]),
+                _ => self.regs.write_flags(&[
+                    (Flag::Z, result == 0),
+                    (Flag::N, data & 0x8000 != 0),
+                    (Flag::V, data & 0x4000 != 0),
+                ]),
+            }
         }
 
         Ok(())
