@@ -153,7 +153,7 @@ where
 
     /// Writes 16-bit (LE) to a memory location while ticking
     /// peripherals for the access time.
-    /// 16-bit address wrap, descending access order.
+    /// 16-bit address wrap, descending temporal order.
     fn write16_tick_a16_desc(&mut self, addr: Address, val: u16) {
         let hi_addr = addr & 0xFFFF0000 | Address::from((addr as u16).wrapping_add(1));
         self.bus.write(hi_addr, (val >> 8) as u8);
@@ -175,7 +175,7 @@ where
 
     /// Writes 16-bit (LE) to a memory location while ticking
     /// peripherals for the access time.
-    /// 24-bit address wrap, descending access order.
+    /// 24-bit address wrap, descending temporal order.
     fn write16_tick_a24_desc(&mut self, addr: Address, val: u16) {
         let hi_addr = addr.wrapping_add(1);
         self.bus.write(hi_addr, (val >> 8) as u8);
@@ -198,7 +198,7 @@ where
 
     /// Writes 16-bit (LE) to a memory location while ticking
     /// peripherals for the access time.
-    /// Selects wrap based on addressing mode, descending access order.
+    /// Selects wrap based on addressing mode, descending temporal order.
     fn write16_tick_a_desc(&mut self, instr: &Instruction, addr: Address, value: u16) {
         match instr.def.mode {
             AddressingMode::Direct | AddressingMode::DirectX | AddressingMode::StackS => {
@@ -260,6 +260,7 @@ where
             InstructionType::INY => self.op_incdec_reg(Register::Y, 1, Flag::X),
             InstructionType::DEC => self.op_incdec(instr, -1),
             InstructionType::INC => self.op_incdec(instr, 1),
+            InstructionType::AND => self.op_and(instr),
 
             _ => todo!(),
         }
@@ -755,6 +756,27 @@ where
             // 16-bit
             let result = (val as i32 + data) as u16;
             self.write16_tick_a_desc(instr, addr, result);
+            self.regs
+                .write_flags(&[(Flag::Z, result == 0), (Flag::N, result & 0x8000 != 0)]);
+        }
+
+        Ok(())
+    }
+
+    /// AND - Bitwise AND
+    fn op_and(&mut self, instr: &Instruction) -> Result<()> {
+        let val = self.regs.read(Register::C);
+        let (data, _) = self.fetch_data(instr, false, true, Flag::M)?;
+        if self.regs.test_flag(Flag::M) {
+            // 8-bit
+            let result = val & data & 0xFF;
+            self.regs.write(Register::A, result);
+            self.regs
+                .write_flags(&[(Flag::Z, result == 0), (Flag::N, result & 0x80 != 0)]);
+        } else {
+            // 16-bit
+            let result = val & data;
+            self.regs.write(Register::C, result);
             self.regs
                 .write_flags(&[(Flag::Z, result == 0), (Flag::N, result & 0x8000 != 0)]);
         }
