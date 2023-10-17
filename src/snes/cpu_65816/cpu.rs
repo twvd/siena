@@ -218,7 +218,41 @@ where
     /// based on the addressing mode.
     /// Also returns if a page boundary was crossed for indexed
     /// modes where this is relevant.
-    fn resolve_address(&mut self, instr: &Instruction) -> Result<(Address, bool)> {
+    fn resolve_address(
+        &mut self,
+        instr: &Instruction,
+        abs_extra_cycle: bool,
+        pb_extra_cycle: bool,
+    ) -> Result<Address> {
+        // Internal cycles for adding D, if applicable (D > 0).
+        if self.regs.read(Register::DL) != 0 {
+            match instr.def.mode {
+                AddressingMode::Direct
+                | AddressingMode::DirectPtr16
+                | AddressingMode::DirectPtr16Y
+                | AddressingMode::DirectPtr24
+                | AddressingMode::DirectPtr24Y
+                | AddressingMode::DirectXPtr16
+                | AddressingMode::DirectX
+                | AddressingMode::DirectY => self.tick_bus(1)?,
+                _ => (),
+            };
+        }
+
+        // Extra internal cycles for modes that add a register
+        // to the address before resolution.
+        match instr.def.mode {
+            AddressingMode::DirectX
+            | AddressingMode::DirectXPtr16
+            | AddressingMode::DirectY
+            | AddressingMode::StackS
+            | AddressingMode::StackSPtr16Y => self.tick_bus(1)?,
+            AddressingMode::AbsoluteX | AddressingMode::AbsoluteY if abs_extra_cycle => {
+                self.tick_bus(1)?
+            }
+            _ => (),
+        }
+
         let idx = |base: Address, idx: Address| {
             (
                 base.wrapping_add(idx) & ADDRESS_MASK,
@@ -226,8 +260,7 @@ where
             )
         };
         let noidx = |base: Address| (base, false);
-
-        Ok(match instr.def.mode {
+        let (address, crosses_page) = match instr.def.mode {
             AddressingMode::Direct => noidx(Address::from(
                 self.regs
                     .read(Register::D)
@@ -334,7 +367,34 @@ where
             ),
 
             _ => todo!(),
-        })
+        };
+
+        if pb_extra_cycle {
+            // Extra cycle if crossing a page boundary || !X
+            match instr.def.mode {
+                AddressingMode::AbsoluteX
+                | AddressingMode::AbsoluteY
+                | AddressingMode::DirectPtr16Y => {
+                    if !self.regs.test_flag(Flag::X) || crosses_page {
+                        self.tick_bus(1)?
+                    }
+                }
+                _ => (),
+            }
+        } else {
+            // More internal cycles for modes that do stuff AFTER
+            // address resolution bus activity.
+            match instr.def.mode {
+                AddressingMode::DirectPtr16Y => self.tick_bus(1)?,
+                _ => (),
+            }
+        }
+        match instr.def.mode {
+            AddressingMode::StackSPtr16Y => self.tick_bus(1)?,
+            _ => (),
+        }
+
+        Ok(address)
     }
 
     /// CLx - Clear x
@@ -418,44 +478,7 @@ where
 
     /// Store operations
     fn op_store(&mut self, instr: &Instruction, value: u16, flag: Flag) -> Result<()> {
-        // Internal cycles for adding D, if applicable (D > 0).
-        if self.regs.read(Register::DL) != 0 {
-            match instr.def.mode {
-                AddressingMode::Direct
-                | AddressingMode::DirectPtr16
-                | AddressingMode::DirectPtr16Y
-                | AddressingMode::DirectPtr24
-                | AddressingMode::DirectPtr24Y
-                | AddressingMode::DirectXPtr16
-                | AddressingMode::DirectX
-                | AddressingMode::DirectY => self.tick_bus(1)?,
-                _ => (),
-            };
-        }
-
-        // Extra internal cycles for modes that add a register
-        // to the address before resolution.
-        match instr.def.mode {
-            AddressingMode::DirectX
-            | AddressingMode::DirectXPtr16
-            | AddressingMode::DirectY
-            | AddressingMode::AbsoluteX
-            | AddressingMode::AbsoluteY
-            | AddressingMode::StackS
-            | AddressingMode::StackSPtr16Y => self.tick_bus(1)?,
-            _ => (),
-        }
-
-        // Resolve address now to have the bus activity right at
-        // this point.
-        let (addr, _) = self.resolve_address(instr)?;
-
-        // More internal cycles for modes that do stuff AFTER
-        // address resolution bus activity.
-        match instr.def.mode {
-            AddressingMode::DirectPtr16Y | AddressingMode::StackSPtr16Y => self.tick_bus(1)?,
-            _ => (),
-        }
+        let addr = self.resolve_address(instr, true, false)?;
 
         if self.regs.test_flag(flag) {
             self.write_tick(addr, value as u8);
@@ -474,54 +497,7 @@ where
 
     /// Load operations
     fn op_load(&mut self, instr: &Instruction, destreg: Register, flag: Flag) -> Result<()> {
-        // Internal cycles for adding D, if applicable (D > 0).
-        if self.regs.read(Register::DL) != 0 {
-            match instr.def.mode {
-                AddressingMode::Direct
-                | AddressingMode::DirectPtr16
-                | AddressingMode::DirectPtr16Y
-                | AddressingMode::DirectPtr24
-                | AddressingMode::DirectPtr24Y
-                | AddressingMode::DirectXPtr16
-                | AddressingMode::DirectX
-                | AddressingMode::DirectY => self.tick_bus(1)?,
-                _ => (),
-            };
-        }
-
-        // Extra internal cycles for modes that add a register
-        // to the address before resolution.
-        match instr.def.mode {
-            AddressingMode::DirectX
-            | AddressingMode::DirectXPtr16
-            | AddressingMode::DirectY
-            | AddressingMode::StackS
-            | AddressingMode::StackSPtr16Y => self.tick_bus(1)?,
-            _ => (),
-        }
-
-        // Resolve address now to have the bus activity right at
-        // this point.
-        let (addr, crosses_page) = self.resolve_address(instr)?;
-
-        // Extra cycle if crossing a page boundary || !X
-        match instr.def.mode {
-            AddressingMode::AbsoluteX
-            | AddressingMode::AbsoluteY
-            | AddressingMode::DirectPtr16Y => {
-                if !self.regs.test_flag(Flag::X) || crosses_page {
-                    self.tick_bus(1)?
-                }
-            }
-            _ => (),
-        }
-
-        // More internal cycles for modes that do stuff AFTER
-        // address resolution bus activity.
-        match instr.def.mode {
-            AddressingMode::StackSPtr16Y => self.tick_bus(1)?,
-            _ => (),
-        }
+        let addr = self.resolve_address(instr, false, true)?;
 
         if self.regs.test_flag(flag) {
             // 8-bit mode
@@ -587,52 +563,7 @@ where
 
     /// ADC - Add (accumulator)
     fn op_add(&mut self, instr: &Instruction) -> Result<()> {
-        // Internal cycles for adding D, if applicable (D > 0).
-        if self.regs.read(Register::DL) != 0 {
-            match instr.def.mode {
-                AddressingMode::Direct
-                | AddressingMode::DirectPtr16
-                | AddressingMode::DirectPtr16Y
-                | AddressingMode::DirectPtr24
-                | AddressingMode::DirectPtr24Y
-                | AddressingMode::DirectXPtr16
-                | AddressingMode::DirectX
-                | AddressingMode::DirectY => self.tick_bus(1)?,
-                _ => (),
-            };
-        }
-
-        // Extra internal cycles for modes that add a register
-        // to the address before resolution.
-        match instr.def.mode {
-            AddressingMode::DirectX
-            | AddressingMode::DirectXPtr16
-            | AddressingMode::DirectY
-            | AddressingMode::StackS
-            | AddressingMode::StackSPtr16Y => self.tick_bus(1)?,
-            _ => (),
-        }
-
-        let (addr, crosses_page) = self.resolve_address(instr)?;
-
-        // Extra cycle if crossing a page boundary || !X
-        match instr.def.mode {
-            AddressingMode::AbsoluteX
-            | AddressingMode::AbsoluteY
-            | AddressingMode::DirectPtr16Y => {
-                if !self.regs.test_flag(Flag::X) || crosses_page {
-                    self.tick_bus(1)?
-                }
-            }
-            _ => (),
-        }
-
-        // More internal cycles for modes that do stuff AFTER
-        // address resolution bus activity.
-        match instr.def.mode {
-            AddressingMode::StackSPtr16Y => self.tick_bus(1)?,
-            _ => (),
-        }
+        let addr = self.resolve_address(instr, false, true)?;
 
         let data: u16 = if self.regs.test_flag(Flag::M) {
             self.read_tick(addr).into()
@@ -687,52 +618,7 @@ where
 
     /// SBC - SuBtract (accumulator)
     fn op_sbc(&mut self, instr: &Instruction) -> Result<()> {
-        // Internal cycles for adding D, if applicable (D > 0).
-        if self.regs.read(Register::DL) != 0 {
-            match instr.def.mode {
-                AddressingMode::Direct
-                | AddressingMode::DirectPtr16
-                | AddressingMode::DirectPtr16Y
-                | AddressingMode::DirectPtr24
-                | AddressingMode::DirectPtr24Y
-                | AddressingMode::DirectXPtr16
-                | AddressingMode::DirectX
-                | AddressingMode::DirectY => self.tick_bus(1)?,
-                _ => (),
-            };
-        }
-
-        // Extra internal cycles for modes that add a register
-        // to the address before resolution.
-        match instr.def.mode {
-            AddressingMode::DirectX
-            | AddressingMode::DirectXPtr16
-            | AddressingMode::DirectY
-            | AddressingMode::StackS
-            | AddressingMode::StackSPtr16Y => self.tick_bus(1)?,
-            _ => (),
-        }
-
-        let (addr, crosses_page) = self.resolve_address(instr)?;
-
-        // Extra cycle if crossing a page boundary || !X
-        match instr.def.mode {
-            AddressingMode::AbsoluteX
-            | AddressingMode::AbsoluteY
-            | AddressingMode::DirectPtr16Y => {
-                if !self.regs.test_flag(Flag::X) || crosses_page {
-                    self.tick_bus(1)?
-                }
-            }
-            _ => (),
-        }
-
-        // More internal cycles for modes that do stuff AFTER
-        // address resolution bus activity.
-        match instr.def.mode {
-            AddressingMode::StackSPtr16Y => self.tick_bus(1)?,
-            _ => (),
-        }
+        let addr = self.resolve_address(instr, false, true)?;
 
         let data: u16 = if self.regs.test_flag(Flag::M) {
             self.read_tick(addr).into()
