@@ -3,6 +3,7 @@ use anyhow::Result;
 use crate::snes::bus::{Address, Bus, BusIterator, ADDRESS_MASK};
 use crate::tickable::Ticks;
 
+use super::alu;
 use super::instruction::{AddressingMode, Instruction, InstructionType};
 use super::regs::{Flag, Register, RegisterFile};
 
@@ -206,6 +207,7 @@ where
             InstructionType::LDY => self.op_load(&instr, Register::Y, Flag::X),
             InstructionType::REP => self.op_rep(&instr),
             InstructionType::SEP => self.op_sep(&instr),
+            InstructionType::ADC => self.op_add(&instr),
 
             _ => todo!(),
         }
@@ -579,6 +581,101 @@ where
         let p = self.regs.read8(Register::P);
         self.regs.write(Register::P, (p | mask).try_into()?);
         self.tick_bus(1)?;
+        Ok(())
+    }
+
+    /// ADC - Add (accumulator)
+    fn op_add(&mut self, instr: &Instruction) -> Result<()> {
+        // Internal cycles for adding D, if applicable (D > 0).
+        if self.regs.read(Register::DL) != 0 {
+            match instr.def.mode {
+                AddressingMode::Direct
+                | AddressingMode::DirectPtr16
+                | AddressingMode::DirectPtr16Y
+                | AddressingMode::DirectPtr24
+                | AddressingMode::DirectPtr24Y
+                | AddressingMode::DirectXPtr16
+                | AddressingMode::DirectX
+                | AddressingMode::DirectY => self.tick_bus(1)?,
+                _ => (),
+            };
+        }
+
+        // Extra internal cycles for modes that add a register
+        // to the address before resolution.
+        match instr.def.mode {
+            AddressingMode::DirectX
+            | AddressingMode::DirectXPtr16
+            | AddressingMode::DirectY
+            | AddressingMode::StackS
+            | AddressingMode::StackSPtr16Y => self.tick_bus(1)?,
+            _ => (),
+        }
+
+        let (addr, crosses_page) = self.resolve_address(instr)?;
+
+        // Extra cycle if crossing a page boundary || !X
+        match instr.def.mode {
+            AddressingMode::AbsoluteX
+            | AddressingMode::AbsoluteY
+            | AddressingMode::DirectPtr16Y => {
+                if !self.regs.test_flag(Flag::X) || crosses_page {
+                    self.tick_bus(1)?
+                }
+            }
+            _ => (),
+        }
+
+        // More internal cycles for modes that do stuff AFTER
+        // address resolution bus activity.
+        match instr.def.mode {
+            AddressingMode::StackSPtr16Y => self.tick_bus(1)?,
+            _ => (),
+        }
+
+        let data = if self.regs.test_flag(Flag::M) {
+            self.read_tick(addr).into()
+        } else {
+            self.read16_tick_a16(addr).into()
+        };
+
+        let result = match (self.regs.test_flag(Flag::D), self.regs.test_flag(Flag::M)) {
+            (true, false) => alu::add16_dec(
+                self.regs.read(Register::C),
+                data,
+                self.regs.test_flag(Flag::C),
+            ),
+            (false, false) => alu::add16(
+                self.regs.read(Register::C),
+                data,
+                self.regs.test_flag(Flag::C),
+            ),
+            (false, true) => alu::add8(
+                self.regs.read(Register::A),
+                data,
+                self.regs.test_flag(Flag::C),
+            ),
+            (true, true) => alu::add8_dec(
+                self.regs.read(Register::A),
+                data,
+                self.regs.test_flag(Flag::C),
+            ),
+        };
+
+        if self.regs.test_flag(Flag::M) {
+            // 8-bit
+            self.regs.write(Register::A, result.result);
+        } else {
+            // 16-bit
+            self.regs.write(Register::C, result.result);
+        }
+        self.regs.write_flags(&[
+            (Flag::N, result.n),
+            (Flag::V, result.v),
+            (Flag::Z, result.z),
+            (Flag::C, result.c),
+        ]);
+
         Ok(())
     }
 }
