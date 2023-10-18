@@ -224,7 +224,7 @@ where
         self.read_tick(addr)
     }
 
-    /// Pushes 16-bits onto the stack
+    /// Pushes 16-bits onto the stack, MSB-first
     fn push16(&mut self, val: u16) {
         self.push8((val >> 8) as u8);
         self.push8(val as u8);
@@ -341,6 +341,8 @@ where
             InstructionType::PLB => self.op_pull_reg(Register::DBR),
             InstructionType::PLD => self.op_pull_reg(Register::D),
             InstructionType::PLP => self.op_pull_reg(Register::P),
+            InstructionType::JSL => self.op_jsl(instr),
+            InstructionType::JSR => self.op_jsr(instr),
 
             _ => todo!(),
         }
@@ -1285,7 +1287,9 @@ where
 
     /// Pull a register from the stack
     fn op_pull_reg(&mut self, reg: Register) -> Result<()> {
+        // Internal cycles
         self.tick_bus(2)?;
+
         let (val, himask) = match reg.width() {
             RegisterWidth::EightBit => (self.pull8() as u16, 0x80),
             RegisterWidth::SixteenBit => (self.pull16(), 0x8000),
@@ -1293,6 +1297,39 @@ where
         self.regs
             .write_flags(&[(Flag::N, (val & himask) != 0), (Flag::Z, val == 0)]);
         self.regs.write(reg, val);
+
+        Ok(())
+    }
+
+    /// JSL - Jump Subroutine Long
+    fn op_jsl(&mut self, instr: &Instruction) -> Result<()> {
+        let data = self.resolve_address(instr, false, false)?;
+
+        self.push8(self.regs.read8(Register::K));
+
+        // Internal cycle
+        self.tick_bus(1)?;
+
+        self.push16(self.regs.read(Register::PC).wrapping_sub(1));
+        self.regs
+            .write(Register::K, ((data & ADDRESS_MASK) >> 16) as u16);
+        self.regs.write(Register::PC, data as u16);
+
+        Ok(())
+    }
+
+    /// JSR - Jump Subroutine
+    fn op_jsr(&mut self, instr: &Instruction) -> Result<()> {
+        let data = self.resolve_address(instr, false, false)?;
+
+        // Internal cycle
+        self.tick_bus(1)?;
+
+        // We've already advanced PC at this point past the current
+        // instruction, but the address on the stack should be
+        // address of JSR opcode + 2, which translates into PC - 1.
+        self.push16(self.regs.read(Register::PC).wrapping_sub(1));
+        self.regs.write(Register::PC, data as u16);
 
         Ok(())
     }

@@ -8,8 +8,8 @@ use crate::snes::bus::{Address, BusMember};
 use crate::snes::cpu_65816::cpu::Cpu65816;
 use crate::snes::cpu_65816::regs::RegisterFile;
 
-macro_rules! cpu_test {
-    ($testfn:ident, $instr:expr) => {
+macro_rules! _cpu_test {
+    ($testfn:ident, $instr:expr, $trace:expr) => {
         #[test]
         fn $testfn() {
             assert_eq!(stringify!($testfn), format!("instr_{:02x}", $instr));
@@ -22,9 +22,21 @@ macro_rules! cpu_test {
                 serde_json::from_str(fs::read_to_string(filename).unwrap().as_str()).unwrap();
 
             for testcase in testcases.as_array().unwrap() {
-                run_testcase(testcase);
+                run_testcase(testcase, $trace);
             }
         }
+    };
+}
+
+macro_rules! cpu_test {
+    ($testfn:ident, $instr:expr) => {
+        _cpu_test!($testfn, $instr, true);
+    };
+}
+
+macro_rules! cpu_test_no_trace {
+    ($testfn:ident, $instr:expr) => {
+        _cpu_test!($testfn, $instr, false);
     };
 }
 
@@ -58,7 +70,7 @@ fn parse_ram(v: &Value) -> HashMap<Address, u8> {
     }))
 }
 
-fn run_testcase(testcase: &Value) {
+fn run_testcase(testcase: &Value, check_trace: bool) {
     let regs_initial = parse_regs(&testcase["initial"]);
     let regs_final = parse_regs(&testcase["final"]);
     let ram_initial = parse_ram(&testcase["initial"]["ram"]);
@@ -107,6 +119,10 @@ fn run_testcase(testcase: &Value) {
         dbg_hex!(&bus_trace);
         println!("{}", cpu.dump_state());
         panic!("Saw {} cycles, should be {}", cpu.cycles, test_cycles);
+    }
+
+    if !check_trace {
+        return;
     }
 
     for trace in &bus_trace {
@@ -171,9 +187,10 @@ cpu_test!(instr_1c, 0x1c);
 cpu_test!(instr_1d, 0x1d);
 cpu_test!(instr_1e, 0x1e);
 cpu_test!(instr_1f, 0x1f);
-//cpu_test!(instr_20, 0x20);
+cpu_test!(instr_20, 0x20);
 cpu_test!(instr_21, 0x21);
-//cpu_test!(instr_22, 0x22);
+// Inaccuracy: JSL fetches the last byte later; fetcher cannot do that.
+cpu_test_no_trace!(instr_22, 0x22);
 cpu_test!(instr_23, 0x23);
 cpu_test!(instr_24, 0x24);
 cpu_test!(instr_25, 0x25);
@@ -391,7 +408,8 @@ cpu_test!(instr_f8, 0xf8);
 cpu_test!(instr_f9, 0xf9);
 //cpu_test!(instr_fa, 0xfa);
 cpu_test!(instr_fb, 0xfb);
-//cpu_test!(instr_fc, 0xfc);
+// Inaccuracy: JSR fetches the last byte later; fetcher cannot do that.
+cpu_test_no_trace!(instr_fc, 0xfc);
 cpu_test!(instr_fd, 0xfd);
 cpu_test!(instr_fe, 0xfe);
 cpu_test!(instr_ff, 0xff);

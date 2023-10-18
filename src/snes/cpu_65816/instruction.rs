@@ -272,7 +272,8 @@ impl Instruction {
             Ok(b)
         };
 
-        let def = &INSTRUCTION_TABLE[rd()? as usize];
+        let opcode = rd()?;
+        let def = &INSTRUCTION_TABLE[opcode as usize];
         let mut args = [0; 4];
         let len = def.mode.get_fetch_len(m, x);
         for i in 0..(len - 1) {
