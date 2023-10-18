@@ -266,6 +266,22 @@ where
             InstructionType::BIT => self.op_bit(instr),
             InstructionType::TRB => self.op_trb(instr),
             InstructionType::TSB => self.op_tsb(instr),
+            InstructionType::ASL if instr.def.mode == AddressingMode::Accumulator => {
+                self.op_asl_acc()
+            }
+            InstructionType::ASL => self.op_asl(instr),
+            InstructionType::LSR if instr.def.mode == AddressingMode::Accumulator => {
+                self.op_lsr_acc()
+            }
+            InstructionType::LSR => self.op_lsr(instr),
+            InstructionType::ROL if instr.def.mode == AddressingMode::Accumulator => {
+                self.op_rol_acc()
+            }
+            InstructionType::ROL => self.op_rol(instr),
+            InstructionType::ROR if instr.def.mode == AddressingMode::Accumulator => {
+                self.op_ror_acc()
+            }
+            InstructionType::ROR => self.op_ror(instr),
 
             _ => todo!(),
         }
@@ -904,6 +920,229 @@ where
             let result = val & data;
             self.regs.write_flags(&[(Flag::Z, result == 0)]);
             self.write16_tick_a_desc(instr, addr, data | val);
+        }
+
+        Ok(())
+    }
+
+    /// ASL - Arithmetic Shift Left (register variant)
+    fn op_asl_acc(&mut self) -> Result<()> {
+        let val = self.regs.read(Register::C);
+        if self.regs.test_flag(Flag::M) {
+            // 8-bit
+            let result = (val << 1) as u8;
+            self.regs.write(Register::A, result.into());
+            self.regs.write_flags(&[
+                (Flag::Z, result == 0),
+                (Flag::N, result & 0x80 != 0),
+                (Flag::C, val & 0x80 != 0),
+            ]);
+        } else {
+            // 16-bit
+            let result = val << 1;
+            self.regs.write(Register::C, result);
+            self.regs.write_flags(&[
+                (Flag::Z, result == 0),
+                (Flag::N, result & 0x8000 != 0),
+                (Flag::C, val & 0x8000 != 0),
+            ]);
+        }
+
+        self.tick_bus(1)
+    }
+
+    /// ASL - Arithmetic Shift Left (memory variant)
+    fn op_asl(&mut self, instr: &Instruction) -> Result<()> {
+        let (val, addr) = self.fetch_data(instr, true, false, Flag::M)?;
+
+        // Calculation cycle
+        self.tick_bus(1)?;
+
+        if self.regs.test_flag(Flag::M) {
+            let result = (val << 1) as u8;
+            self.write_tick(addr, result);
+            self.regs.write_flags(&[
+                (Flag::Z, result == 0),
+                (Flag::N, result & 0x80 != 0),
+                (Flag::C, val & 0x80 != 0),
+            ]);
+        } else {
+            // 16-bit
+            let result = val << 1;
+            self.write16_tick_a_desc(instr, addr, result);
+            self.regs.write_flags(&[
+                (Flag::Z, result == 0),
+                (Flag::N, result & 0x8000 != 0),
+                (Flag::C, val & 0x8000 != 0),
+            ]);
+        }
+
+        Ok(())
+    }
+
+    /// LSR - Logical Shift Right (register variant)
+    fn op_lsr_acc(&mut self) -> Result<()> {
+        let val = self.regs.read(Register::C);
+        if self.regs.test_flag(Flag::M) {
+            // 8-bit
+            let result = (val as u8 >> 1) as u8;
+            self.regs.write(Register::A, result.into());
+            self.regs.write_flags(&[
+                (Flag::Z, result == 0),
+                (Flag::N, false),
+                (Flag::C, val & 0x01 != 0),
+            ]);
+        } else {
+            // 16-bit
+            let result = val >> 1;
+            self.regs.write(Register::C, result);
+            self.regs.write_flags(&[
+                (Flag::Z, result == 0),
+                (Flag::N, false),
+                (Flag::C, val & 0x01 != 0),
+            ]);
+        }
+
+        self.tick_bus(1)
+    }
+
+    /// LSR - Logical Shift Right (memory variant)
+    fn op_lsr(&mut self, instr: &Instruction) -> Result<()> {
+        let (val, addr) = self.fetch_data(instr, true, false, Flag::M)?;
+        // Calculation cycle
+        self.tick_bus(1)?;
+
+        if self.regs.test_flag(Flag::M) {
+            let result = (val as u8 >> 1) as u8;
+            self.write_tick(addr, result);
+            self.regs.write_flags(&[
+                (Flag::Z, result == 0),
+                (Flag::N, false),
+                (Flag::C, val & 0x01 != 0),
+            ]);
+        } else {
+            // 16-bit
+            let result = val >> 1;
+            self.write16_tick_a_desc(instr, addr, result);
+            self.regs.write_flags(&[
+                (Flag::Z, result == 0),
+                (Flag::N, false),
+                (Flag::C, val & 0x01 != 0),
+            ]);
+        }
+
+        Ok(())
+    }
+
+    /// ROL - ROtate Left (register variant)
+    fn op_rol_acc(&mut self) -> Result<()> {
+        let val = self.regs.read(Register::C);
+        let c = if self.regs.test_flag(Flag::C) { 1 } else { 0 };
+        if self.regs.test_flag(Flag::M) {
+            // 8-bit
+            let result = ((val << 1) | c) as u8;
+            self.regs.write(Register::A, result.into());
+            self.regs.write_flags(&[
+                (Flag::Z, result == 0),
+                (Flag::N, result & 0x80 != 0),
+                (Flag::C, val & 0x80 != 0),
+            ]);
+        } else {
+            // 16-bit
+            let result = (val << 1) | c;
+            self.regs.write(Register::C, result);
+            self.regs.write_flags(&[
+                (Flag::Z, result == 0),
+                (Flag::N, result & 0x8000 != 0),
+                (Flag::C, val & 0x8000 != 0),
+            ]);
+        }
+
+        self.tick_bus(1)
+    }
+
+    /// ROL - ROtate Left (memory variant)
+    fn op_rol(&mut self, instr: &Instruction) -> Result<()> {
+        let (val, addr) = self.fetch_data(instr, true, false, Flag::M)?;
+        let c = if self.regs.test_flag(Flag::C) { 1 } else { 0 };
+
+        // Calculation cycle
+        self.tick_bus(1)?;
+
+        if self.regs.test_flag(Flag::M) {
+            let result = ((val << 1) | c) as u8;
+            self.write_tick(addr, result);
+            self.regs.write_flags(&[
+                (Flag::Z, result == 0),
+                (Flag::N, result & 0x80 != 0),
+                (Flag::C, val & 0x80 != 0),
+            ]);
+        } else {
+            // 16-bit
+            let result = (val << 1) | c;
+            self.write16_tick_a_desc(instr, addr, result);
+            self.regs.write_flags(&[
+                (Flag::Z, result == 0),
+                (Flag::N, result & 0x8000 != 0),
+                (Flag::C, val & 0x8000 != 0),
+            ]);
+        }
+
+        Ok(())
+    }
+
+    /// ROR - ROtate Right (register variant)
+    fn op_ror_acc(&mut self) -> Result<()> {
+        let val = self.regs.read(Register::C);
+        let c = if self.regs.test_flag(Flag::C) { 1 } else { 0 };
+        if self.regs.test_flag(Flag::M) {
+            // 8-bit
+            let result = (((val & 0xFF) >> 1) | (c << 7)) as u8;
+            self.regs.write(Register::A, result.into());
+            self.regs.write_flags(&[
+                (Flag::Z, result == 0),
+                (Flag::N, result & 0x80 != 0),
+                (Flag::C, val & 0x01 != 0),
+            ]);
+        } else {
+            // 16-bit
+            let result = (val >> 1) | (c << 15);
+            self.regs.write(Register::C, result);
+            self.regs.write_flags(&[
+                (Flag::Z, result == 0),
+                (Flag::N, result & 0x8000 != 0),
+                (Flag::C, val & 0x01 != 0),
+            ]);
+        }
+
+        self.tick_bus(1)
+    }
+
+    /// ROR - ROtate Right (memory variant)
+    fn op_ror(&mut self, instr: &Instruction) -> Result<()> {
+        let (val, addr) = self.fetch_data(instr, true, false, Flag::M)?;
+        let c = if self.regs.test_flag(Flag::C) { 1 } else { 0 };
+
+        // Calculation cycle
+        self.tick_bus(1)?;
+
+        if self.regs.test_flag(Flag::M) {
+            let result = (((val & 0xFF) >> 1) | (c << 7)) as u8;
+            self.write_tick(addr, result);
+            self.regs.write_flags(&[
+                (Flag::Z, result == 0),
+                (Flag::N, result & 0x80 != 0),
+                (Flag::C, val & 0x01 != 0),
+            ]);
+        } else {
+            // 16-bit
+            let result = (val >> 1) | (c << 15);
+            self.write16_tick_a_desc(instr, addr, result);
+            self.regs.write_flags(&[
+                (Flag::Z, result == 0),
+                (Flag::N, result & 0x8000 != 0),
+                (Flag::C, val & 0x01 != 0),
+            ]);
         }
 
         Ok(())
