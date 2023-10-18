@@ -1,4 +1,5 @@
 use anyhow::Result;
+use num_traits::ToPrimitive;
 
 use crate::snes::bus::{Address, Bus, BusIterator, ADDRESS_MASK};
 use crate::tickable::Ticks;
@@ -25,6 +26,9 @@ where
             cycles: 0,
         };
         cpu.regs.pc = reset_addr;
+        cpu.regs.p = (1 << Flag::M.to_u8().unwrap()) | (1 << Flag::X.to_u8().unwrap());
+        cpu.regs.emulation = true;
+
         cpu
     }
 

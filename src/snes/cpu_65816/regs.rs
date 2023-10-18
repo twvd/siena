@@ -138,7 +138,7 @@ impl RegisterFile {
             s: 0,
             x: 0,
             y: 0,
-            emulation: true,
+            emulation: false,
         }
     }
 
