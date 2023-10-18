@@ -6,7 +6,7 @@ use crate::tickable::Ticks;
 
 use super::alu;
 use super::instruction::{AddressingMode, Instruction, InstructionType};
-use super::regs::{Flag, Register, RegisterFile};
+use super::regs::{Flag, Register, RegisterFile, RegisterWidth};
 
 /// Main SNES CPU (65816)
 pub struct Cpu65816<TBus: Bus> {
@@ -212,6 +212,31 @@ where
         }
     }
 
+    /// Pushes 8-bits onto the stack
+    fn push8(&mut self, val: u8) {
+        let addr = Address::from(self.regs.read_dec(Register::S));
+        self.write_tick(addr, val);
+    }
+
+    /// Pulls 8-bits from the stack
+    fn pull8(&mut self) -> u8 {
+        let addr = Address::from(self.regs.read_inc(Register::S).wrapping_add(1));
+        self.read_tick(addr)
+    }
+
+    /// Pushes 16-bits onto the stack
+    fn push16(&mut self, val: u16) {
+        self.push8((val >> 8) as u8);
+        self.push8(val as u8);
+    }
+
+    /// Pulls 16-bits from the stack
+    fn pull16(&mut self) -> u16 {
+        let lo = self.pull8() as u16;
+        let hi = self.pull8() as u16;
+        lo | hi << 8
+    }
+
     /// Executes an instruction.
     fn execute_instruction(&mut self, instr: &Instruction) -> Result<()> {
         match instr.def.instr_type {
@@ -297,6 +322,25 @@ where
             InstructionType::BRA => self.op_branch(instr, true),
             InstructionType::BRL => self.op_branch_long(instr),
             InstructionType::JMP => self.op_jump(instr),
+            InstructionType::PHB => {
+                self.tick_bus(1)?;
+                Ok(self.push8(self.regs.read(Register::DBR) as u8))
+            }
+            InstructionType::PHD => {
+                self.tick_bus(1)?;
+                Ok(self.push16(self.regs.read(Register::D)))
+            }
+            InstructionType::PHK => {
+                self.tick_bus(1)?;
+                Ok(self.push8(self.regs.read(Register::K) as u8))
+            }
+            InstructionType::PHP => {
+                self.tick_bus(1)?;
+                Ok(self.push8(self.regs.read(Register::P) as u8))
+            }
+            InstructionType::PLB => self.op_pull_reg(Register::DBR),
+            InstructionType::PLD => self.op_pull_reg(Register::D),
+            InstructionType::PLP => self.op_pull_reg(Register::P),
 
             _ => todo!(),
         }
@@ -487,7 +531,13 @@ where
                 false,
             ),
 
-            _ => todo!(),
+            AddressingMode::Accumulator
+            | AddressingMode::Implied
+            | AddressingMode::Immediate8
+            | AddressingMode::Immediate16
+            | AddressingMode::ImmediateM
+            | AddressingMode::ImmediateX
+            | AddressingMode::SrcDest => unreachable!(),
         };
 
         if pb_extra_cycle {
@@ -1230,6 +1280,20 @@ where
         }
 
         self.regs.write(Register::PC, addr as u16);
+        Ok(())
+    }
+
+    /// Pull a register from the stack
+    fn op_pull_reg(&mut self, reg: Register) -> Result<()> {
+        self.tick_bus(2)?;
+        let (val, himask) = match reg.width() {
+            RegisterWidth::EightBit => (self.pull8() as u16, 0x80),
+            RegisterWidth::SixteenBit => (self.pull16(), 0x8000),
+        };
+        self.regs
+            .write_flags(&[(Flag::N, (val & himask) != 0), (Flag::Z, val == 0)]);
+        self.regs.write(reg, val);
+
         Ok(())
     }
 }
