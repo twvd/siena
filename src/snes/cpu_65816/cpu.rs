@@ -343,6 +343,8 @@ where
             InstructionType::PLP => self.op_pull_reg(Register::P),
             InstructionType::JSL => self.op_jsl(instr),
             InstructionType::JSR => self.op_jsr(instr),
+            InstructionType::RTS => self.op_rts(),
+            InstructionType::RTL => self.op_rtl(),
 
             _ => todo!(),
         }
@@ -1330,6 +1332,33 @@ where
         // address of JSR opcode + 2, which translates into PC - 1.
         self.push16(self.regs.read(Register::PC).wrapping_sub(1));
         self.regs.write(Register::PC, data as u16);
+
+        Ok(())
+    }
+
+    /// RTL - Return from subroutine long
+    fn op_rtl(&mut self) -> Result<()> {
+        // Internal cycles
+        self.tick_bus(2)?;
+
+        let pc = self.pull16().wrapping_add(1);
+        let k = self.pull8();
+        self.regs.write(Register::PC, pc);
+        self.regs.write(Register::K, k.into());
+
+        Ok(())
+    }
+
+    /// RTS - Return from subroutine
+    fn op_rts(&mut self) -> Result<()> {
+        // Internal cycles
+        self.tick_bus(2)?;
+
+        let pc = self.pull16().wrapping_add(1);
+        self.regs.write(Register::PC, pc);
+
+        // Internal cycle
+        self.tick_bus(1)?;
 
         Ok(())
     }
