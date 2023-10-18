@@ -74,8 +74,8 @@ where
     pub fn step(&mut self) -> Result<()> {
         let instr = self.fetch_next_instr()?;
 
-        let _cycles = self.execute_instruction(&instr)?;
         self.regs.pc = self.regs.pc.wrapping_add(instr.len as u16);
+        let _cycles = self.execute_instruction(&instr)?;
 
         Ok(())
     }
@@ -295,7 +295,8 @@ where
             InstructionType::BVS => self.op_branch(instr, self.regs.test_flag(Flag::V)),
             InstructionType::BVC => self.op_branch(instr, !self.regs.test_flag(Flag::V)),
             InstructionType::BRA => self.op_branch(instr, true),
-            InstructionType::BRL => self.op_branch(instr, true),
+            InstructionType::BRL => self.op_branch_long(instr),
+            InstructionType::JMP => self.op_jump(instr),
 
             _ => todo!(),
         }
@@ -332,7 +333,11 @@ where
             | AddressingMode::DirectY
             | AddressingMode::StackS
             | AddressingMode::StackSPtr16Y => self.tick_bus(1)?,
-            AddressingMode::AbsoluteX | AddressingMode::AbsoluteY if abs_extra_cycle => {
+            AddressingMode::AbsoluteX
+            | AddressingMode::AbsoluteXPtr16
+            | AddressingMode::AbsoluteY
+                if abs_extra_cycle =>
+            {
                 self.tick_bus(1)?
             }
             _ => (),
@@ -426,6 +431,23 @@ where
                     | Address::from(instr.imm::<u16>()?),
                 self.regs.read(Register::Y).into(),
             ),
+            AddressingMode::AbsolutePtr16 => noidx(
+                Address::from(self.regs.read(Register::DBR)) << 16
+                    | Address::from(self.read16_tick_a16(Address::from(instr.imm::<u16>()?))),
+            ),
+            AddressingMode::AbsoluteXPtr16 => noidx(Address::from(
+                self.read16_tick_a16(
+                    Address::from(self.regs.read(Register::K)) << 16
+                        | Address::from(
+                            instr
+                                .imm::<u16>()?
+                                .wrapping_add(self.regs.read(Register::X)),
+                        ),
+                ),
+            )),
+            AddressingMode::AbsolutePtr24 => noidx(Address::from(
+                self.read24_tick_a16(Address::from(instr.imm::<u16>()?)),
+            )),
             AddressingMode::StackS => noidx(Address::from(
                 self.regs
                     .read(Register::S)
@@ -1185,5 +1207,29 @@ where
 
         self.regs.write(Register::PC, addr as u16);
         self.tick_bus(1)
+    }
+
+    /// Branch operations (24-bit)
+    fn op_branch_long(&mut self, instr: &Instruction) -> Result<()> {
+        let addr = self.resolve_address(instr, false, false)?;
+
+        self.regs.write(Register::K, ((addr >> 16) as u8).into());
+        self.regs.write(Register::PC, addr as u16);
+        self.tick_bus(1)
+    }
+
+    /// Jump operations
+    fn op_jump(&mut self, instr: &Instruction) -> Result<()> {
+        let addr = self.resolve_address(instr, true, false)?;
+
+        match instr.def.mode {
+            AddressingMode::Long | AddressingMode::AbsolutePtr24 => {
+                self.regs.write(Register::K, ((addr >> 16) as u8).into())
+            }
+            _ => (),
+        }
+
+        self.regs.write(Register::PC, addr as u16);
+        Ok(())
     }
 }
