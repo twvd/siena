@@ -286,6 +286,15 @@ where
                 self.op_ror_acc()
             }
             InstructionType::ROR => self.op_ror(instr),
+            InstructionType::BCS => self.op_branch8(instr, self.regs.test_flag(Flag::C)),
+            InstructionType::BCC => self.op_branch8(instr, !self.regs.test_flag(Flag::C)),
+            InstructionType::BEQ => self.op_branch8(instr, self.regs.test_flag(Flag::Z)),
+            InstructionType::BNE => self.op_branch8(instr, !self.regs.test_flag(Flag::Z)),
+            InstructionType::BMI => self.op_branch8(instr, self.regs.test_flag(Flag::N)),
+            InstructionType::BPL => self.op_branch8(instr, !self.regs.test_flag(Flag::N)),
+            InstructionType::BVS => self.op_branch8(instr, self.regs.test_flag(Flag::V)),
+            InstructionType::BVC => self.op_branch8(instr, !self.regs.test_flag(Flag::V)),
+            InstructionType::BRA => self.op_branch8(instr, true),
 
             _ => todo!(),
         }
@@ -439,6 +448,15 @@ where
                     .imm::<u32>()?
                     .wrapping_add(self.regs.read(Register::X).into())
                     & ADDRESS_MASK,
+            ),
+            AddressingMode::Relative8 => (
+                (Address::from(self.regs.k) << 16)
+                    | Address::from(
+                        self.regs
+                            .pc
+                            .wrapping_add_signed(instr.imm::<u8>()? as i8 as i16),
+                    ),
+                false,
             ),
 
             _ => todo!(),
@@ -1150,5 +1168,16 @@ where
         }
 
         Ok(())
+    }
+
+    /// 8-bit branch operations
+    fn op_branch8(&mut self, instr: &Instruction, cc: bool) -> Result<()> {
+        let addr = self.resolve_address(instr, false, false)?;
+        if !cc {
+            return Ok(());
+        }
+
+        self.regs.write(Register::PC, addr as u16);
+        self.tick_bus(1)
     }
 }
