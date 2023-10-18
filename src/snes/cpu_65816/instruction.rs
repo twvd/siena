@@ -118,7 +118,7 @@ impl AddressingMode {
             Self::Long => 4,
             Self::LongX => 4,
             Self::Relative8 => 2,
-            Self::Relative16 => 2,
+            Self::Relative16 => 3,
             Self::SrcDest => 3,
             Self::StackS => 2,
             Self::StackSPtr16Y => 2,
