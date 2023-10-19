@@ -237,6 +237,20 @@ where
         lo | hi << 8
     }
 
+    /// Call to an interrupt vector entry.
+    fn call_int_vector(&mut self, vector_addr: Address) -> Result<()> {
+        self.push8(self.regs.read8(Register::K));
+        self.push16(self.regs.read(Register::PC));
+        self.push8(self.regs.read8(Register::P));
+
+        let addr = self.read16_tick_a16(vector_addr);
+
+        self.regs.write(Register::K, 0);
+        self.regs.write(Register::PC, addr as u16);
+        self.regs.write_flags(&[(Flag::I, true), (Flag::D, false)]);
+        Ok(())
+    }
+
     /// Executes an instruction.
     fn execute_instruction(&mut self, instr: &Instruction) -> Result<()> {
         match instr.def.instr_type {
@@ -345,6 +359,8 @@ where
             InstructionType::JSR => self.op_jsr(instr),
             InstructionType::RTS => self.op_rts(),
             InstructionType::RTL => self.op_rtl(),
+            InstructionType::BRK => self.op_swint(instr, 0x00FFE6),
+            InstructionType::COP => self.op_swint(instr, 0x00FFE4),
 
             _ => todo!(),
         }
@@ -1361,5 +1377,21 @@ where
         self.tick_bus(1)?;
 
         Ok(())
+    }
+
+    /// BRK/COP - Software interrupts
+    fn op_swint(&mut self, instr: &Instruction, vector_addr: Address) -> Result<()> {
+        // Actually a read of PC for BRK?
+        self.tick_bus(2 - instr.def.len)?;
+
+        // Patch up the PC for BRK, which is 1 byte, but writes the
+        // PC to the stack with the same offset as COP.
+        let pc = self.regs.read(Register::PC);
+        self.regs.write(
+            Register::PC,
+            pc.wrapping_sub(instr.def.len as u16).wrapping_add(2),
+        );
+
+        self.call_int_vector(vector_addr)
     }
 }

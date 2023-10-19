@@ -155,9 +155,9 @@ fn run_testcase(testcase: &Value, check_trace: bool) {
     }
 }
 
-//cpu_test!(instr_00, 0x00);
+cpu_test!(instr_00, 0x00);
 cpu_test!(instr_01, 0x01);
-//cpu_test!(instr_02, 0x02);
+cpu_test!(instr_02, 0x02);
 cpu_test!(instr_03, 0x03);
 cpu_test!(instr_04, 0x04);
 cpu_test!(instr_05, 0x05);

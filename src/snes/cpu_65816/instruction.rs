@@ -130,6 +130,7 @@ impl AddressingMode {
 }
 
 /// Instruction types
+#[derive(Eq, PartialEq)]
 pub enum InstructionType {
     MVN,
     MVP,
