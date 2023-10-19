@@ -336,25 +336,19 @@ where
             InstructionType::BRA => self.op_branch(instr, true),
             InstructionType::BRL => self.op_branch_long(instr),
             InstructionType::JMP => self.op_jump(instr),
-            InstructionType::PHB => {
-                self.tick_bus(1)?;
-                Ok(self.push8(self.regs.read(Register::DBR) as u8))
-            }
-            InstructionType::PHD => {
-                self.tick_bus(1)?;
-                Ok(self.push16(self.regs.read(Register::D)))
-            }
-            InstructionType::PHK => {
-                self.tick_bus(1)?;
-                Ok(self.push8(self.regs.read(Register::K) as u8))
-            }
-            InstructionType::PHP => {
-                self.tick_bus(1)?;
-                Ok(self.push8(self.regs.read(Register::P) as u8))
-            }
+            InstructionType::PHA => self.op_push_reg_flag(Register::C, Flag::M),
+            InstructionType::PHX => self.op_push_reg_flag(Register::X, Flag::X),
+            InstructionType::PHY => self.op_push_reg_flag(Register::Y, Flag::X),
+            InstructionType::PHB => self.op_push_reg(Register::DBR),
+            InstructionType::PHD => self.op_push_reg(Register::D),
+            InstructionType::PHK => self.op_push_reg(Register::K),
+            InstructionType::PHP => self.op_push_reg(Register::P),
             InstructionType::PLB => self.op_pull_reg(Register::DBR),
             InstructionType::PLD => self.op_pull_reg(Register::D),
             InstructionType::PLP => self.op_pull_reg(Register::P),
+            InstructionType::PLA => self.op_pull_reg_flag(Register::C, Flag::M),
+            InstructionType::PLX => self.op_pull_reg_flag(Register::X, Flag::X),
+            InstructionType::PLY => self.op_pull_reg_flag(Register::Y, Flag::X),
             InstructionType::JSL => self.op_jsl(instr),
             InstructionType::JSR => self.op_jsr(instr),
             InstructionType::RTS => self.op_rts(),
@@ -1321,6 +1315,29 @@ where
         Ok(())
     }
 
+    /// Pull a register from the stack, depending on width flag
+    fn op_pull_reg_flag(&mut self, reg: Register, flag: Flag) -> Result<()> {
+        assert_eq!(reg.width(), RegisterWidth::SixteenBit);
+
+        // Internal cycles
+        self.tick_bus(2)?;
+
+        if self.regs.test_flag(flag) {
+            let hi = self.regs.read(reg) & 0xFF00;
+            let val = self.pull8() as u16;
+            self.regs
+                .write_flags(&[(Flag::N, (val & 0x80) != 0), (Flag::Z, val == 0)]);
+            self.regs.write(reg, hi | val);
+        } else {
+            let val = self.pull16();
+            self.regs
+                .write_flags(&[(Flag::N, (val & 0x8000) != 0), (Flag::Z, val == 0)]);
+            self.regs.write(reg, val);
+        }
+
+        Ok(())
+    }
+
     /// JSL - Jump Subroutine Long
     fn op_jsl(&mut self, instr: &Instruction) -> Result<()> {
         let data = self.resolve_address(instr, false, false)?;
@@ -1411,5 +1428,27 @@ where
         self.regs.write(Register::PC, pc);
 
         Ok(())
+    }
+
+    /// Instructions that push registers to the stack
+    fn op_push_reg(&mut self, reg: Register) -> Result<()> {
+        self.tick_bus(1)?;
+        match reg.width() {
+            RegisterWidth::SixteenBit => Ok(self.push16(self.regs.read(reg))),
+            RegisterWidth::EightBit => Ok(self.push8(self.regs.read(reg) as u8)),
+        }
+    }
+
+    /// Instructions that push registers to the stack, depending on
+    /// width flag.
+    fn op_push_reg_flag(&mut self, reg: Register, flag: Flag) -> Result<()> {
+        assert_eq!(reg.width(), RegisterWidth::SixteenBit);
+
+        self.tick_bus(1)?;
+        if self.regs.test_flag(flag) {
+            Ok(self.push8(self.regs.read(reg) as u8))
+        } else {
+            Ok(self.push16(self.regs.read(reg)))
+        }
     }
 }
