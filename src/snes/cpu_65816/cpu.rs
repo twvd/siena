@@ -362,6 +362,8 @@ where
             InstructionType::BRK => self.op_swint(instr, 0x00FFE6),
             InstructionType::COP => self.op_swint(instr, 0x00FFE4),
             InstructionType::RTI => self.op_rti(),
+            InstructionType::STP => panic!("STP encountered"),
+            InstructionType::WAI => todo!(),
             _ => todo!(),
         }
     }
