@@ -220,7 +220,7 @@ cpu_test!(instr_3c, 0x3c);
 cpu_test!(instr_3d, 0x3d);
 cpu_test!(instr_3e, 0x3e);
 cpu_test!(instr_3f, 0x3f);
-//cpu_test!(instr_40, 0x40);
+cpu_test!(instr_40, 0x40);
 cpu_test!(instr_41, 0x41);
 cpu_test!(instr_42, 0x42);
 cpu_test!(instr_43, 0x43);

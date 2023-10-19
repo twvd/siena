@@ -361,7 +361,7 @@ where
             InstructionType::RTL => self.op_rtl(),
             InstructionType::BRK => self.op_swint(instr, 0x00FFE6),
             InstructionType::COP => self.op_swint(instr, 0x00FFE4),
-
+            InstructionType::RTI => self.op_rti(),
             _ => todo!(),
         }
     }
@@ -1393,5 +1393,21 @@ where
         );
 
         self.call_int_vector(vector_addr)
+    }
+
+    /// RTI - ReTurn from Interrupt
+    fn op_rti(&mut self) -> Result<()> {
+        // Internal cycles
+        self.tick_bus(2)?;
+
+        let p = self.pull8();
+        let pc = self.pull16();
+        let k = self.pull8();
+
+        self.regs.write(Register::P, p.into());
+        self.regs.write(Register::K, k.into());
+        self.regs.write(Register::PC, pc);
+
+        Ok(())
     }
 }
