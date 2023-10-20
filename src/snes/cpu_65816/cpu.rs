@@ -358,6 +358,11 @@ where
             InstructionType::RTI => self.op_rti(),
             InstructionType::STP => panic!("STP encountered"),
             InstructionType::WAI => todo!(),
+            InstructionType::PEI => self.op_push(instr),
+            InstructionType::PEA => self.op_push_imm(instr),
+            InstructionType::PER => self.op_push_addr(instr),
+
+            InstructionType::Undefined => panic!("Undefined instruction encountered"),
             _ => todo!(),
         }
     }
@@ -1450,5 +1455,26 @@ where
         } else {
             Ok(self.push16(self.regs.read(reg)))
         }
+    }
+
+    /// Instructions that push a dereferenced address to the stack
+    fn op_push(&mut self, instr: &Instruction) -> Result<()> {
+        let addr = self.resolve_address(instr, false, false)?;
+        let value = self.read16_tick_a16(addr);
+
+        Ok(self.push16(value as u16))
+    }
+
+    /// Instructions that push an immediate value to the stack
+    fn op_push_imm(&mut self, instr: &Instruction) -> Result<()> {
+        Ok(self.push16(instr.imm::<u16>()?))
+    }
+
+    /// Instructions that push an address to the stack
+    fn op_push_addr(&mut self, instr: &Instruction) -> Result<()> {
+        let addr = self.resolve_address(instr, false, false)?;
+
+        self.tick_bus(1)?;
+        Ok(self.push16(addr as u16))
     }
 }

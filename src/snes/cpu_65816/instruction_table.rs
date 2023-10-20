@@ -483,12 +483,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     ),
     // 0x62 - PER LABEL
     // ........, 3 bytes, 6 cycles
-    instr!(
-        "PER @",
-        AddressingMode::Immediate16,
-        InstructionType::PER,
-        3
-    ),
+    instr!("PER @", AddressingMode::Relative16, InstructionType::PER, 3),
     // 0x63 - ADC $32,S
     // mm....mm, 2 bytes, 5-m cycles
     instr!("ADC @,S", AddressingMode::StackS, InstructionType::ADC, 2),
