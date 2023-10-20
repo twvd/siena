@@ -361,9 +361,10 @@ where
             InstructionType::PEI => self.op_push(instr),
             InstructionType::PEA => self.op_push_imm(instr),
             InstructionType::PER => self.op_push_addr(instr),
+            InstructionType::MVN => self.op_move(instr, false),
+            InstructionType::MVP => self.op_move(instr, true),
 
             InstructionType::Undefined => panic!("Undefined instruction encountered"),
-            _ => todo!(),
         }
     }
 
@@ -1476,5 +1477,51 @@ where
 
         self.tick_bus(1)?;
         Ok(self.push16(addr as u16))
+    }
+
+    /// MVN/MVP - Move Negative/Positive
+    fn op_move(&mut self, instr: &Instruction, up: bool) -> Result<()> {
+        let (src_bank, dst_bank) = instr.imm_srcdest::<u8>()?;
+
+        let bytes_left = self.regs.read(Register::C);
+
+        let src_addr = Address::from(match (self.regs.test_flag(Flag::X), up) {
+            (false, false) => self.regs.read_inc(Register::X),
+            (false, true) => self.regs.read_dec(Register::X),
+            (true, true) => self.regs.read_dec(Register::XL),
+            (true, false) => self.regs.read_inc(Register::XL),
+        });
+        let dest_addr = Address::from(match (self.regs.test_flag(Flag::X), up) {
+            (false, false) => self.regs.read_inc(Register::Y),
+            (false, true) => self.regs.read_dec(Register::Y),
+            (true, true) => self.regs.read_dec(Register::YL),
+            (true, false) => self.regs.read_inc(Register::YL),
+        });
+
+        let src = Address::from(src_bank) << 16 | src_addr;
+        let dest = Address::from(dst_bank) << 16 | dest_addr;
+
+        let b = self.read_tick(src);
+        self.write_tick(dest, b);
+
+        self.regs.write(Register::DBR, dst_bank.into());
+        self.regs.write(Register::C, bytes_left.wrapping_sub(1));
+
+        // Internal cycles
+        self.tick_bus(2)?;
+
+        if bytes_left != 0 {
+            // To make this interruptable, simply rewind PC so the
+            // same instruction is executed again until the process
+            // is done.
+            self.regs.write(
+                Register::PC,
+                self.regs
+                    .read(Register::PC)
+                    .wrapping_sub(instr.def.len as u16),
+            );
+        }
+
+        Ok(())
     }
 }

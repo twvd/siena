@@ -9,7 +9,7 @@ use crate::snes::cpu_65816::cpu::Cpu65816;
 use crate::snes::cpu_65816::regs::RegisterFile;
 
 macro_rules! _cpu_test {
-    ($testfn:ident, $instr:expr, $trace:expr) => {
+    ($testfn:ident, $instr:expr, $trace:expr, $steps:expr) => {
         #[test]
         fn $testfn() {
             assert_eq!(stringify!($testfn), format!("instr_{:02x}", $instr));
@@ -22,7 +22,7 @@ macro_rules! _cpu_test {
                 serde_json::from_str(fs::read_to_string(filename).unwrap().as_str()).unwrap();
 
             for testcase in testcases.as_array().unwrap() {
-                run_testcase(testcase, $trace);
+                run_testcase(testcase, $trace, $steps);
             }
         }
     };
@@ -30,13 +30,19 @@ macro_rules! _cpu_test {
 
 macro_rules! cpu_test {
     ($testfn:ident, $instr:expr) => {
-        _cpu_test!($testfn, $instr, true);
+        _cpu_test!($testfn, $instr, true, false);
+    };
+}
+
+macro_rules! cpu_test_steps {
+    ($testfn:ident, $instr:expr) => {
+        _cpu_test!($testfn, $instr, true, true);
     };
 }
 
 macro_rules! cpu_test_no_trace {
     ($testfn:ident, $instr:expr) => {
-        _cpu_test!($testfn, $instr, false);
+        _cpu_test!($testfn, $instr, false, false);
     };
 }
 
@@ -70,11 +76,13 @@ fn parse_ram(v: &Value) -> HashMap<Address, u8> {
     }))
 }
 
-fn run_testcase(testcase: &Value, check_trace: bool) {
+fn run_testcase(testcase: &Value, check_trace: bool, multi_steps: bool) {
     let regs_initial = parse_regs(&testcase["initial"]);
     let regs_final = parse_regs(&testcase["final"]);
     let ram_initial = parse_ram(&testcase["initial"]["ram"]);
     let ram_final = parse_ram(&testcase["final"]["ram"]);
+    let testcase_cycles = testcase["cycles"].as_array().unwrap();
+    let test_cycles = testcase_cycles.len();
 
     let mut bus = Testbus::new();
     for (addr, val) in ram_initial {
@@ -86,12 +94,24 @@ fn run_testcase(testcase: &Value, check_trace: bool) {
     cpu.bus.reset_trace();
 
     cpu.step().unwrap();
+    let per_step = cpu.cycles;
+    // Keep stepping until we reach a consistent state for
+    // instructions that are executed multiple times for some
+    // test cases (MVN/MVP).
+    while multi_steps && (cpu.cycles + per_step) <= test_cycles {
+        cpu.step().unwrap();
+    }
 
     // Extract the bus trace now so we don't record the
     // verification later.
     let bus = std::mem::replace(&mut cpu.bus, Testbus::new());
     let bus_trace = bus.get_trace();
 
+    if multi_steps {
+        // Ignore PC for instructions that run in multiple steps
+        // (MVN, MVP).
+        cpu.regs.pc = regs_final.pc;
+    }
     if cpu.regs != regs_final {
         dbg!(testcase);
         println!("Initial: {}", regs_initial);
@@ -112,9 +132,7 @@ fn run_testcase(testcase: &Value, check_trace: bool) {
         }
     }
 
-    let testcase_cycles = testcase["cycles"].as_array().unwrap();
-    let test_cycles = testcase_cycles.len();
-    if cpu.cycles != test_cycles {
+    if !multi_steps && cpu.cycles != test_cycles {
         dbg!(&testcase);
         dbg_hex!(&bus_trace);
         println!("{}", cpu.dump_state());
@@ -224,7 +242,7 @@ cpu_test!(instr_40, 0x40);
 cpu_test!(instr_41, 0x41);
 cpu_test!(instr_42, 0x42);
 cpu_test!(instr_43, 0x43);
-//cpu_test!(instr_44, 0x44);
+cpu_test_steps!(instr_44, 0x44);
 cpu_test!(instr_45, 0x45);
 cpu_test!(instr_46, 0x46);
 cpu_test!(instr_47, 0x47);
@@ -240,7 +258,7 @@ cpu_test!(instr_50, 0x50);
 cpu_test!(instr_51, 0x51);
 cpu_test!(instr_52, 0x52);
 cpu_test!(instr_53, 0x53);
-//cpu_test!(instr_54, 0x54);
+cpu_test_steps!(instr_54, 0x54);
 cpu_test!(instr_55, 0x55);
 cpu_test!(instr_56, 0x56);
 cpu_test!(instr_57, 0x57);
@@ -277,7 +295,7 @@ cpu_test!(instr_75, 0x75);
 cpu_test!(instr_76, 0x76);
 cpu_test!(instr_77, 0x77);
 cpu_test!(instr_78, 0x78);
-//cpu_test!(instr_79, 0x79);
+cpu_test!(instr_79, 0x79);
 cpu_test!(instr_7a, 0x7a);
 cpu_test!(instr_7b, 0x7b);
 cpu_test!(instr_7c, 0x7c);

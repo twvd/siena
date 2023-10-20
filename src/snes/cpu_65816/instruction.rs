@@ -285,7 +285,7 @@ impl Instruction {
         let mut immediate = [0; 2];
         match def.mode {
             AddressingMode::SrcDest => {
-                immediate[0] = args[0] as u32;
+                immediate[0] = args[1] as u32;
                 immediate[1] = args[0] as u32;
             }
             _ => immediate[0] = u32::from_le_bytes(args),
@@ -307,7 +307,17 @@ impl Instruction {
     {
         assert_ne!(self.def.mode, AddressingMode::SrcDest);
         assert_ne!(self.def.mode, AddressingMode::Implied);
+        assert_ne!(self.def.mode, AddressingMode::Accumulator);
         Ok(self.immediate[0].try_into()?)
+    }
+
+    /// Reads the immediate value for src/dest addressing mode.
+    pub fn imm_srcdest<T: std::convert::TryFrom<u32>>(&self) -> Result<(T, T)>
+    where
+        anyhow::Error: From<T::Error>,
+    {
+        assert_eq!(self.def.mode, AddressingMode::SrcDest);
+        Ok((self.immediate[0].try_into()?, self.immediate[1].try_into()?))
     }
 }
 
