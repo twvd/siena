@@ -23,7 +23,7 @@ pub struct TraceEntry {
 pub struct Testbus {
     mem: Box<[u8]>,
     trace: RefCell<Vec<TraceEntry>>,
-    cycles: usize,
+    pub cycles: usize,
     trace_enabled: bool,
 }
 

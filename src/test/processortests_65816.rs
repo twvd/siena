@@ -89,22 +89,21 @@ fn run_testcase(testcase: &Value, check_trace: bool, multi_steps: bool) {
         bus.write(addr, val);
     }
 
-    let mut cpu = Cpu65816::<Testbus>::new(bus, 0);
+    let mut cpu = Cpu65816::<Testbus>::new(0);
     cpu.regs = regs_initial.clone();
-    cpu.bus.reset_trace();
+    bus.reset_trace();
 
-    cpu.step().unwrap();
-    let per_step = cpu.cycles;
+    cpu.step(&mut bus).unwrap();
+    let per_step = bus.cycles;
     // Keep stepping until we reach a consistent state for
     // instructions that are executed multiple times for some
     // test cases (MVN/MVP).
-    while multi_steps && (cpu.cycles + per_step) <= test_cycles {
-        cpu.step().unwrap();
+    while multi_steps && (bus.cycles + per_step) <= test_cycles {
+        cpu.step(&mut bus).unwrap();
     }
 
     // Extract the bus trace now so we don't record the
     // verification later.
-    let bus = std::mem::replace(&mut cpu.bus, Testbus::new());
     let bus_trace = bus.get_trace();
 
     if multi_steps {
@@ -132,11 +131,11 @@ fn run_testcase(testcase: &Value, check_trace: bool, multi_steps: bool) {
         }
     }
 
-    if !multi_steps && cpu.cycles != test_cycles {
+    if !multi_steps && bus.cycles != test_cycles {
         dbg!(&testcase);
         dbg_hex!(&bus_trace);
-        println!("{}", cpu.dump_state());
-        panic!("Saw {} cycles, should be {}", cpu.cycles, test_cycles);
+        println!("{}", cpu.dump_state(&bus));
+        panic!("Saw {} cycles, should be {}", bus.cycles, test_cycles);
     }
 
     if !check_trace {
