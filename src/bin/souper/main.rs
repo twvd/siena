@@ -1,11 +1,10 @@
-use std::env;
 use std::fs;
 use std::io::{stdin, Read};
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use clap::Parser;
 
-use souper::snes::bus::mainbus::Mainbus;
+use souper::snes::bus::mainbus::{BusTrace, Mainbus};
 use souper::snes::bus::BusMember;
 use souper::snes::cpu_65816::cpu::Cpu65816;
 
@@ -25,6 +24,18 @@ struct Args {
     /// Print CPU state after each instruction
     #[arg(short, long)]
     verbose: bool,
+
+    /// Bus trace mode
+    #[arg(
+        long,
+        require_equals = true,
+        value_name = "MODE",
+        num_args = 0..=1,
+        default_value_t = BusTrace::None,
+        default_missing_value = "none",
+        value_enum
+    )]
+    bustrace: BusTrace,
 }
 
 fn main() -> Result<()> {
@@ -32,7 +43,7 @@ fn main() -> Result<()> {
 
     let f = fs::read(args.filename)?;
 
-    let bus = Mainbus::new(&f);
+    let bus = Mainbus::new(&f, args.bustrace);
 
     let reset = bus.read16(0xFFFC);
     let mut cpu = Cpu65816::<Mainbus>::new(bus, reset);
