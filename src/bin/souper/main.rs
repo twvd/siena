@@ -4,7 +4,7 @@ use std::io::{stdin, Read};
 
 use anyhow::{bail, Result};
 
-use souper::snes::bus::testbus::Testbus;
+use souper::snes::bus::mainbus::Mainbus;
 use souper::snes::bus::BusMember;
 use souper::snes::cpu_65816::cpu::Cpu65816;
 
@@ -17,12 +17,10 @@ fn main() -> Result<()> {
 
     let f = fs::read(&args[1])?;
 
-    let mut bus = Testbus::new();
+    let bus = Mainbus::new(&f);
 
-    bus.write_slice(&f[0x200..], 0x8000);
     let reset = bus.read16(0xFFFC);
-
-    let mut cpu = Cpu65816::<Testbus>::new(bus, reset);
+    let mut cpu = Cpu65816::<Mainbus>::new(bus, reset);
 
     loop {
         println!("{}", cpu.dump_state());

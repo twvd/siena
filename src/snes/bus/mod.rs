@@ -1,6 +1,6 @@
+pub mod mainbus;
 pub mod testbus;
 
-use downcast_rs::{impl_downcast, Downcast};
 use std::fmt;
 
 use crate::tickable::Tickable;
@@ -64,8 +64,7 @@ pub trait BusMember {
     }
 }
 
-pub trait Bus: BusMember + fmt::Display + Tickable + Downcast {}
-impl_downcast!(Bus);
+pub trait Bus: BusMember + Tickable {}
 
 impl core::fmt::Debug for dyn Bus {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
