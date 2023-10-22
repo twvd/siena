@@ -22,13 +22,13 @@ fn main() -> Result<()> {
     bus.write_slice(&f[0x200..], 0x8000);
     let reset = bus.read16(0xFFFC);
 
-    let mut cpu = Cpu65816::<Testbus>::new(reset);
+    let mut cpu = Cpu65816::<Testbus>::new(bus, reset);
 
     loop {
-        println!("{}", cpu.dump_state(&bus));
+        println!("{}", cpu.dump_state());
 
         let _ = stdin().read(&mut [0u8]).unwrap();
 
-        cpu.step(&mut bus)?;
+        cpu.step()?;
     }
 }

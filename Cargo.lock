@@ -69,6 +69,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f74abed44e4dbc4d0548b565869c66c9c6d6d84011a8c14cee2cacfdada3d60"
 
 [[package]]
+name = "downcast-rs"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
+
+[[package]]
 name = "gimli"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -209,6 +215,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "dbg_hex",
+ "downcast-rs",
  "num-derive",
  "num-traits",
  "serde_json",

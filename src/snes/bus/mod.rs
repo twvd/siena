@@ -1,5 +1,6 @@
 pub mod testbus;
 
+use downcast_rs::{impl_downcast, Downcast};
 use std::fmt;
 
 use crate::tickable::Tickable;
@@ -63,105 +64,8 @@ pub trait BusMember {
     }
 }
 
-pub trait Bus: BusMember + fmt::Display + Tickable {
-    /// Reads a memory location while ticking peripherals
-    /// for the access time.
-    fn read_tick(&mut self, addr: Address) -> u8 {
-        let v = self.read(addr);
-        self.tick(1).unwrap();
-        v
-    }
-
-    /// Reads 16-bits from a memory location while ticking
-    /// peripherals for the access time.
-    /// Address wraps at 16-bits.
-    fn read16_tick_a16(&mut self, addr: Address) -> u16 {
-        let mut v = self.read(addr) as u16;
-        self.tick(1).unwrap();
-        let hi_addr = addr & 0xFFFF0000 | Address::from((addr as u16).wrapping_add(1));
-        v |= (self.read(hi_addr) as u16) << 8;
-        self.tick(1).unwrap();
-        v
-    }
-
-    /// Reads 16-bits from a memory location while ticking
-    /// peripherals for the access time.
-    /// Address wraps at 24-bits.
-    fn read16_tick_a24(&mut self, addr: Address) -> u16 {
-        let mut v = self.read(addr) as u16;
-        self.tick(1).unwrap();
-        let hi_addr = addr.wrapping_add(1);
-        v |= (self.read(hi_addr) as u16) << 8;
-        self.tick(1).unwrap();
-        v
-    }
-
-    /// Reads 24-bits from a memory location while ticking
-    /// peripherals for the access time.
-    /// Address wraps at 16-bits.
-    fn read24_tick_a16(&mut self, addr: Address) -> u32 {
-        let mut v = self.read(addr) as u32;
-        self.tick(1).unwrap();
-        let mid_addr = addr & 0xFFFF0000 | Address::from((addr as u16).wrapping_add(1));
-        v |= (self.read(mid_addr) as u32) << 8;
-        self.tick(1).unwrap();
-        let hi_addr = addr & 0xFFFF0000 | Address::from((addr as u16).wrapping_add(2));
-        v |= (self.read(hi_addr) as u32) << 16;
-        self.tick(1).unwrap();
-        v
-    }
-
-    /// Writes a memory location while ticking peripherals
-    /// for the access time.
-    fn write_tick(&mut self, addr: Address, val: u8) {
-        self.write(addr, val);
-        self.tick(1).unwrap();
-    }
-
-    /// Writes 16-bit (LE) to a memory location while ticking
-    /// peripherals for the access time.
-    /// 16-bit address wrap.
-    fn write16_tick_a16(&mut self, addr: Address, val: u16) {
-        self.write(addr, (val & 0xFF) as u8);
-        self.tick(1).unwrap();
-        let hi_addr = addr & 0xFFFF0000 | Address::from((addr as u16).wrapping_add(1));
-        self.write(hi_addr, (val >> 8) as u8);
-        self.tick(1).unwrap();
-    }
-
-    /// Writes 16-bit (LE) to a memory location while ticking
-    /// peripherals for the access time.
-    /// 16-bit address wrap, descending temporal order.
-    fn write16_tick_a16_desc(&mut self, addr: Address, val: u16) {
-        let hi_addr = addr & 0xFFFF0000 | Address::from((addr as u16).wrapping_add(1));
-        self.write(hi_addr, (val >> 8) as u8);
-        self.tick(1).unwrap();
-        self.write(addr, (val & 0xFF) as u8);
-        self.tick(1).unwrap();
-    }
-
-    /// Writes 16-bit (LE) to a memory location while ticking
-    /// peripherals for the access time.
-    /// 24-bit address wrap.
-    fn write16_tick_a24(&mut self, addr: Address, val: u16) {
-        self.write(addr, (val & 0xFF) as u8);
-        self.tick(1).unwrap();
-        let hi_addr = addr.wrapping_add(1);
-        self.write(hi_addr, (val >> 8) as u8);
-        self.tick(1).unwrap();
-    }
-
-    /// Writes 16-bit (LE) to a memory location while ticking
-    /// peripherals for the access time.
-    /// 24-bit address wrap, descending temporal order.
-    fn write16_tick_a24_desc(&mut self, addr: Address, val: u16) {
-        let hi_addr = addr.wrapping_add(1);
-        self.write(hi_addr, (val >> 8) as u8);
-        self.tick(1).unwrap();
-        self.write(addr, (val & 0xFF) as u8);
-        self.tick(1).unwrap();
-    }
-}
+pub trait Bus: BusMember + fmt::Display + Tickable + Downcast {}
+impl_downcast!(Bus);
 
 impl core::fmt::Debug for dyn Bus {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
