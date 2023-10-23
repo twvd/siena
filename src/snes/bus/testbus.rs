@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use super::{Address, Bus, BusMember, ADDRESS_MASK, ADDRESS_SPACE_SIZE};
+use super::{Address, Bus, ADDRESS_MASK, ADDRESS_SPACE_SIZE};
 use crate::tickable::{Tickable, Ticks};
 
 use std::cell::RefCell;
@@ -54,9 +54,7 @@ impl Testbus {
     }
 }
 
-impl Bus for Testbus {}
-
-impl BusMember for Testbus {
+impl Bus for Testbus {
     fn read(&self, addr: Address) -> u8 {
         assert_eq!(addr & ADDRESS_MASK, addr);
 

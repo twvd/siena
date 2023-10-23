@@ -5,7 +5,7 @@ use anyhow::Result;
 use clap::Parser;
 
 use souper::snes::bus::mainbus::{BusTrace, Mainbus};
-use souper::snes::bus::BusMember;
+use souper::snes::bus::Bus;
 use souper::snes::cpu_65816::cpu::Cpu65816;
 
 #[derive(Parser)]

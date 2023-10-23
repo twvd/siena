@@ -1,6 +1,7 @@
 use anyhow::Result;
 
 use crate::snes::bus::{Address, Bus, BusMember};
+use crate::snes::ppu::PPU;
 use crate::tickable::{Tickable, Ticks};
 
 const WRAM_BANKS: usize = 2;
@@ -19,6 +20,12 @@ pub struct Mainbus {
     cartridge: Vec<u8>,
     wram: Vec<u8>,
     trace: BusTrace,
+
+    /// Picture Processing Unit
+    ppu: PPU,
+
+    /// MEMSEL - Memory-2 Waitstate Control
+    memsel: u8,
 }
 
 impl Mainbus {
@@ -27,13 +34,15 @@ impl Mainbus {
             cartridge: cartridge.to_owned(),
             wram: vec![0; WRAM_SIZE],
             trace,
+
+            ppu: PPU::new(),
+
+            memsel: 0,
         }
     }
 }
 
-impl Bus for Mainbus {}
-
-impl BusMember for Mainbus {
+impl Bus for Mainbus {
     fn read(&self, fulladdr: Address) -> u8 {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
@@ -42,6 +51,15 @@ impl BusMember for Mainbus {
             0x00..=0x3F | 0x80..=0xBF => match addr {
                 // WRAM mirror
                 0x0000..=0x1FFF => Some(self.wram[addr]),
+                // Picture Processing Unit
+                0x2100..=0x213F => self.ppu.read(fulladdr),
+                // MEMSEL - Memory-2 Waitstate Control
+                0x420D => Some(self.memsel),
+                // RDNMI - V-Blank NMI Flag and CPU Version Number
+                0x4210 => {
+                    // TODO actual NMI flag
+                    Some(0x80 | 2)
+                }
                 // WS1 LoROM
                 0x8000..=0xFFFF => Some(self.cartridge[addr - 0x8000 + bank * 0x8000]),
 
@@ -76,6 +94,11 @@ impl BusMember for Mainbus {
             0x00..=0x3F | 0x80..=0xBF => match addr {
                 // WRAM mirror
                 0x0000..=0x1FFF => Some(self.wram[addr] = val),
+                // Picture Processing Unit
+                0x2100..=0x213F => self.ppu.write(fulladdr, val),
+                // MEMSEL - Memory-2 Waitstate Control
+                0x420D => Some(self.memsel = val),
+
                 _ => None,
             },
             // Full WRAM area

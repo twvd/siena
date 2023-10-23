@@ -1,8 +1,6 @@
 pub mod mainbus;
 pub mod testbus;
 
-use std::fmt;
-
 use crate::tickable::Tickable;
 
 /// Address data type (actually 24-bit)
@@ -16,6 +14,11 @@ pub const ADDRESS_SPACE_SIZE: usize = 16 * 1024 * 1024;
 pub const ADDRESS_SPACE: u32 = 16 * 1024 * 1024;
 
 pub trait BusMember {
+    fn read(&self, addr: Address) -> Option<u8>;
+    fn write(&mut self, addr: Address, val: u8) -> Option<()>;
+}
+
+pub trait Bus: Tickable {
     fn read(&self, addr: Address) -> u8;
     fn write(&mut self, addr: Address, val: u8);
 
@@ -63,8 +66,6 @@ pub trait BusMember {
         l as u16 | (h as u16) << 8
     }
 }
-
-pub trait Bus: BusMember + Tickable {}
 
 impl core::fmt::Debug for dyn Bus {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {

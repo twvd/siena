@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::fs;
 
 use crate::snes::bus::testbus::{Access, Testbus};
-use crate::snes::bus::{Address, BusMember};
+use crate::snes::bus::{Address, Bus};
 use crate::snes::cpu_65816::cpu::Cpu65816;
 use crate::snes::cpu_65816::regs::RegisterFile;
 
