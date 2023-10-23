@@ -16,6 +16,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Install prerequisites
+      run: sudo apt-get -y install libsdl2-dev
     - name: Fetch submodules
       run: git submodule update --init --recursive
     - name: Checkout souper_tests

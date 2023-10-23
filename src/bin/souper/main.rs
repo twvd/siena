@@ -4,6 +4,8 @@ use std::io::{stdin, Read};
 use anyhow::Result;
 use clap::Parser;
 
+use souper::frontend::sdl::SDLRenderer;
+use souper::frontend::Renderer;
 use souper::snes::bus::mainbus::{BusTrace, Mainbus};
 use souper::snes::bus::Bus;
 use souper::snes::cpu_65816::cpu::Cpu65816;
@@ -48,7 +50,13 @@ fn main() -> Result<()> {
     let reset = bus.read16(0xFFFC);
     let mut cpu = Cpu65816::<Mainbus>::new(bus, reset);
 
+    let mut display = SDLRenderer::new()?;
+
     loop {
+        if !display.poll() {
+            break Ok(());
+        }
+
         if args.verbose {
             println!("{}", cpu.dump_state());
         }

@@ -1,3 +1,4 @@
+pub mod frontend;
 pub mod snes;
 pub mod tickable;
 
