@@ -9,6 +9,10 @@ impl BusMember for PPU {
         match bank {
             // System area
             0x00..=0x3F | 0x80..=0xBF => match addr {
+                // BGMODE - BG Mode and BG Character Size
+                0x2015 => Some(self.bgmode),
+                // BGxSC - BGx Screen Base and Screen Size
+                0x2107..=0x210A => Some(self.bgxsc[addr - 0x2107]),
                 // VMAIN - VRAM Address Increment Mode
                 0x2115 => Some(self.vmain),
                 // VMADDL - VRAM Address (lower 8bit)
@@ -45,6 +49,10 @@ impl BusMember for PPU {
         match bank {
             // System area
             0x00..=0x3F | 0x80..=0xBF => match addr {
+                // BGMODE - BG Mode and BG Character Size
+                0x2015 => Some(self.bgmode = val),
+                // BGxSC - BGx Screen Base and Screen Size
+                0x2107..=0x210A => Some(self.bgxsc[addr - 0x2107] = val),
                 // VMAIN - VRAM Address Increment Mode
                 0x2115 => Some(self.vmain = val),
                 // VMADDL - VRAM Address (lower 8bit)

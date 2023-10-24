@@ -21,6 +21,9 @@ pub struct PPU {
     vram: Vec<VramWord>,
     vmadd: Cell<u16>,
     vmain: u8,
+
+    bgmode: u8,
+    bgxsc: [u8; 4],
 }
 
 impl PPU {
@@ -29,6 +32,8 @@ impl PPU {
             vram: vec![0; VRAM_WORDS * VRAM_WORDSIZE],
             vmadd: Cell::new(0),
             vmain: 0,
+            bgmode: 0,
+            bgxsc: [0, 0, 0, 0],
         }
     }
 
@@ -58,5 +63,10 @@ impl PPU {
             1..=3 => todo!(),
             _ => unreachable!(),
         }
+    }
+
+    fn get_bg_map_addr(&self, bg: usize) -> usize {
+        assert!((0..4).contains(&bg));
+        (self.bgxsc[bg] >> 2) as usize * 2
     }
 }
