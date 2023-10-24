@@ -50,7 +50,7 @@ fn main() -> Result<()> {
     let reset = bus.read16(0xFFFC);
     let mut cpu = Cpu65816::<Mainbus>::new(bus, reset);
 
-    let mut display = SDLRenderer::new()?;
+    let mut display = SDLRenderer::new(512, 448)?;
 
     loop {
         if !display.poll() {
