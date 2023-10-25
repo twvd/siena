@@ -9,7 +9,7 @@ use souper::frontend::Renderer;
 use souper::snes::bus::mainbus::{BusTrace, Mainbus};
 use souper::snes::bus::Bus;
 use souper::snes::cpu_65816::cpu::Cpu65816;
-use souper::snes::ppu::PPU;
+use souper::snes::ppu::{PPU, SCREEN_HEIGHT, SCREEN_WIDTH};
 
 #[derive(Parser)]
 #[command(
@@ -46,7 +46,7 @@ fn main() -> Result<()> {
 
     let f = fs::read(args.filename)?;
 
-    let display = SDLRenderer::new(512, 448)?;
+    let display = SDLRenderer::new(SCREEN_WIDTH, SCREEN_HEIGHT)?;
     let ppu = PPU::<SDLRenderer>::new(display);
 
     let bus = Mainbus::new(&f, args.bustrace, ppu);

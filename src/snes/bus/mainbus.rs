@@ -121,6 +121,7 @@ impl Bus for Mainbus {
 
 impl Tickable for Mainbus {
     fn tick(&mut self, ticks: Ticks) -> Result<()> {
+        self.ppu.tick(ticks)?;
         Ok(())
     }
 }

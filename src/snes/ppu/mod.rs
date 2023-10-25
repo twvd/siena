@@ -6,7 +6,13 @@ pub mod tests;
 
 use std::cell::Cell;
 
+use anyhow::Result;
+
 use crate::frontend::Renderer;
+use crate::tickable::{Tickable, Ticks};
+
+pub const SCREEN_WIDTH: usize = 340;
+pub const SCREEN_HEIGHT: usize = 240;
 
 type VramWord = u16;
 const VRAM_WORDS: usize = 32 * 1024;
@@ -22,6 +28,9 @@ const VMAIN_TRANSLATE_SHIFT: u8 = 2;
 
 pub struct PPU<TRenderer: Renderer> {
     renderer: TRenderer,
+    cycles: usize,
+    last_scanline: usize,
+    intreq_vblank: bool,
 
     vram: Vec<VramWord>,
     vmadd: Cell<u16>,
@@ -35,9 +44,16 @@ impl<TRenderer> PPU<TRenderer>
 where
     TRenderer: Renderer,
 {
+    const CYCLES_PER_SCANLINE: usize = 1364;
+    const SCANLINES_PER_FRAME: usize = 262;
+    const VBLANK_START: usize = 0xE1;
+
     pub fn new(renderer: TRenderer) -> Self {
         Self {
             renderer,
+            cycles: 0,
+            last_scanline: 0,
+            intreq_vblank: false,
 
             vram: vec![0; VRAM_WORDS * VRAM_WORDSIZE],
             vmadd: Cell::new(0),
@@ -78,5 +94,36 @@ where
     fn get_bg_map_addr(&self, bg: usize) -> usize {
         assert!((0..4).contains(&bg));
         (self.bgxsc[bg] >> 2) as usize * 2
+    }
+
+    fn get_current_scanline(&self) -> usize {
+        self.cycles / Self::CYCLES_PER_SCANLINE
+    }
+
+    fn in_vblank(&self) -> bool {
+        self.last_scanline >= Self::VBLANK_START
+    }
+}
+
+impl<TRenderer> Tickable for PPU<TRenderer>
+where
+    TRenderer: Renderer,
+{
+    fn tick(&mut self, ticks: Ticks) -> Result<()> {
+        self.cycles =
+            (self.cycles + ticks) % (Self::CYCLES_PER_SCANLINE * Self::SCANLINES_PER_FRAME);
+
+        if self.get_current_scanline() != self.last_scanline && !self.in_vblank() {
+            self.render_scanline(self.last_scanline);
+            self.last_scanline = self.get_current_scanline();
+
+            if self.in_vblank() {
+                // Entered VBlank
+                self.intreq_vblank = true;
+                self.renderer.update()?;
+            }
+        }
+
+        Ok(())
     }
 }
