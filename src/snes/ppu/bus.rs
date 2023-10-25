@@ -1,8 +1,12 @@
 use super::{PPU, VRAM_ADDRMASK};
 
+use crate::frontend::Renderer;
 use crate::snes::bus::{Address, BusMember};
 
-impl BusMember for PPU {
+impl<TRenderer> BusMember for PPU<TRenderer>
+where
+    TRenderer: Renderer,
+{
     fn read(&self, fulladdr: Address) -> Option<u8> {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 

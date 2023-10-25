@@ -1,5 +1,6 @@
 use anyhow::Result;
 
+use crate::frontend::sdl::SDLRenderer;
 use crate::snes::bus::{Address, Bus, BusMember};
 use crate::snes::ppu::PPU;
 use crate::tickable::{Tickable, Ticks};
@@ -22,20 +23,20 @@ pub struct Mainbus {
     trace: BusTrace,
 
     /// Picture Processing Unit
-    ppu: PPU,
+    ppu: PPU<SDLRenderer>,
 
     /// MEMSEL - Memory-2 Waitstate Control
     memsel: u8,
 }
 
 impl Mainbus {
-    pub fn new(cartridge: &[u8], trace: BusTrace) -> Self {
+    pub fn new(cartridge: &[u8], trace: BusTrace, ppu: PPU<SDLRenderer>) -> Self {
         Self {
             cartridge: cartridge.to_owned(),
             wram: vec![0; WRAM_SIZE],
             trace,
 
-            ppu: PPU::new(),
+            ppu,
 
             memsel: 0,
         }

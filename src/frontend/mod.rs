@@ -20,3 +20,20 @@ pub trait Renderer {
     /// TODO move to input component
     fn poll(&mut self) -> bool;
 }
+
+pub struct NullRenderer {}
+impl Renderer for NullRenderer {
+    fn new(_width: usize, _height: usize) -> Result<Self> {
+        Ok(Self {})
+    }
+
+    fn set_pixel(&mut self, _x: usize, _y: usize, _color: Color) {}
+
+    fn update(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    fn poll(&mut self) -> bool {
+        true
+    }
+}

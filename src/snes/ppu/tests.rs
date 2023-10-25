@@ -1,10 +1,15 @@
+use crate::frontend::NullRenderer;
 use crate::snes::bus::BusMember;
 
 use super::*;
 
+fn ppu() -> PPU<NullRenderer> {
+    PPU::<NullRenderer>::new(NullRenderer::new(0, 0).unwrap())
+}
+
 #[test]
 fn vram_write_inc_low() {
-    let mut p = PPU::new();
+    let mut p = ppu();
     p.write(0x2116, 0x34); // VMADDH
     p.write(0x2117, 0x12); // VMADDL
     p.write(0x2115, 0x00); // VMAIN - low 1 word
@@ -27,7 +32,7 @@ fn vram_write_inc_low() {
 
 #[test]
 fn vram_write_inc_high() {
-    let mut p = PPU::new();
+    let mut p = ppu();
     p.write(0x2116, 0x34); // VMADDH
     p.write(0x2117, 0x12); // VMADDL
     p.write(0x2115, 0x80); // VMAIN - high 1 word
@@ -50,7 +55,7 @@ fn vram_write_inc_high() {
 
 #[test]
 fn vram_write_inc_thirtytwo() {
-    let mut p = PPU::new();
+    let mut p = ppu();
     p.write(0x2116, 0x34); // VMADDH
     p.write(0x2117, 0x12); // VMADDL
     p.write(0x2115, 0x01); // VMAIN - low 32 words
@@ -76,7 +81,7 @@ fn vram_write_inc_thirtytwo() {
 
 #[test]
 fn vram_write_inc_hundredtwentyeight() {
-    let mut p = PPU::new();
+    let mut p = ppu();
     p.write(0x2116, 0x34); // VMADDH
     p.write(0x2117, 0x12); // VMADDL
     p.write(0x2115, 0x02); // VMAIN - low 128 words

@@ -9,6 +9,7 @@ use souper::frontend::Renderer;
 use souper::snes::bus::mainbus::{BusTrace, Mainbus};
 use souper::snes::bus::Bus;
 use souper::snes::cpu_65816::cpu::Cpu65816;
+use souper::snes::ppu::PPU;
 
 #[derive(Parser)]
 #[command(
@@ -45,18 +46,15 @@ fn main() -> Result<()> {
 
     let f = fs::read(args.filename)?;
 
-    let bus = Mainbus::new(&f, args.bustrace);
+    let display = SDLRenderer::new(512, 448)?;
+    let ppu = PPU::<SDLRenderer>::new(display);
+
+    let bus = Mainbus::new(&f, args.bustrace, ppu);
 
     let reset = bus.read16(0xFFFC);
     let mut cpu = Cpu65816::<Mainbus>::new(bus, reset);
 
-    let mut display = SDLRenderer::new(512, 448)?;
-
     loop {
-        if !display.poll() {
-            break Ok(());
-        }
-
         if args.verbose {
             println!("{}", cpu.dump_state());
         }

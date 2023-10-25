@@ -1,9 +1,12 @@
 pub mod bus;
+pub mod render;
 
 #[cfg(test)]
 pub mod tests;
 
 use std::cell::Cell;
+
+use crate::frontend::Renderer;
 
 type VramWord = u16;
 const VRAM_WORDS: usize = 32 * 1024;
@@ -17,7 +20,9 @@ const VMAIN_INC_MASK: u8 = 0x03;
 const VMAIN_TRANSLATE_MASK: u8 = 0x03;
 const VMAIN_TRANSLATE_SHIFT: u8 = 2;
 
-pub struct PPU {
+pub struct PPU<TRenderer: Renderer> {
+    renderer: TRenderer,
+
     vram: Vec<VramWord>,
     vmadd: Cell<u16>,
     vmain: u8,
@@ -26,9 +31,14 @@ pub struct PPU {
     bgxsc: [u8; 4],
 }
 
-impl PPU {
-    pub fn new() -> Self {
+impl<TRenderer> PPU<TRenderer>
+where
+    TRenderer: Renderer,
+{
+    pub fn new(renderer: TRenderer) -> Self {
         Self {
+            renderer,
+
             vram: vec![0; VRAM_WORDS * VRAM_WORDSIZE],
             vmadd: Cell::new(0),
             vmain: 0,
