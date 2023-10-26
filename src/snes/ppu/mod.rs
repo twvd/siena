@@ -26,11 +26,35 @@ const VMAIN_INC_MASK: u8 = 0x03;
 const VMAIN_TRANSLATE_MASK: u8 = 0x03;
 const VMAIN_TRANSLATE_SHIFT: u8 = 2;
 
+pub struct TilemapEntry(u16);
+impl TilemapEntry {
+    fn charnr(&self) -> u16 {
+        self.0 & 0x1F
+    }
+
+    fn palettenr(&self) -> u8 {
+        ((self.0 >> 10) & 0x07) as u8
+    }
+
+    fn bgprio(&self) -> bool {
+        (self.0 & (1 << 13)) != 0
+    }
+
+    fn flip_x(&self) -> bool {
+        (self.0 & (1 << 14)) != 0
+    }
+
+    fn flip_y(&self) -> bool {
+        (self.0 & (1 << 15)) != 0
+    }
+}
+
 pub struct PPU<TRenderer: Renderer> {
     renderer: TRenderer,
     cycles: usize,
     last_scanline: usize,
     intreq_vblank: bool,
+    vblank: bool,
 
     vram: Vec<VramWord>,
     vmadd: Cell<u16>,
@@ -54,8 +78,9 @@ where
             cycles: 0,
             last_scanline: 0,
             intreq_vblank: false,
+            vblank: false,
 
-            vram: vec![0; VRAM_WORDS * VRAM_WORDSIZE],
+            vram: vec![0; VRAM_WORDS],
             vmadd: Cell::new(0),
             vmain: 0,
             bgmode: 0,
@@ -93,14 +118,50 @@ where
 
     fn get_bg_map_addr(&self, bg: usize) -> usize {
         assert!((0..4).contains(&bg));
-        (self.bgxsc[bg] >> 2) as usize * 2
+        (self.bgxsc[bg] >> 2) as usize * 1024
+    }
+
+    fn get_tilemap_offset(&self, bg: usize, tileidx: usize) -> usize {
+        // Each map entry is one word.
+        let map_addr = self.get_bg_map_addr(bg);
+        (map_addr + tileidx) & VRAM_ADDRMASK
+    }
+
+    fn get_tilemap_entry(&self, bg: usize, tileidx: usize) -> TilemapEntry {
+        TilemapEntry(self.vram[self.get_tilemap_offset(bg, tileidx)])
+    }
+
+    fn get_screen_mode(&self) -> u8 {
+        self.bgmode & 0x07
+    }
+
+    fn get_tilemap_entry_xy(&self, bg: usize, x: usize, y: usize) -> TilemapEntry {
+        // TODO scrolling
+
+        match self.get_screen_mode() {
+            0 => {
+                if !self.is_layer_16x16(bg) {
+                    let tm_x = x / 8;
+                    let tm_y = (y.rem_euclid(32 * 8) / 8);
+                    self.get_tilemap_entry(bg, tm_x + (tm_y * 32))
+                } else {
+                    todo!()
+                }
+            }
+            _ => todo!(),
+        }
+    }
+
+    fn is_layer_16x16(&self, bg: usize) -> bool {
+        assert!((0..4).contains(&bg));
+        self.bgmode & (1 << (7 - bg)) != 0
     }
 
     fn get_current_scanline(&self) -> usize {
         self.cycles / Self::CYCLES_PER_SCANLINE
     }
 
-    fn in_vblank(&self) -> bool {
+    pub fn in_vblank(&self) -> bool {
         self.last_scanline >= Self::VBLANK_START
     }
 }
@@ -113,14 +174,17 @@ where
         self.cycles =
             (self.cycles + ticks) % (Self::CYCLES_PER_SCANLINE * Self::SCANLINES_PER_FRAME);
 
-        if self.get_current_scanline() != self.last_scanline && !self.in_vblank() {
-            self.render_scanline(self.last_scanline);
+        if self.get_current_scanline() != self.last_scanline {
             self.last_scanline = self.get_current_scanline();
 
-            if self.in_vblank() {
+            if !self.vblank && self.in_vblank() {
                 // Entered VBlank
+                self.vblank = true;
                 self.intreq_vblank = true;
                 self.renderer.update()?;
+            } else {
+                self.vblank = false;
+                self.render_scanline(self.last_scanline);
             }
         }
 

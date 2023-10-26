@@ -58,8 +58,11 @@ impl Bus for Mainbus {
                 0x420D => Some(self.memsel),
                 // RDNMI - V-Blank NMI Flag and CPU Version Number
                 0x4210 => {
-                    // TODO actual NMI flag
-                    Some(0x80 | 2)
+                    if self.ppu.in_vblank() {
+                        Some(0x80 | 2)
+                    } else {
+                        Some(2)
+                    }
                 }
                 // WS1 LoROM
                 0x8000..=0xFFFF => Some(self.cartridge[addr - 0x8000 + bank * 0x8000]),
