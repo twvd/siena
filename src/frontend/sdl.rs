@@ -46,7 +46,7 @@ impl Renderer for SDLRenderer {
             let sdls = cell.borrow_mut();
             let video_subsystem = sdls.context.video().map_err(|e| anyhow!(e))?;
             let window = video_subsystem
-                .window("Souper", width.try_into()?, height.try_into()?)
+                .window("Souper", (width * 3).try_into()?, (height * 3).try_into()?)
                 .position_centered()
                 .build()?;
 
@@ -70,6 +70,9 @@ impl Renderer for SDLRenderer {
 
     /// Updates a sungle pixel in the backbuffer
     fn set_pixel(&mut self, x: usize, y: usize, color: Color) {
+        debug_assert!(x < self.width);
+        debug_assert!(y < self.height);
+
         let idx = ((y * self.width) + x) * Self::BPP;
         self.displaybuffer[idx] = color.2;
         self.displaybuffer[idx + 1] = color.1;

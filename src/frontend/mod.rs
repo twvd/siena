@@ -3,7 +3,7 @@ pub mod sdl;
 use anyhow::Result;
 
 /// RGB888 format
-type Color = (u8, u8, u8);
+pub type Color = (u8, u8, u8);
 
 pub trait Renderer {
     /// Creates a new renderer with a screen of the given size

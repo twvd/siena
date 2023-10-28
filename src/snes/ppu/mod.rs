@@ -7,12 +7,14 @@ pub mod tests;
 use std::cell::Cell;
 
 use anyhow::Result;
+use num_derive::ToPrimitive;
+use num_traits::ToPrimitive;
 
 use crate::frontend::Renderer;
 use crate::tickable::{Tickable, Ticks};
 
-pub const SCREEN_WIDTH: usize = 340;
-pub const SCREEN_HEIGHT: usize = 240;
+pub const SCREEN_WIDTH: usize = 8 * 32;
+pub const SCREEN_HEIGHT: usize = 8 * 32;
 
 type VramWord = u16;
 const VRAM_WORDS: usize = 32 * 1024;
@@ -29,7 +31,7 @@ const VMAIN_TRANSLATE_SHIFT: u8 = 2;
 pub struct TilemapEntry(u16);
 impl TilemapEntry {
     fn charnr(&self) -> u16 {
-        self.0 & 0x1F
+        self.0 & 0x1FF
     }
 
     fn palettenr(&self) -> u8 {
@@ -49,6 +51,14 @@ impl TilemapEntry {
     }
 }
 
+#[derive(ToPrimitive)]
+pub enum BPP {
+    // BPP == number of bitplanes
+    Two = 2,   // 4 colors
+    Four = 4,  // 16 colors
+    Eight = 8, // 256 colors
+}
+
 pub struct PPU<TRenderer: Renderer> {
     renderer: TRenderer,
     cycles: usize,
@@ -62,6 +72,29 @@ pub struct PPU<TRenderer: Renderer> {
 
     bgmode: u8,
     bgxsc: [u8; 4],
+    bgxnba: [u8; 4],
+}
+
+pub struct Tile<'a> {
+    data: &'a [u16],
+    bpp: BPP,
+}
+impl<'a> Tile<'a> {
+    pub fn get_coloridx(&self, x: usize, y: usize) -> u8 {
+        let mut result = 0;
+        let bitplanes = self.bpp.to_usize().unwrap();
+        let bitp_w = bitplanes / VRAM_WORDSIZE;
+
+        for i in 0..bitp_w {
+            if self.data[(y * bitp_w) + i] & (1 << 7 - x) != 0 {
+                result |= 1 << i;
+            }
+            if self.data[(y * bitp_w) + i] & (1 << 15 - x) != 0 {
+                result |= 1 << (i + 1);
+            }
+        }
+        result
+    }
 }
 
 impl<TRenderer> PPU<TRenderer>
@@ -85,6 +118,7 @@ where
             vmain: 0,
             bgmode: 0,
             bgxsc: [0, 0, 0, 0],
+            bgxnba: [0, 0, 0, 0],
         }
     }
 
@@ -142,13 +176,34 @@ where
             0 => {
                 if !self.is_layer_16x16(bg) {
                     let tm_x = x / 8;
-                    let tm_y = (y.rem_euclid(32 * 8) / 8);
+                    let tm_y = y.rem_euclid(32 * 8) / 8;
                     self.get_tilemap_entry(bg, tm_x + (tm_y * 32))
                 } else {
                     todo!()
                 }
             }
             _ => todo!(),
+        }
+    }
+
+    fn get_layer_bpp(&self, bg: usize) -> BPP {
+        match bg {
+            0 => BPP::Two,
+            1 => match bg {
+                0 => BPP::Four,
+                1 => BPP::Four,
+                2 => BPP::Two,
+                _ => todo!(),
+            },
+            _ => todo!(),
+        }
+    }
+
+    fn get_tile(&self, bg: usize, tile: &TilemapEntry) -> Tile {
+        let idx = (self.bgxnba[bg] as usize * 4096) + (tile.charnr() as usize * 8);
+        Tile {
+            data: &self.vram[idx..(idx + 8)],
+            bpp: self.get_layer_bpp(bg),
         }
     }
 
@@ -184,7 +239,9 @@ where
                 self.renderer.update()?;
             } else {
                 self.vblank = false;
-                self.render_scanline(self.last_scanline);
+                if self.last_scanline < SCREEN_HEIGHT {
+                    self.render_scanline(self.last_scanline);
+                }
             }
         }
 

@@ -17,6 +17,8 @@ where
                 0x2015 => Some(self.bgmode),
                 // BGxSC - BGx Screen Base and Screen Size
                 0x2107..=0x210A => Some(self.bgxsc[addr - 0x2107]),
+                // BG12NBA/BG34NBA - BG Character Data Area Designation
+                0x210B..=0x210C => None,
                 // VMAIN - VRAM Address Increment Mode
                 0x2115 => Some(self.vmain),
                 // VMADDL - VRAM Address (lower 8bit)
@@ -57,6 +59,18 @@ where
                 0x2015 => Some(self.bgmode = val),
                 // BGxSC - BGx Screen Base and Screen Size
                 0x2107..=0x210A => Some(self.bgxsc[addr - 0x2107] = val),
+                // BG12NBA - BG Character Data Area Designation
+                0x210B => {
+                    self.bgxnba[0] = val & 0x0F;
+                    self.bgxnba[1] = (val >> 4) & 0x0F;
+                    Some(())
+                }
+                // BG34NBA - BG Character Data Area Designation
+                0x210C => {
+                    self.bgxnba[2] = val & 0x0F;
+                    self.bgxnba[3] = (val >> 4) & 0x0F;
+                    Some(())
+                }
                 // VMAIN - VRAM Address Increment Mode
                 0x2115 => Some(self.vmain = val),
                 // VMADDL - VRAM Address (lower 8bit)
