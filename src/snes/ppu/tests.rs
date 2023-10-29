@@ -104,3 +104,60 @@ fn vram_write_inc_hundredtwentyeight() {
     assert_eq!(p.vram[0x12B5], 0x0000);
     assert_eq!(p.vram[0x1334], 0x0000);
 }
+
+#[test]
+fn cgram_write() {
+    let mut p = ppu();
+    p.write(0x2121, 0); // CGADD
+    p.write(0x2122, 0xAA); // CGDATA
+    assert_eq!(p.cgadd.get(), 0);
+    p.write(0x2122, 0xBB); // CGDATA
+    assert_eq!(p.cgadd.get(), 1);
+    assert_eq!(p.cgram[0], 0xBBAA);
+}
+
+#[test]
+fn cgram_addr_reset_flipflop() {
+    let mut p = ppu();
+    p.write(0x2121, 0); // CGADD
+    p.write(0x2122, 0xAA); // CGDATA
+    p.write(0x2121, 0); // CGADD
+    p.write(0x2122, 0xBB); // CGDATA
+    assert_eq!(p.cgram[0], 0xBB);
+}
+
+#[test]
+fn cgram_write_overflow() {
+    let mut p = ppu();
+    p.write(0x2121, 0xFF); // CGADD
+    p.write(0x2122, 0xAA); // CGDATA
+    p.write(0x2122, 0xBB); // CGDATA
+    p.write(0x2122, 0xCC); // CGDATA
+    p.write(0x2122, 0xDD); // CGDATA
+    assert_eq!(p.cgram[0], 0xDDCC);
+    assert_eq!(p.cgram[0xFF], 0xBBAA);
+}
+
+#[test]
+fn cgram_read() {
+    let mut p = ppu();
+    p.cgram[0] = 0xBBAA;
+    p.cgram[1] = 0xDDCC;
+    p.write(0x2121, 0); // CGADD
+    assert_eq!(p.read(0x213B), Some(0xAA)); // RDCGRAM
+    assert_eq!(p.read(0x213B), Some(0xBB)); // RDCGRAM
+    assert_eq!(p.read(0x213B), Some(0xCC)); // RDCGRAM
+    assert_eq!(p.read(0x213B), Some(0xDD)); // RDCGRAM
+}
+
+#[test]
+fn cgram_read_overflow() {
+    let mut p = ppu();
+    p.cgram[255] = 0xBBAA;
+    p.cgram[0] = 0xDDCC;
+    p.write(0x2121, 0xFF); // CGADD
+    assert_eq!(p.read(0x213B), Some(0xAA)); // RDCGRAM
+    assert_eq!(p.read(0x213B), Some(0xBB)); // RDCGRAM
+    assert_eq!(p.read(0x213B), Some(0xCC)); // RDCGRAM
+    assert_eq!(p.read(0x213B), Some(0xDD)); // RDCGRAM
+}

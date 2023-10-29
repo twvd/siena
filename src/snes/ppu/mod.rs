@@ -22,6 +22,11 @@ const VRAM_WORDSIZE: usize = 2;
 // 32K-words addressable (64KB)
 const VRAM_ADDRMASK: usize = 0x7FFF;
 
+type CgramWord = u16;
+const CGRAM_WORDS: usize = 256;
+const CGRAM_WORDSIZE: usize = 2;
+const CGRAM_ADDRMASK: usize = 0xFF;
+
 // VMAIN bits
 const VMAIN_HIGH: u8 = 1 << 7;
 const VMAIN_INC_MASK: u8 = 0x03;
@@ -70,6 +75,15 @@ pub struct PPU<TRenderer: Renderer> {
     vmadd: Cell<u16>,
     vmain: u8,
 
+    /// Palette RAM (CGRAM)
+    cgram: Vec<CgramWord>,
+
+    /// CGADD register
+    cgadd: Cell<u8>,
+
+    /// MSB/LSB read/write flip-flop for CGRAM
+    cgadd_msb: Cell<bool>,
+
     bgmode: u8,
     bgxsc: [u8; 4],
     bgxnba: [u8; 4],
@@ -116,6 +130,11 @@ where
             vram: vec![0; VRAM_WORDS],
             vmadd: Cell::new(0),
             vmain: 0,
+
+            cgram: vec![0; CGRAM_WORDS],
+            cgadd: Cell::new(0),
+            cgadd_msb: Cell::new(false),
+
             bgmode: 0,
             bgxsc: [0, 0, 0, 0],
             bgxnba: [0, 0, 0, 0],

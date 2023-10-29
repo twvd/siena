@@ -1,4 +1,4 @@
-use super::{PPU, VRAM_ADDRMASK};
+use super::*;
 
 use crate::frontend::Renderer;
 use crate::snes::bus::{Address, BusMember};
@@ -43,6 +43,32 @@ where
                 //    self.vram_autoinc(true);
                 //    v
                 //}
+                // CGADD - Palette CGRAM Address (Color Generator Memory)
+                0x2121 => None,
+                // CGDATA - Palette CGRAM Data Write
+                0x2122 => None,
+                // RDCGRAM - Palette CGRAM Data Read
+                0x213B => {
+                    let addr = self.cgadd.get();
+                    let msb = self.cgadd_msb.get();
+                    let valw = self.cgram[addr as usize];
+                    let valb = if msb {
+                        (valw >> 8) as u8
+                    } else {
+                        (valw & 0xFF) as u8
+                    };
+
+                    if msb {
+                        // Increment address
+                        self.cgadd.set(addr.wrapping_add(1));
+                        self.cgadd_msb.set(false);
+                    } else {
+                        self.cgadd_msb.set(true);
+                    }
+
+                    Some(valb)
+                }
+
                 _ => None,
             },
             _ => None,
@@ -101,6 +127,31 @@ where
                     self.vram_autoinc(true);
                     Some(self.vram[addr] = (cur & 0xFF) | (val as u16) << 8)
                 }
+                // CGADD - Palette CGRAM Address (Color Generator Memory)
+                0x2121 => {
+                    self.cgadd.set(val);
+                    self.cgadd_msb.set(false);
+                    Some(())
+                }
+                // CGDATA - Palette CGRAM Data Write
+                0x2122 => {
+                    let addr = self.cgadd.get();
+                    let msb = self.cgadd_msb.get();
+                    let valw = self.cgram[addr as usize];
+
+                    if msb {
+                        self.cgram[addr as usize] = valw & 0xFF | ((val as CgramWord) << 8);
+
+                        self.cgadd.set(addr.wrapping_add(1));
+                        self.cgadd_msb.set(false);
+                    } else {
+                        self.cgram[addr as usize] = valw & 0xFF00 | val as CgramWord;
+                        self.cgadd_msb.set(true);
+                    }
+                    Some(())
+                }
+                // RDCGRAM - Palette CGRAM Data Read
+                0x213B => None,
 
                 _ => None,
             },
