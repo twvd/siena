@@ -20,12 +20,12 @@ type VramWord = u16;
 const VRAM_WORDS: usize = 32 * 1024;
 const VRAM_WORDSIZE: usize = 2;
 // 32K-words addressable (64KB)
-const VRAM_ADDRMASK: usize = 0x7FFF;
+const VRAM_ADDRMASK: usize = VRAM_WORDS - 1;
 
 type CgramWord = u16;
 const CGRAM_WORDS: usize = 256;
 const CGRAM_WORDSIZE: usize = 2;
-const CGRAM_ADDRMASK: usize = 0xFF;
+const CGRAM_ADDRMASK: usize = CGRAM_WORDS - 1;
 
 // VMAIN bits
 const VMAIN_HIGH: u8 = 1 << 7;
@@ -202,7 +202,7 @@ where
             0 => {
                 if !self.is_layer_16x16(bg) {
                     let tm_x = x / 8;
-                    let tm_y = y.rem_euclid(32 * 8) / 8;
+                    let tm_y = y % (32 * 8) / 8;
                     self.get_tilemap_entry(bg, tm_x + (tm_y * 32))
                 } else {
                     todo!()

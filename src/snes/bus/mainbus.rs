@@ -107,11 +107,11 @@ impl DMAChannel {
         }
     }
 
-    pub fn len(&self) -> usize {
+    pub fn len(&self) -> Address {
         if self.das == 0 {
             0x10000
         } else {
-            self.das as usize
+            Address::from(self.das + (self.das % 4))
         }
     }
 
@@ -152,46 +152,33 @@ where
                 dbg_hex!(&self.dma[ch]);
             }
 
-            match self.dma[ch].mode() {
-                0 => {
-                    for i in 0..(self.dma[ch].len() as Address) {
-                        let b_addr = self.dma[ch].b_addr();
+            for i in 0..self.dma[ch].len() {
+                let b_addr = self.dma[ch].b_addr();
+                let a_addr = match self.dma[ch].step() {
+                    DMAStep::Increment => self.dma[ch].a_addr() + i,
+                    DMAStep::Fixed => self.dma[ch].a_addr(),
+                    _ => todo!(),
+                };
+                match self.dma[ch].mode() {
+                    0 => match self.dma[ch].direction() {
+                        DMADirection::CPUToIO => {
+                            let v = self.read(a_addr);
+                            self.write(b_addr, v);
+                        }
+                        _ => todo!(),
+                    },
+                    1 => {
+                        let b_addr = b_addr + (i & 1);
                         match self.dma[ch].direction() {
                             DMADirection::CPUToIO => {
-                                let a_addr = match self.dma[ch].step() {
-                                    DMAStep::Increment => self.dma[ch].a_addr() + i,
-                                    DMAStep::Fixed => self.dma[ch].a_addr(),
-                                    _ => todo!(),
-                                };
-
                                 let v = self.read(a_addr);
                                 self.write(b_addr, v);
                             }
                             _ => todo!(),
                         }
                     }
+                    _ => todo!(),
                 }
-                1 => {
-                    for i in 0..(self.dma[ch].len() as Address) {
-                        let b_addr = self.dma[ch].b_addr();
-                        match self.dma[ch].direction() {
-                            DMADirection::CPUToIO => {
-                                let a_addr = match self.dma[ch].step() {
-                                    DMAStep::Increment => self.dma[ch].a_addr() + (i * 2),
-                                    DMAStep::Fixed => self.dma[ch].a_addr(),
-                                    _ => todo!(),
-                                };
-
-                                let v = self.read(a_addr);
-                                self.write(b_addr, v);
-                                let v2 = self.read(a_addr + 1);
-                                self.write(b_addr + 1, v2);
-                            }
-                            _ => todo!(),
-                        }
-                    }
-                }
-                _ => todo!(),
             }
         }
     }
