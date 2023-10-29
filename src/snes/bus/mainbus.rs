@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use anyhow::Result;
 use dbg_hex::dbg_hex;
 
@@ -9,6 +11,7 @@ use crate::tickable::{Tickable, Ticks};
 const WRAM_BANKS: usize = 2;
 const WRAM_BANK_SIZE: usize = 64 * 1024;
 const WRAM_SIZE: usize = WRAM_BANKS * WRAM_BANK_SIZE;
+const WRAM_MASK: Address = (WRAM_SIZE - 1) as Address;
 
 const DMA_CHANNELS: usize = 8;
 
@@ -36,6 +39,9 @@ where
 
     /// DMA channels
     dma: [DMAChannel; DMA_CHANNELS],
+
+    /// WMADD - WRAM B-bus access port
+    wmadd: Cell<Address>,
 }
 
 enum DMADirection {
@@ -132,6 +138,7 @@ where
             ppu: PPU::<TRenderer>::new(renderer),
 
             memsel: 0,
+            wmadd: Cell::new(0),
         }
     }
 
@@ -204,6 +211,15 @@ where
                 0x0000..=0x1FFF => Some(self.wram[addr]),
                 // Picture Processing Unit
                 0x2100..=0x213F => self.ppu.read(fulladdr),
+                // WMDATA - WRAM Data Read/Write (R/W)
+                0x2180 => {
+                    let addr = self.wmadd.get();
+                    let val = self.wram[addr as usize];
+                    self.wmadd.set(addr.wrapping_add(1) & WRAM_MASK);
+                    Some(val)
+                }
+                // WMADDL/M/H - WRAM Address
+                0x2181..=0x2183 => None,
                 // MDMAEN - Select General Purpose DMA Channel(s) and Start Transfer
                 0x420B => Some(0xFF),
                 // MEMSEL - Memory-2 Waitstate Control
@@ -274,6 +290,31 @@ where
                 0x0000..=0x1FFF => Some(self.wram[addr] = val),
                 // Picture Processing Unit
                 0x2100..=0x213F => self.ppu.write(fulladdr, val),
+                // WMDATA - WRAM Data Read/Write
+                0x2180 => {
+                    let addr = self.wmadd.get();
+                    self.wram[addr as usize] = val;
+                    self.wmadd.set(addr.wrapping_add(1) & WRAM_MASK);
+                    Some(())
+                }
+                // WMADDL - WRAM Address
+                0x2181 => {
+                    let addr = (self.wmadd.get() & !0xFF) | Address::from(val);
+                    self.wmadd.set(addr & WRAM_MASK);
+                    Some(())
+                }
+                // WMADDM - WRAM Address
+                0x2182 => {
+                    let addr = (self.wmadd.get() & !0xFF00) | (Address::from(val) << 8);
+                    self.wmadd.set(addr & WRAM_MASK);
+                    Some(())
+                }
+                // WMADDH - WRAM Address
+                0x2183 => {
+                    let addr = (self.wmadd.get() & !0xFF0000) | (Address::from(val) << 16);
+                    self.wmadd.set(addr & WRAM_MASK);
+                    Some(())
+                }
                 // MDMAEN - Select General Purpose DMA Channel(s) and Start Transfer
                 0x420B => Some(self.gdma_run(val)),
                 // MEMSEL - Memory-2 Waitstate Control
@@ -331,5 +372,49 @@ where
     fn tick(&mut self, ticks: Ticks) -> Result<()> {
         self.ppu.tick(ticks)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::frontend::NullRenderer;
+
+    fn mainbus() -> Mainbus<NullRenderer> {
+        Mainbus::<NullRenderer>::new(&[], BusTrace::All, NullRenderer::new(0, 0).unwrap())
+    }
+
+    #[test]
+    fn mainbus_wramport_inc() {
+        let mut bus = mainbus();
+        bus.write(0x2180, 0xAA);
+        assert_eq!(bus.wram[0], 0xAA);
+        assert_eq!(bus.wmadd.get(), 0x01);
+
+        // Test wrap-around
+        bus.write(0x2181, 0xFF);
+        bus.write(0x2182, 0xFF);
+        bus.write(0x2183, 0x01);
+        assert_eq!(bus.wmadd.get(), 0x1FFFF);
+        bus.write(0x2180, 0xBB);
+        assert_eq!(bus.wram[0x1FFFF], 0xBB);
+        assert_eq!(bus.wmadd.get(), 0x00);
+    }
+
+    #[test]
+    fn mainbus_wramport_addr() {
+        let mut bus = mainbus();
+        bus.write(0x2181, 0x33);
+        assert_eq!(bus.wmadd.get(), 0x33);
+        bus.write(0x2182, 0x22);
+        assert_eq!(bus.wmadd.get(), 0x2233);
+        bus.write(0x2183, 0x11); // masked
+        assert_eq!(bus.wmadd.get(), 0x12233);
+        bus.write(0x2181, 0xBB);
+        assert_eq!(bus.wmadd.get(), 0x122BB);
+        bus.write(0x2182, 0xAA);
+        assert_eq!(bus.wmadd.get(), 0x1AABB);
+        bus.write(0x2183, 0x00); // masked
+        assert_eq!(bus.wmadd.get(), 0xAABB);
     }
 }
