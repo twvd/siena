@@ -91,6 +91,7 @@ pub struct PPU<TRenderer: Renderer> {
 
 pub struct Tile<'a> {
     data: &'a [u16],
+    map: &'a TilemapEntry,
     bpp: BPP,
 }
 impl<'a> Tile<'a> {
@@ -98,12 +99,18 @@ impl<'a> Tile<'a> {
         let mut result = 0;
         let bitplanes = self.bpp.to_usize().unwrap();
         let bitp_w = bitplanes / VRAM_WORDSIZE;
+        let y = if self.map.flip_y() { 7 - y } else { y };
 
         for i in 0..bitp_w {
-            if self.data[(y * bitp_w) + i] & (1 << 7 - x) != 0 {
+            let (x_a, x_b) = if self.map.flip_x() {
+                ((1 << x), (1 << 8 + x))
+            } else {
+                ((1 << 7 - x), (1 << 15 - x))
+            };
+            if self.data[(y * bitp_w) + i] & x_a != 0 {
                 result |= 1 << i;
             }
-            if self.data[(y * bitp_w) + i] & (1 << 15 - x) != 0 {
+            if self.data[(y * bitp_w) + i] & x_b != 0 {
                 result |= 1 << (i + 1);
             }
         }
@@ -218,11 +225,12 @@ where
         }
     }
 
-    fn get_tile(&self, bg: usize, tile: &TilemapEntry) -> Tile {
+    fn get_tile<'a>(&'a self, bg: usize, tile: &'a TilemapEntry) -> Tile {
         let idx = (self.bgxnba[bg] as usize * 4096) + (tile.charnr() as usize * 8);
         Tile {
             data: &self.vram[idx..(idx + 8)],
             bpp: self.get_layer_bpp(bg),
+            map: tile,
         }
     }
 
