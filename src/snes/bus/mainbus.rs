@@ -1,7 +1,7 @@
 use anyhow::Result;
 use dbg_hex::dbg_hex;
 
-use crate::frontend::sdl::SDLRenderer;
+use crate::frontend::Renderer;
 use crate::snes::bus::{Address, Bus, BusMember};
 use crate::snes::ppu::PPU;
 use crate::tickable::{Tickable, Ticks};
@@ -20,13 +20,16 @@ pub enum BusTrace {
 }
 
 /// All peripherals as they face the main CPU
-pub struct Mainbus {
+pub struct Mainbus<TRenderer>
+where
+    TRenderer: Renderer,
+{
     cartridge: Vec<u8>,
     wram: Vec<u8>,
     trace: BusTrace,
 
     /// Picture Processing Unit
-    ppu: PPU<SDLRenderer>,
+    ppu: PPU<TRenderer>,
 
     /// MEMSEL - Memory-2 Waitstate Control
     memsel: u8,
@@ -115,15 +118,18 @@ impl DMAChannel {
     }
 }
 
-impl Mainbus {
-    pub fn new(cartridge: &[u8], trace: BusTrace, ppu: PPU<SDLRenderer>) -> Self {
+impl<TRenderer> Mainbus<TRenderer>
+where
+    TRenderer: Renderer,
+{
+    pub fn new(cartridge: &[u8], trace: BusTrace, renderer: TRenderer) -> Self {
         Self {
             cartridge: cartridge.to_owned(),
             wram: vec![0; WRAM_SIZE],
             trace,
             dma: [DMAChannel::new(); DMA_CHANNELS],
 
-            ppu,
+            ppu: PPU::<TRenderer>::new(renderer),
 
             memsel: 0,
         }
@@ -184,7 +190,10 @@ impl Mainbus {
     }
 }
 
-impl Bus for Mainbus {
+impl<TRenderer> Bus for Mainbus<TRenderer>
+where
+    TRenderer: Renderer,
+{
     fn read(&self, fulladdr: Address) -> u8 {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
@@ -315,7 +324,10 @@ impl Bus for Mainbus {
     }
 }
 
-impl Tickable for Mainbus {
+impl<TRenderer> Tickable for Mainbus<TRenderer>
+where
+    TRenderer: Renderer,
+{
     fn tick(&mut self, ticks: Ticks) -> Result<()> {
         self.ppu.tick(ticks)?;
         Ok(())
