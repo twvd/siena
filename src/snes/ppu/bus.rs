@@ -47,6 +47,10 @@ where
                 0x2121 => None,
                 // CGDATA - Palette CGRAM Data Write
                 0x2122 => None,
+                // TM - Main Screen Designation
+                0x212C => None,
+                // TS - Sub Screen Designation
+                0x212D => None,
                 // RDCGRAM - Palette CGRAM Data Read
                 0x213B => {
                     let addr = self.cgadd.get();
@@ -150,6 +154,10 @@ where
                     }
                     Some(())
                 }
+                // TM - Main Screen Designation
+                0x212C => Some(self.tm = val),
+                // TS - Sub Screen Designation
+                0x212D => Some(self.ts = val),
                 // RDCGRAM - Palette CGRAM Data Read
                 0x213B => None,
 

@@ -89,6 +89,9 @@ pub struct PPU<TRenderer: Renderer> {
     bgmode: u8,
     bgxsc: [u8; 4],
     bgxnba: [u8; 4],
+
+    tm: u8,
+    ts: u8,
 }
 
 pub struct Tile<'a> {
@@ -147,6 +150,8 @@ where
             bgmode: 0,
             bgxsc: [0, 0, 0, 0],
             bgxnba: [0, 0, 0, 0],
+            tm: 0,
+            ts: 0,
         }
     }
 
@@ -179,7 +184,7 @@ where
     }
 
     fn get_bg_map_addr(&self, bg: usize) -> usize {
-        assert!((0..4).contains(&bg));
+        debug_assert!((0..4).contains(&bg));
         (self.bgxsc[bg] >> 2) as usize * 1024
     }
 
@@ -215,7 +220,7 @@ where
     }
 
     fn get_layer_bpp(&self, bg: usize) -> BPP {
-        match bg {
+        match self.get_screen_mode() {
             0 => BPP::Two,
             1 => match bg {
                 0 => BPP::Four,
@@ -237,7 +242,7 @@ where
     }
 
     fn is_layer_16x16(&self, bg: usize) -> bool {
-        assert!((0..4).contains(&bg));
+        debug_assert!((0..4).contains(&bg));
         self.bgmode & (1 << (7 - bg)) != 0
     }
 
