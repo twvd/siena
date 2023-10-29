@@ -14,7 +14,7 @@ use crate::frontend::Renderer;
 use crate::tickable::{Tickable, Ticks};
 
 pub const SCREEN_WIDTH: usize = 8 * 32;
-pub const SCREEN_HEIGHT: usize = 8 * 32;
+pub const SCREEN_HEIGHT: usize = 8 * 28;
 
 type VramWord = u16;
 const VRAM_WORDS: usize = 32 * 1024;
@@ -24,7 +24,9 @@ const VRAM_ADDRMASK: usize = VRAM_WORDS - 1;
 
 type CgramWord = u16;
 const CGRAM_WORDS: usize = 256;
+#[allow(dead_code)]
 const CGRAM_WORDSIZE: usize = 2;
+#[allow(dead_code)]
 const CGRAM_ADDRMASK: usize = CGRAM_WORDS - 1;
 
 // VMAIN bits
@@ -36,7 +38,7 @@ const VMAIN_TRANSLATE_SHIFT: u8 = 2;
 pub struct TilemapEntry(u16);
 impl TilemapEntry {
     fn charnr(&self) -> u16 {
-        self.0 & 0x1FF
+        self.0 & 0x3FF
     }
 
     fn palettenr(&self) -> u8 {

@@ -23,7 +23,7 @@ where
             let ty = scanline % 8;
 
             for tx in 0..8 {
-                let palette = (entry.palettenr() * 4);
+                let palette = entry.palettenr() * 4;
                 let c = chr.get_coloridx(tx, ty);
                 let color = self.cgram_to_color(palette + c);
                 line_idx[x + tx] = c;
