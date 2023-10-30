@@ -14,7 +14,7 @@ where
             // System area
             0x00..=0x3F | 0x80..=0xBF => match addr {
                 // BGMODE - BG Mode and BG Character Size
-                0x2015 => Some(self.bgmode),
+                0x2105 => None,
                 // BGxSC - BGx Screen Base and Screen Size
                 0x2107..=0x210A => Some(self.bgxsc[addr - 0x2107]),
                 // BG12NBA/BG34NBA - BG Character Data Area Designation
@@ -86,7 +86,11 @@ where
             // System area
             0x00..=0x3F | 0x80..=0xBF => match addr {
                 // BGMODE - BG Mode and BG Character Size
-                0x2015 => Some(self.bgmode = val),
+                0x2105 => {
+                    self.bgmode = val;
+                    println!("PPU screen mode: {}", self.get_screen_mode());
+                    Some(())
+                }
                 // BGxSC - BGx Screen Base and Screen Size
                 0x2107..=0x210A => Some(self.bgxsc[addr - 0x2107] = val),
                 // BG12NBA - BG Character Data Area Designation

@@ -14,6 +14,16 @@ where
         )
     }
 
+    fn cindex_to_color(&self, bg: usize, tile: &Tile, idx: u8) -> Color {
+        //return (idx * 15, idx * 15, idx * 15);
+        let palette = match tile.bpp {
+            BPP::Two => bg as u8 * 32 + tile.map.palettenr() * 4,
+            BPP::Four => tile.map.palettenr() * 16,
+            _ => todo!(),
+        };
+        self.cgram_to_color(palette + idx)
+    }
+
     pub fn render_scanline_bglayer(
         &mut self,
         scanline: usize,
@@ -32,10 +42,8 @@ where
                 if c == 0 {
                     continue;
                 }
-                let palette = bg as u8 * 32 + entry.palettenr() * 4;
-                let color = self.cgram_to_color(palette + c);
                 line_idx[x + tx] = c;
-                line_paletted[x + tx] = color;
+                line_paletted[x + tx] = self.cindex_to_color(bg, &chr, c);
             }
         }
     }
@@ -46,8 +54,24 @@ where
 
         match self.get_screen_mode() {
             0 => {
-                // 4 layers, 4bpp
+                // 4 layers, 2bpp (4 colors)
                 for layer in 0..4 {
+                    if self.tm & (1 << layer) == 0 {
+                        continue;
+                    }
+
+                    self.render_scanline_bglayer(
+                        scanline,
+                        layer,
+                        &mut line_idx,
+                        &mut line_paletted,
+                    );
+                }
+            }
+            3 => {
+                // 2 layers, bg1: 8bpp (256 colors)
+                // bg2: 4bpp (16 colors)
+                for layer in 0..2 {
                     if self.tm & (1 << layer) == 0 {
                         continue;
                     }

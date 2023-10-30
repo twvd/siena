@@ -35,6 +35,7 @@ const VMAIN_INC_MASK: u8 = 0x03;
 const VMAIN_TRANSLATE_MASK: u8 = 0x03;
 const VMAIN_TRANSLATE_SHIFT: u8 = 2;
 
+#[derive(Debug)]
 pub struct TilemapEntry(u16);
 impl TilemapEntry {
     fn charnr(&self) -> u16 {
@@ -58,12 +59,20 @@ impl TilemapEntry {
     }
 }
 
-#[derive(ToPrimitive)]
+#[derive(Debug, ToPrimitive)]
 pub enum BPP {
     // BPP == number of bitplanes
     Two = 2,   // 4 colors
     Four = 4,  // 16 colors
     Eight = 8, // 256 colors
+}
+impl BPP {
+    pub fn entries_per_palette(&self) -> u8 {
+        1 << self.to_u8().unwrap()
+    }
+    pub fn num_bitplanes(&self) -> usize {
+        self.to_usize().unwrap()
+    }
 }
 
 pub struct PPU<TRenderer: Renderer> {
@@ -94,6 +103,7 @@ pub struct PPU<TRenderer: Renderer> {
     ts: u8,
 }
 
+#[derive(Debug)]
 pub struct Tile<'a> {
     data: &'a [u16],
     map: &'a TilemapEntry,
@@ -101,22 +111,24 @@ pub struct Tile<'a> {
 }
 impl<'a> Tile<'a> {
     pub fn get_coloridx(&self, x: usize, y: usize) -> u8 {
-        let mut result = 0;
-        let bitplanes = self.bpp.to_usize().unwrap();
-        let bitp_w = bitplanes / VRAM_WORDSIZE;
+        let mut result: u8 = 0;
+        let bitp_w = self.bpp.num_bitplanes() / VRAM_WORDSIZE;
         let y = if self.map.flip_y() { 7 - y } else { y };
 
+        let (x_a, x_b) = if self.map.flip_x() {
+            (1 << x, 1 << 8 + x)
+        } else {
+            (1 << 7 - x, 1 << 15 - x)
+        };
+
         for i in 0..bitp_w {
-            let (x_a, x_b) = if self.map.flip_x() {
-                ((1 << x), (1 << 8 + x))
-            } else {
-                ((1 << 7 - x), (1 << 15 - x))
-            };
-            if self.data[(y * bitp_w) + i] & x_a != 0 {
-                result |= 1 << i;
+            let offset = y + (8 * i);
+
+            if self.data[offset] & x_a != 0 {
+                result |= 1 << (i * VRAM_WORDSIZE);
             }
-            if self.data[(y * bitp_w) + i] & x_b != 0 {
-                result |= 1 << (i + 1);
+            if self.data[offset] & x_b != 0 {
+                result |= 1 << ((i * VRAM_WORDSIZE) + 1);
             }
         }
         result
@@ -206,7 +218,7 @@ where
         // TODO scrolling
 
         match self.get_screen_mode() {
-            0 => {
+            0 | 3 => {
                 if !self.is_layer_16x16(bg) {
                     let tm_x = x / 8;
                     let tm_y = y % (32 * 8) / 8;
@@ -228,15 +240,22 @@ where
                 2 => BPP::Two,
                 _ => todo!(),
             },
+            3 => match bg {
+                0 => BPP::Eight,
+                1 => BPP::Four,
+                _ => unreachable!(),
+            },
             _ => todo!(),
         }
     }
 
     fn get_tile<'a>(&'a self, bg: usize, tile: &'a TilemapEntry) -> Tile {
-        let idx = (self.bgxnba[bg] as usize * 4096) + (tile.charnr() as usize * 8);
+        let bpp = self.get_layer_bpp(bg);
+        let len = 8 * bpp.num_bitplanes() / VRAM_WORDSIZE;
+        let idx = (self.bgxnba[bg] as usize * 4096) + (tile.charnr() as usize * len);
         Tile {
-            data: &self.vram[idx..(idx + 8)],
-            bpp: self.get_layer_bpp(bg),
+            data: &self.vram[idx..(idx + len)],
+            bpp,
             map: tile,
         }
     }
