@@ -37,7 +37,7 @@ pub fn add16_dec(acc: u16, d: u16, carry: bool) -> AluResult {
 
     AluResult {
         result: result as u16,
-        z: result == 0,
+        z: result as u16 == 0,
         n: result & 0x8000 != 0,
         v,
         c: result > u16::MAX.into(),
@@ -52,7 +52,7 @@ pub fn add16(acc: u16, d: u16, carry: bool) -> AluResult {
 
     AluResult {
         result: result as u16,
-        z: result == 0,
+        z: result as u16 == 0,
         n: result & 0x8000 != 0,
         v: !(acc ^ d) & (acc ^ result as u16) & 0x8000 != 0,
         c: result > u16::MAX.into(),
