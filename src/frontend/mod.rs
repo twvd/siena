@@ -1,4 +1,5 @@
 pub mod sdl;
+pub mod test;
 
 use anyhow::Result;
 

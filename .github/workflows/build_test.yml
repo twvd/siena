@@ -21,7 +21,7 @@ jobs:
     - name: Fetch submodules
       run: git submodule update --init --recursive
     - name: Checkout souper_tests
-      run: git clone https://github.com/twvd/souper_tests.git ../souper_tests
+      run: git clone --recurse-submodules https://github.com/twvd/souper_tests.git ../souper_tests
     - name: Code formatting check
       run: cargo fmt --check
     - name: Build
