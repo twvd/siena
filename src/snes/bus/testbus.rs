@@ -1,9 +1,10 @@
 use anyhow::Result;
 
-use super::{Address, Bus, ADDRESS_MASK, ADDRESS_SPACE_SIZE};
+use super::{Address, Bus, ADDRESS_MASK};
 use crate::tickable::{Tickable, Ticks};
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -21,7 +22,7 @@ pub struct TraceEntry {
 }
 
 pub struct Testbus {
-    mem: Box<[u8]>,
+    mem: HashMap<Address, u8>,
     trace: RefCell<Vec<TraceEntry>>,
     cycles: usize,
     trace_enabled: bool,
@@ -31,18 +32,18 @@ impl Testbus {
     pub fn new() -> Self {
         Testbus {
             // Need allocation here, too large for stack.
-            mem: vec![0; ADDRESS_SPACE_SIZE].into_boxed_slice(),
+            mem: HashMap::new(),
             trace: RefCell::new(vec![]),
             cycles: 0,
             trace_enabled: false,
         }
     }
 
-    pub fn from(data: &[u8]) -> Self {
-        let mut ret = Testbus::new();
-        ret.write_slice(data, 0);
-        ret
-    }
+    //pub fn from(data: &[u8]) -> Self {
+    //    let mut ret = Testbus::new();
+    //    ret.write_slice(data, 0);
+    //    ret
+    //}
 
     pub fn reset_trace(&mut self) {
         self.trace.borrow_mut().clear();
@@ -58,7 +59,7 @@ impl Bus for Testbus {
     fn read(&self, addr: Address) -> u8 {
         assert_eq!(addr & ADDRESS_MASK, addr);
 
-        let val = self.mem[addr as usize];
+        let val = *self.mem.get(&addr).unwrap_or(&0);
         if self.trace_enabled {
             self.trace.borrow_mut().push(TraceEntry {
                 addr,
@@ -81,7 +82,7 @@ impl Bus for Testbus {
                 cycle: self.cycles,
             });
         }
-        self.mem[addr as usize] = val;
+        self.mem.insert(addr, val);
     }
 }
 
