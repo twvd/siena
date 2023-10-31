@@ -15,11 +15,10 @@ where
     }
 
     fn cindex_to_color(&self, bg: usize, tile: &Tile, idx: u8) -> Color {
-        //return (idx * 15, idx * 15, idx * 15);
         let palette = match tile.bpp {
             BPP::Two => bg as u8 * 32 + tile.map.palettenr() * 4,
             BPP::Four => tile.map.palettenr() * 16,
-            _ => todo!(),
+            BPP::Eight => 0,
         };
         self.cgram_to_color(palette + idx)
     }
