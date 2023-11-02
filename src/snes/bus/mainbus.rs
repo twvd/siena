@@ -42,6 +42,9 @@ where
 
     /// WMADD - WRAM B-bus access port
     wmadd: Cell<Address>,
+
+    /// Last read data for open bus emulation
+    openbus: Cell<u8>,
 }
 
 enum DMADirection {
@@ -139,6 +142,7 @@ where
 
             memsel: 0,
             wmadd: Cell::new(0),
+            openbus: Cell::new(0),
         }
     }
 
@@ -214,9 +218,9 @@ where
                 // RDNMI - V-Blank NMI Flag and CPU Version Number
                 0x4210 => {
                     if self.ppu.in_vblank() {
-                        Some(0x80 | 2)
+                        Some(0x80 | 2 | (self.openbus.get() & 0x70))
                     } else {
-                        Some(2)
+                        Some(2 | (self.openbus.get() & 0x70))
                     }
                 }
                 // DMA parameter area
@@ -255,6 +259,7 @@ where
             if self.trace == BusTrace::All {
                 println!("Bus read: {:06X} = {:02X}", fulladdr, v);
             }
+            self.openbus.set(v);
             v
         } else {
             // Open bus
@@ -262,8 +267,7 @@ where
                 println!("Open/unimplemented bus read: {:06X}", fulladdr);
             }
 
-            // TODO accurate open bus behaviour
-            0xFF
+            self.openbus.get()
         }
     }
 
@@ -403,5 +407,23 @@ mod tests {
         assert_eq!(bus.wmadd.get(), 0x1AABB);
         bus.write(0x2183, 0x00); // masked
         assert_eq!(bus.wmadd.get(), 0xAABB);
+    }
+
+    #[test]
+    fn mainbus_openbus() {
+        let mut bus = mainbus();
+        assert_eq!(bus.read(0x002000), 0x00);
+        bus.write(0x000000, 0xFF);
+        bus.read(0x000000);
+        assert_eq!(bus.read(0x002000), 0xFF);
+    }
+
+    #[test]
+    fn mainbus_openbus_rdnmi() {
+        let mut bus = mainbus();
+        assert_eq!(bus.read(0x004210), 0x02);
+        bus.write(0x000000, 0xFF);
+        bus.read(0x000000);
+        assert_eq!(bus.read(0x004210), 0x72);
     }
 }
