@@ -1,3 +1,4 @@
+pub mod peterlemon_65816;
 pub mod peterlemon_ppu;
 pub mod processortests_65816;
 
