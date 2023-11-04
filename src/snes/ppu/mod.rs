@@ -7,8 +7,8 @@ pub mod tests;
 use std::cell::Cell;
 
 use anyhow::Result;
-use num_derive::ToPrimitive;
-use num_traits::ToPrimitive;
+use num_derive::{FromPrimitive, ToPrimitive};
+use num_traits::{FromPrimitive, ToPrimitive};
 
 use crate::frontend::Renderer;
 use crate::tickable::{Tickable, Ticks};
@@ -34,6 +34,14 @@ const VMAIN_HIGH: u8 = 1 << 7;
 const VMAIN_INC_MASK: u8 = 0x03;
 const VMAIN_TRANSLATE_MASK: u8 = 0x03;
 const VMAIN_TRANSLATE_SHIFT: u8 = 2;
+
+#[derive(FromPrimitive)]
+pub enum TilemapDimensions {
+    D32x32 = 0,
+    D64x32 = 1,
+    D32x64 = 2,
+    D64x64 = 3,
+}
 
 #[derive(Debug)]
 pub struct TilemapEntry(u16);
@@ -220,15 +228,50 @@ where
         self.bgmode & 0x07
     }
 
+    fn get_tilemap_dimensions(&self, bg: usize) -> TilemapDimensions {
+        TilemapDimensions::from_u8(self.bgxsc[bg] & 0x03).unwrap()
+    }
+
     fn get_tilemap_entry_xy(&self, bg: usize, x: usize, y: usize) -> TilemapEntry {
-        // TODO scrolling
+        let bghofs = self.bgxhofs[bg] as usize;
+        let bgvofs = self.bgxvofs[bg] as usize;
+        let tilesize = 8;
 
         match self.get_screen_mode() {
             0 | 3 => {
                 if !self.is_layer_16x16(bg) {
-                    let tm_x = x / 8;
-                    let tm_y = y % (32 * 8) / 8;
-                    self.get_tilemap_entry(bg, tm_x + (tm_y * 32))
+                    // AA BB CC DD, size = 0x800 per sub-map
+                    // 00  32x32   AA
+                    //             AA
+                    // 01  64x32   AB
+                    //             AB
+                    // 10  32x64   AA
+                    //             BB
+                    // 11  64x64   AB
+                    //             CD
+                    let (expand_x, expand_y) = match self.get_tilemap_dimensions(bg) {
+                        TilemapDimensions::D32x32 => (false, false),
+                        TilemapDimensions::D32x64 => (false, true),
+                        TilemapDimensions::D64x32 => (true, false),
+                        TilemapDimensions::D64x64 => (true, true),
+                    };
+                    let tm_x = (bghofs + x) / tilesize;
+                    let tm_y = (bgvofs + y) / tilesize;
+
+                    // 32 tiles per row in the sub-map, 0-31
+                    let mut idx = ((tm_y & 0x1F) << 5) + (tm_x & 0x1F);
+                    if expand_y {
+                        if expand_x {
+                            idx += (tm_y & 0x20) << 6;
+                        } else {
+                            idx += (tm_y & 0x20) << 5;
+                        }
+                    }
+                    if expand_x {
+                        idx += (tm_x & 0x20) << 5;
+                    }
+
+                    self.get_tilemap_entry(bg, idx)
                 } else {
                     todo!()
                 }
