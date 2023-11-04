@@ -223,6 +223,8 @@ where
                         Some(2 | (self.openbus.get() & 0x70))
                     }
                 }
+                // JOYxx - Joypads
+                0x4218..=0x421F => Some(0),
                 // DMA parameter area
                 0x4300..=0x43FF => {
                     let ch = (addr >> 4) & 0x07;

@@ -62,3 +62,8 @@ ppu_test_ns!(
     "BGMAP/8x8/8BPP/32x32/8x8BGMap8BPP32x32.sfc",
     "a2c6faf484b61e227482cc702ac6e9301cc48ade675527f73e84bdb206b2ecf8"
 );
+ppu_test!(
+    Rings,
+    "Rings/Rings.sfc",
+    "503fa7c01c592203f90b0b808d52e58d6c569530cac5145c816b4bb20a9a4148"
+);
