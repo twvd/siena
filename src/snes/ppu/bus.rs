@@ -19,6 +19,8 @@ where
                 0x2107..=0x210A => Some(self.bgxsc[addr - 0x2107]),
                 // BG12NBA/BG34NBA - BG Character Data Area Designation
                 0x210B..=0x210C => None,
+                // BGxHOFS/BGxVOFS - BGx Horizontal/Vertical Scroll
+                0x210D..=0x2114 => None,
                 // VMAIN - VRAM Address Increment Mode
                 0x2115 => Some(self.vmain),
                 // VMADDL - VRAM Address (lower 8bit)
@@ -105,6 +107,26 @@ where
                     self.bgxnba[3] = (val >> 4) & 0x0F;
                     Some(())
                 }
+                // BGxHOFS - BGx Horizontal Scroll (X) (write-twice)
+                0x210D | 0x210F | 0x2111 | 0x2113 => {
+                    let idx = (addr - 0x210D) / 2;
+                    let cur = self.bgxhofs[idx];
+                    let prev = self.bgxxofs_prev as u16;
+                    let new = val as u16;
+                    self.bgxxofs_prev = val;
+
+                    Some(self.bgxhofs[idx] = (new << 8) | (prev & !7) | ((cur >> 8) & 7))
+                }
+                // BGxVOFS - BGx Vertical Scroll (Y) (write-twice)
+                0x210E | 0x2110 | 0x2112 | 0x2114 => {
+                    let idx = (addr - 0x210E) / 2;
+                    let prev = self.bgxxofs_prev as u16;
+                    let new = val as u16;
+                    self.bgxxofs_prev = val;
+
+                    Some(self.bgxvofs[idx] = (new << 8) | prev)
+                }
+
                 // VMAIN - VRAM Address Increment Mode
                 0x2115 => Some(self.vmain = val),
                 // VMADDL - VRAM Address (lower 8bit)

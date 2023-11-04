@@ -98,6 +98,9 @@ pub struct PPU<TRenderer: Renderer> {
     bgmode: u8,
     bgxsc: [u8; 4],
     bgxnba: [u8; 4],
+    bgxhofs: [u16; 4],
+    bgxvofs: [u16; 4],
+    bgxxofs_prev: u8,
 
     tm: u8,
     ts: u8,
@@ -162,6 +165,9 @@ where
             bgmode: 0,
             bgxsc: [0, 0, 0, 0],
             bgxnba: [0, 0, 0, 0],
+            bgxhofs: [0, 0, 0, 0],
+            bgxvofs: [0, 0, 0, 0],
+            bgxxofs_prev: 0,
             tm: 0,
             ts: 0,
         }
