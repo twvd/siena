@@ -31,24 +31,30 @@ where
         line_paletted: &mut [Color],
         priority: bool,
     ) {
-        for x in (0..(8 * 32)).step_by(8) {
-            // TODO scrolling
+        if self.tm & (1 << bg) == 0 {
+            return;
+        }
+
+        let bghofs = self.bgxhofs[bg] as usize;
+        let bgvofs = self.bgxvofs[bg] as usize;
+        let tilesize = 8;
+
+        for x in 0..SCREEN_WIDTH {
             let entry = self.get_tilemap_entry_xy(bg, x, scanline);
             if entry.bgprio() != priority {
                 continue;
             }
 
             let chr = self.get_tile(bg, &entry);
-            let ty = scanline % 8;
+            let tx = (x + bghofs) % tilesize;
+            let ty = (scanline + bgvofs) % tilesize;
 
-            for tx in 0..8 {
-                let c = chr.get_coloridx(tx, ty);
-                if c == 0 {
-                    continue;
-                }
-                line_idx[x + tx] = c;
-                line_paletted[x + tx] = self.cindex_to_color(bg, &chr, c);
+            let c = chr.get_coloridx(tx, ty);
+            if c == 0 || line_idx[x] != 0 {
+                continue;
             }
+            line_idx[x] = c;
+            line_paletted[x] = self.cindex_to_color(bg, &chr, c);
         }
     }
 
