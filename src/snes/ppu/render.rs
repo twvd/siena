@@ -29,10 +29,15 @@ where
         bg: usize,
         line_idx: &mut [u8],
         line_paletted: &mut [Color],
+        priority: bool,
     ) {
         for x in (0..(8 * 32)).step_by(8) {
             // TODO scrolling
             let entry = self.get_tilemap_entry_xy(bg, x, scanline);
+            if entry.bgprio() != priority {
+                continue;
+            }
+
             let chr = self.get_tile(bg, &entry);
             let ty = scanline % 8;
 
@@ -53,35 +58,61 @@ where
 
         match self.get_screen_mode() {
             0 => {
-                // 4 layers, 2bpp (4 colors)
-                for layer in 0..4 {
-                    if self.tm & (1 << layer) == 0 {
-                        continue;
-                    }
-
+                let mut rs = |layer, prio| {
                     self.render_scanline_bglayer(
                         scanline,
                         layer,
                         &mut line_idx,
                         &mut line_paletted,
-                    );
-                }
+                        prio,
+                    )
+                };
+                // 4 layers, 2bpp (4 colors)
+                // TODO Sprites with priority 3
+                // BG1 tiles with priority 1
+                rs(0, true);
+                // BG2 tiles with priority 1
+                rs(1, true);
+                // TODO Sprites with priority 2
+                // BG1 tiles with priority 0
+                rs(0, false);
+                // BG2 tiles with priority 0
+                rs(1, false);
+                // TODO Sprites with priority 1
+                // BG3 tiles with priority 1
+                rs(2, true);
+                // BG4 tiles with priority 1
+                rs(3, true);
+                // TODO Sprites with priority 0
+                // BG3 tiles with priority 0
+                rs(2, false);
+                // BG4 tiles with priority 0
+                rs(3, false);
             }
             3 => {
-                // 2 layers, bg1: 8bpp (256 colors)
-                // bg2: 4bpp (16 colors)
-                for layer in 0..2 {
-                    if self.tm & (1 << layer) == 0 {
-                        continue;
-                    }
-
+                let mut rs = |layer, prio| {
                     self.render_scanline_bglayer(
                         scanline,
                         layer,
                         &mut line_idx,
                         &mut line_paletted,
-                    );
-                }
+                        prio,
+                    )
+                };
+                // 2 layers, bg1: 8bpp (256 colors)
+                // bg2: 4bpp (16 colors)
+                // TODO Sprites with priority 3
+                // BG1 tiles with priority 1
+                rs(0, true);
+                // TODO Sprites with priority 2
+                // BG2 tiles with priority 1
+                rs(1, true);
+                // TODO Sprites with priority 1
+                // BG1 tiles with priority 0
+                rs(0, false);
+                // TODO Sprites with priority 0
+                // BG2 tiles with priority 0
+                rs(1, false);
             }
             _ => todo!(),
         }
