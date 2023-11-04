@@ -21,6 +21,8 @@ pub trait BusMember {
 pub trait Bus: Tickable {
     fn read(&self, addr: Address) -> u8;
     fn write(&mut self, addr: Address, val: u8);
+    fn get_clr_nmi(&mut self) -> bool;
+    fn get_clr_int(&mut self) -> bool;
 
     /// Writes an entire u8 slice to the bus from a specified
     /// address offset.

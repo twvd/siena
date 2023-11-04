@@ -39,12 +39,6 @@ impl Testbus {
         }
     }
 
-    //pub fn from(data: &[u8]) -> Self {
-    //    let mut ret = Testbus::new();
-    //    ret.write_slice(data, 0);
-    //    ret
-    //}
-
     pub fn reset_trace(&mut self) {
         self.trace.borrow_mut().clear();
         self.trace_enabled = true;
@@ -83,6 +77,13 @@ impl Bus for Testbus {
             });
         }
         self.mem.insert(addr, val);
+    }
+
+    fn get_clr_nmi(&mut self) -> bool {
+        false
+    }
+    fn get_clr_int(&mut self) -> bool {
+        false
     }
 }
 

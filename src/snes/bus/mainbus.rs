@@ -45,6 +45,15 @@ where
 
     /// Last read data for open bus emulation
     openbus: Cell<u8>,
+
+    /// NMI request
+    intreq_nmi: bool,
+
+    /// Interrupt request
+    intreq_int: bool,
+
+    /// NMITIMEN register
+    nmitimen: u8,
 }
 
 enum DMADirection {
@@ -143,6 +152,10 @@ where
             memsel: 0,
             wmadd: Cell::new(0),
             openbus: Cell::new(0),
+
+            intreq_nmi: false,
+            intreq_int: false,
+            nmitimen: 0,
         }
     }
 
@@ -211,6 +224,8 @@ where
                 }
                 // WMADDL/M/H - WRAM Address
                 0x2181..=0x2183 => None,
+                // NMITIMEN - Interrupt Enable and Joypad Request (W)
+                0x4200 => None,
                 // MDMAEN - Select General Purpose DMA Channel(s) and Start Transfer
                 0x420B => Some(0xFF),
                 // MEMSEL - Memory-2 Waitstate Control
@@ -325,6 +340,20 @@ where
                     self.wmadd.set(addr & WRAM_MASK);
                     Some(())
                 }
+                // NMITIMEN - Interrupt Enable and Joypad Request (W)
+                0x4200 => {
+                    // TODO joypad
+                    if val & 0x30 != 0 {
+                        // TODO H/V interrupts
+                        todo!();
+                    }
+                    if val & 0x80 != 0 {
+                        println!("VBlank NMIs enabled");
+                    } else {
+                        println!("VBlank NMIs disabled");
+                    }
+                    Some(self.nmitimen = val)
+                }
                 // MDMAEN - Select General Purpose DMA Channel(s) and Start Transfer
                 0x420B => Some(self.gdma_run(val)),
                 // MEMSEL - Memory-2 Waitstate Control
@@ -373,6 +402,18 @@ where
             println!("Bus write: {:06X} = {:02X}", fulladdr, val);
         }
     }
+
+    fn get_clr_nmi(&mut self) -> bool {
+        let v = self.intreq_nmi;
+        self.intreq_nmi = false;
+        v
+    }
+
+    fn get_clr_int(&mut self) -> bool {
+        let v = self.intreq_int;
+        self.intreq_int = false;
+        v
+    }
 }
 
 impl<TRenderer> Tickable for Mainbus<TRenderer>
@@ -381,6 +422,11 @@ where
 {
     fn tick(&mut self, ticks: Ticks) -> Result<()> {
         self.ppu.tick(ticks)?;
+
+        if self.ppu.get_clr_intreq_vblank() && self.nmitimen & (1 << 7) != 0 {
+            self.intreq_nmi = true;
+        }
+
         Ok(())
     }
 }

@@ -19,6 +19,11 @@ impl<TBus> Cpu65816<TBus>
 where
     TBus: Bus,
 {
+    const INTVEC_COP: Address = 0x00FFE4;
+    const INTVEC_BRK: Address = 0x00FFE6;
+    const INTVEC_NMI: Address = 0x00FFEA;
+    const INTVEC_INT: Address = 0x00FFEE;
+
     pub fn new(bus: TBus, reset_addr: u16) -> Self {
         let mut cpu = Self {
             bus,
@@ -72,6 +77,12 @@ where
 
     /// Executes one CPU step (one instruction).
     pub fn step(&mut self) -> Result<()> {
+        if self.bus.get_clr_nmi() {
+            self.dispatch_interrupt(Self::INTVEC_NMI)?;
+        } else if self.bus.get_clr_int() && !self.regs.test_flag(Flag::I) {
+            self.dispatch_interrupt(Self::INTVEC_INT)?;
+        }
+
         let instr = self.fetch_next_instr()?;
 
         self.regs.pc = self.regs.pc.wrapping_add(instr.len as u16);
@@ -238,7 +249,7 @@ where
     }
 
     /// Call to an interrupt vector entry.
-    fn call_int_vector(&mut self, vector_addr: Address) -> Result<()> {
+    fn dispatch_interrupt(&mut self, vector_addr: Address) -> Result<()> {
         self.push8(self.regs.read8(Register::K));
         self.push16(self.regs.read(Register::PC));
         self.push8(self.regs.read8(Register::P));
@@ -353,8 +364,8 @@ where
             InstructionType::JSR => self.op_jsr(instr),
             InstructionType::RTS => self.op_rts(),
             InstructionType::RTL => self.op_rtl(),
-            InstructionType::BRK => self.op_swint(instr, 0x00FFE6),
-            InstructionType::COP => self.op_swint(instr, 0x00FFE4),
+            InstructionType::BRK => self.op_swint(instr, Self::INTVEC_BRK),
+            InstructionType::COP => self.op_swint(instr, Self::INTVEC_COP),
             InstructionType::RTI => self.op_rti(),
             InstructionType::STP => panic!("STP encountered"),
             InstructionType::WAI => todo!(),
@@ -1417,7 +1428,7 @@ where
             pc.wrapping_sub(instr.def.len as u16).wrapping_add(2),
         );
 
-        self.call_int_vector(vector_addr)
+        self.dispatch_interrupt(vector_addr)
     }
 
     /// RTI - ReTurn from Interrupt

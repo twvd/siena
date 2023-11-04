@@ -326,6 +326,12 @@ where
     pub fn in_hblank(&self) -> bool {
         self.cycles % Self::CYCLES_PER_SCANLINE >= Self::LINE_HBLANK_START
     }
+
+    pub fn get_clr_intreq_vblank(&mut self) -> bool {
+        let v = self.intreq_vblank;
+        self.intreq_vblank = false;
+        v
+    }
 }
 
 impl<TRenderer> Tickable for PPU<TRenderer>
