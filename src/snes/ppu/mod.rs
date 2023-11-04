@@ -239,7 +239,7 @@ where
         let tilesize = 8;
 
         match self.get_screen_mode() {
-            0 | 3 => {
+            0 | 1 | 3 => {
                 if !self.is_layer_16x16(bg) {
                     // AA BB CC DD, size = 0x800 per sub-map
                     // 00  32x32   AA

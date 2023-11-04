@@ -95,6 +95,40 @@ where
                 // BG4 tiles with priority 0
                 rs(3, false);
             }
+            1 => {
+                let bg3_prio = self.bgmode & (1 << 3) != 0;
+                let mut rs = |layer, prio| {
+                    self.render_scanline_bglayer(
+                        scanline,
+                        layer,
+                        &mut line_idx,
+                        &mut line_paletted,
+                        prio,
+                    )
+                };
+                // BG3 tiles with priority 1 if bit 3 of $2105 is set
+                if bg3_prio {
+                    rs(2, true);
+                }
+                // TODO Sprites with priority 3
+                // BG1 tiles with priority 1
+                rs(0, true);
+                // BG2 tiles with priority 1
+                rs(1, true);
+                // TODO Sprites with priority 2
+                // BG1 tiles with priority 0
+                rs(0, false);
+                // BG2 tiles with priority 0
+                rs(1, false);
+                // TODO Sprites with priority 1
+                // BG3 tiles with priority 1 if bit 3 of $2105 is clear
+                if !bg3_prio {
+                    rs(2, true);
+                }
+                // TODO Sprites with priority 0
+                // BG3 tiles with priority 0
+                rs(2, false);
+            }
             3 => {
                 let mut rs = |layer, prio| {
                     self.render_scanline_bglayer(
