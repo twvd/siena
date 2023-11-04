@@ -223,6 +223,19 @@ where
                         Some(2 | (self.openbus.get() & 0x70))
                     }
                 }
+                // HVBJOY - H/V-Blank flag and Joypad Busy flag (R)
+                0x4212 => {
+                    // TODO auto-joypad-read busy
+                    let mut result = self.openbus.get() & 0x3E;
+                    if self.ppu.in_vblank() {
+                        result |= 1 << 7;
+                    }
+                    if self.ppu.in_hblank() {
+                        result |= 1 << 6;
+                    }
+
+                    Some(result)
+                }
                 // JOYxx - Joypads
                 0x4218..=0x421F => Some(0),
                 // DMA parameter area

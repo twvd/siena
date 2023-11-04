@@ -150,9 +150,10 @@ impl<TRenderer> PPU<TRenderer>
 where
     TRenderer: Renderer,
 {
-    const CYCLES_PER_SCANLINE: usize = 1364;
+    const CYCLES_PER_SCANLINE: usize = 340 * 4;
     const SCANLINES_PER_FRAME: usize = 262;
     const VBLANK_START: usize = 0xE1;
+    const LINE_HBLANK_START: usize = 274 * 4;
 
     pub fn new(renderer: TRenderer) -> Self {
         Self {
@@ -320,6 +321,10 @@ where
 
     pub fn in_vblank(&self) -> bool {
         self.last_scanline >= Self::VBLANK_START
+    }
+
+    pub fn in_hblank(&self) -> bool {
+        self.cycles % Self::CYCLES_PER_SCANLINE >= Self::LINE_HBLANK_START
     }
 }
 
