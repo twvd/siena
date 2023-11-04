@@ -11,6 +11,21 @@ macro_rules! ppu_test {
                 include_bytes!(concat!("../../../souper_tests/SNES/PPU/", $testfn)),
                 &hex!($hash),
                 20000,
+                true,
+            );
+        }
+    };
+}
+macro_rules! ppu_test_ns {
+    ($testname:ident, $testfn:expr, $hash:expr) => {
+        #[allow(non_snake_case)]
+        #[test]
+        fn $testname() {
+            test_display(
+                include_bytes!(concat!("../../../souper_tests/SNES/PPU/", $testfn)),
+                &hex!($hash),
+                60000,
+                false,
             );
         }
     };
@@ -41,7 +56,8 @@ ppu_test!(
     "BGMAP/8x8/4BPP/8x8BGMap4BPP32x328PAL/8x8BGMap4BPP32x328PAL.sfc",
     "6b85de62a208a94c5c3c393aa305e4bdd3207ca238923df5f57a167dcca1abdf"
 );
-ppu_test!(
+ppu_test_ns!(
+    // This test moves automatically
     BGMAP_8x8BGMap8BPP32x32,
     "BGMAP/8x8/8BPP/32x32/8x8BGMap8BPP32x32.sfc",
     "a2c6faf484b61e227482cc702ac6e9301cc48ade675527f73e84bdb206b2ecf8"

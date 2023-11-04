@@ -17,6 +17,7 @@ macro_rules! test {
                 )),
                 &hex!($hash),
                 20000,
+                true,
             );
         }
     };
