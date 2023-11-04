@@ -247,13 +247,17 @@ where
                         _ => None,
                     }
                 }
-                // WS1 LoROM
-                0x8000..=0xFFFF => Some(self.cartridge[addr - 0x8000 + bank * 0x8000]),
+                // WS1/2 LoROM
+                0x8000..=0xFFFF => Some(self.cartridge[addr - 0x8000 + (bank & !0x80) * 0x8000]),
 
                 _ => None,
             },
+            // WS1 HiROM
+            0x40..=0x7D => Some(self.cartridge[addr + ((bank - 0x40) * 0x10000)]),
             // Full WRAM area
             0x7E..=0x7F => Some(self.wram[((bank - 0x7E) * WRAM_BANK_SIZE) + addr]),
+            // WS2 HiROM
+            0xC0..=0xFF => Some(self.cartridge[addr + ((bank - 0xC0) * 0x10000)]),
             _ => None,
         };
 
