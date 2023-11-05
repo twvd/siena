@@ -45,10 +45,17 @@ fn main() -> Result<()> {
     let args = Args::parse();
 
     let f = fs::read(args.filename)?;
+    let load_offset = match f.len() % 1024 {
+        0 => 0,
+        0x200 => {
+            println!("Cartridge contains 0x200 bytes of weird header");
+            0x200
+        }
+        _ => panic!("Illogical cartridge file size: 0x{:08X}", f.len()),
+    };
 
     let display = SDLRenderer::new(SCREEN_WIDTH, SCREEN_HEIGHT)?;
-
-    let bus = Mainbus::<SDLRenderer>::new(&f, args.bustrace, display);
+    let bus = Mainbus::<SDLRenderer>::new(&f[load_offset..], args.bustrace, display);
 
     let reset = bus.read16(0xFFFC);
     let mut cpu = Cpu65816::<Mainbus<SDLRenderer>>::new(bus, reset);
