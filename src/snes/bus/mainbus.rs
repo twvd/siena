@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 
 use anyhow::Result;
 use dbg_hex::dbg_hex;
@@ -54,6 +54,8 @@ where
 
     /// NMITIMEN register
     nmitimen: u8,
+
+    apumock: RefCell<[u8; 4]>,
 }
 
 enum DMADirection {
@@ -156,6 +158,8 @@ where
             intreq_nmi: false,
             intreq_int: false,
             nmitimen: 0,
+
+            apumock: RefCell::new([0xAA, 0, 0, 0]),
         }
     }
 
@@ -215,6 +219,18 @@ where
                 0x0000..=0x1FFF => Some(self.wram[addr]),
                 // Picture Processing Unit
                 0x2100..=0x213F => self.ppu.read(fulladdr),
+                // APU comms
+                0x2140..=0x217F => {
+                    let ch = (addr - 0x2140) % 4;
+                    let mut apumock = self.apumock.borrow_mut();
+                    let value = apumock[ch];
+                    apumock[ch] = match ch {
+                        0 => 0xAA,
+                        1 => 0xBB,
+                        _ => 0,
+                    };
+                    Some(value)
+                }
                 // WMDATA - WRAM Data Read/Write (R/W)
                 0x2180 => {
                     let addr = self.wmadd.get();
@@ -315,6 +331,13 @@ where
                 0x0000..=0x1FFF => Some(self.wram[addr] = val),
                 // Picture Processing Unit
                 0x2100..=0x213F => self.ppu.write(fulladdr, val),
+                // APU comms
+                0x2140..=0x217F => {
+                    let ch = (addr - 0x2140) % 4;
+                    let mut apumock = self.apumock.borrow_mut();
+                    apumock[ch] = val;
+                    Some(())
+                }
                 // WMDATA - WRAM Data Read/Write
                 0x2180 => {
                     let addr = self.wmadd.get();
