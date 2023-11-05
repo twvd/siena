@@ -330,7 +330,9 @@ where
                 _ => None,
             },
             // WS1 HiROM
-            0x40..=0x7D => Some(self.cartridge[addr + ((bank - 0x40) * 0x10000)]),
+            0x40..=0x7D => {
+                Some(self.cartridge[(addr + ((bank - 0x40) * 0x10000)) % self.cartridge.len()])
+            }
             // Full WRAM area
             0x7E..=0x7F => Some(self.wram[((bank - 0x7E) * WRAM_BANK_SIZE) + addr]),
             // WS2 HiROM
