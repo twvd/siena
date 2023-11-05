@@ -56,6 +56,12 @@ where
     nmitimen: u8,
 
     apumock: RefCell<[u8; 4]>,
+
+    /// Multiplication/division unit registers
+    wrmpya: u8,
+    wrdiv: u16,
+    rddiv: u16,
+    rdmpy: u16,
 }
 
 enum DMADirection {
@@ -164,6 +170,11 @@ where
             nmitimen: 0,
 
             apumock: RefCell::new([0xAA, 0, 0, 0]),
+
+            wrmpya: 0,
+            wrdiv: 0,
+            rddiv: 0,
+            rdmpy: 0,
         }
     }
 
@@ -246,6 +257,16 @@ where
                 0x2181..=0x2183 => None,
                 // NMITIMEN - Interrupt Enable and Joypad Request (W)
                 0x4200 => None,
+                // WRMPYA - Set unsigned 8bit Multiplicand (W)
+                0x4202 => None,
+                // WRMPYB - Set unsigned 8bit Multiplier and Start Multiplication (W)
+                0x4203 => None,
+                // WRDIVL - Set unsigned 16bit Dividend (lower 8bit) (W)
+                0x4204 => None,
+                // WRDIVH - Set unsigned 16bit Dividend (upper 8bit) (W)
+                0x4205 => None,
+                // WRDIVB - Set unsigned 8bit Divisor and Start Division (W)
+                0x4206 => None,
                 // MDMAEN - Select General Purpose DMA Channel(s) and Start Transfer
                 0x420B => Some(0xFF),
                 // MEMSEL - Memory-2 Waitstate Control
@@ -271,6 +292,14 @@ where
 
                     Some(result)
                 }
+                // RDDIVL - Unsigned Division Result (Quotient) (lower 8bit) (R)
+                0x4214 => Some(self.rddiv as u8),
+                // RDDIVH - Unsigned Division Result (Quotient) (upper 8bit) (R)
+                0x4215 => Some((self.rddiv >> 8) as u8),
+                // RDMPYL - Unsigned Division Remainder / Multiply Product (lo.8bit) (R)
+                0x4216 => Some(self.rdmpy as u8),
+                // RDMPYH - Unsigned Division Remainder / Multiply Product (up.8bit) (R)
+                0x4217 => Some((self.rdmpy >> 8) as u8),
                 // JOYxx - Joypads
                 0x4218..=0x421F => Some(0),
                 // DMA parameter area
@@ -383,10 +412,49 @@ where
                     }
                     Some(self.nmitimen = val)
                 }
+                // WRMPYA - Set unsigned 8bit Multiplicand (W)
+                0x4202 => Some(self.wrmpya = val),
+                // WRMPYB - Set unsigned 8bit Multiplier and Start Multiplication (W)
+                0x4203 => {
+                    let result = u16::from(self.wrmpya).wrapping_mul(val as u16);
+
+                    // This is a hardware quirk, multiplication destroys
+                    // the division result.
+                    self.rddiv = val as u16;
+
+                    //println!("Multiply: {} * {} = {}", self.wrmpya, val, result);
+
+                    Some(self.rdmpy = result)
+                }
+                // WRDIVL - Set unsigned 16bit Dividend (lower 8bit) (W)
+                0x4204 => Some(self.wrdiv = (self.wrdiv & 0xFF00) | (val as u16)),
+                // WRDIVH - Set unsigned 16bit Dividend (upper 8bit) (W)
+                0x4205 => Some(self.wrdiv = (self.wrdiv & 0x00FF) | ((val as u16) << 8)),
+                // WRDIVB - Set unsigned 8bit Divisor and Start Division (W)
+                0x4206 => {
+                    if val == 0 {
+                        println!("Division by zero: {} / {}", self.wrdiv, val);
+                        self.rddiv = 0xFFFF;
+                        self.rdmpy = self.wrdiv;
+                    } else {
+                        self.rddiv = self.wrdiv / val as u16;
+                        self.rdmpy = self.wrdiv.rem_euclid(val as u16);
+                        //println!("Division: {} / {} = {} ({})", self.wrdiv, val, self.rddiv, self.rdmpy);
+                    }
+                    Some(())
+                }
                 // MDMAEN - Select General Purpose DMA Channel(s) and Start Transfer
                 0x420B => Some(self.gdma_run(val)),
                 // MEMSEL - Memory-2 Waitstate Control
                 0x420D => Some(self.memsel = val),
+                // RDDIVL - Unsigned Division Result (Quotient) (lower 8bit) (R)
+                0x4214 => None,
+                // RDDIVH - Unsigned Division Result (Quotient) (upper 8bit) (R)
+                0x4215 => None,
+                // RDMPYL - Unsigned Division Remainder / Multiply Product (lo.8bit) (R)
+                0x4216 => None,
+                // RDMPYH - Unsigned Division Remainder / Multiply Product (up.8bit) (R)
+                0x4217 => None,
                 // DMA parameter area
                 0x4300..=0x43FF => {
                     let ch = (addr >> 4) & 0x07;
@@ -521,5 +589,67 @@ mod tests {
         bus.write(0x000000, 0xFF);
         bus.read(0x000000);
         assert_eq!(bus.read(0x004210), 0x72);
+    }
+
+    #[test]
+    fn multiply() {
+        let mut bus = mainbus();
+
+        let mut mul = |a, b| {
+            bus.write(0x4202, a);
+            bus.write(0x4203, b);
+            let l = bus.read(0x4216) as u16;
+            let h = bus.read(0x4217) as u16;
+
+            // Div results hardware quirk
+            assert_eq!(bus.read(0x4214), b);
+            assert_eq!(bus.read(0x4215), 0);
+            h << 8 | l
+        };
+
+        assert_eq!(mul(10, 12), 120);
+        assert_eq!(mul(0, 12), 0);
+        assert_eq!(mul(1, 12), 12);
+        assert_eq!(mul(255, 255), 65025);
+    }
+
+    #[test]
+    fn divide() {
+        let mut bus = mainbus();
+
+        let mut div = |a, b| {
+            bus.write16(0x4204, a);
+            bus.write(0x4206, b);
+            let l = bus.read(0x4214) as u16;
+            let h = bus.read(0x4215) as u16;
+            let rl = bus.read(0x4216) as u16;
+            let rh = bus.read(0x4217) as u16;
+
+            (h << 8 | l, rh << 8 | rl)
+        };
+
+        assert_eq!(div(12, 10), (1, 2));
+        assert_eq!(div(10, 10), (1, 0));
+        assert_eq!(div(65535, 255), (257, 0));
+        assert_eq!(div(65500, 255), (256, 220));
+    }
+
+    #[test]
+    fn divide_by_zero() {
+        let mut bus = mainbus();
+
+        let mut div = |a, b| {
+            bus.write16(0x4204, a);
+            bus.write(0x4206, b);
+            let l = bus.read(0x4214) as u16;
+            let h = bus.read(0x4215) as u16;
+            let rl = bus.read(0x4216) as u16;
+            let rh = bus.read(0x4217) as u16;
+
+            (h << 8 | l, rh << 8 | rl)
+        };
+
+        assert_eq!(div(123, 0), (0xFFFF, 123));
+        assert_eq!(div(0x1234, 0), (0xFFFF, 0x1234));
     }
 }
