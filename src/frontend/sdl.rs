@@ -50,7 +50,7 @@ impl Renderer for SDLRenderer {
                 .position_centered()
                 .build()?;
 
-            let canvas = window.into_canvas().accelerated().present_vsync().build()?;
+            let canvas = window.into_canvas().accelerated().build()?;
             let texture_creator = canvas.texture_creator();
             let texture = texture_creator.create_texture_streaming(
                 PixelFormatEnum::RGB888,
