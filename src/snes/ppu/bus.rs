@@ -89,8 +89,10 @@ where
             0x00..=0x3F | 0x80..=0xBF => match addr {
                 // BGMODE - BG Mode and BG Character Size
                 0x2105 => {
+                    if self.bgmode & 7 != val & 7 {
+                        println!("PPU screen mode: {}", val & 7);
+                    }
                     self.bgmode = val;
-                    println!("PPU screen mode: {}", self.get_screen_mode());
                     Some(())
                 }
                 // BGxSC - BGx Screen Base and Screen Size

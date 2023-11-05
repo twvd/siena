@@ -84,8 +84,11 @@ struct DMAChannel {
     /// HDMA table start bank / DMA current bank
     a1b: u8,
 
-    /// DMA byte-counter
+    /// DMA byte-counter / Indirect HDMA address
     das: u16,
+
+    /// DMA byte-counter / Indirect HDMA address (bank)
+    dasb: u8,
 }
 
 impl DMAChannel {
@@ -96,6 +99,7 @@ impl DMAChannel {
             a1t: 0xFFFF,
             a1b: 0xFF,
             das: 0xFFFF,
+            dasb: 0xFF,
         }
     }
 
@@ -366,14 +370,16 @@ where
                 // NMITIMEN - Interrupt Enable and Joypad Request (W)
                 0x4200 => {
                     // TODO joypad
-                    if val & 0x30 != 0 {
+                    if val & 0x30 != self.nmitimen & 0x30 {
                         // TODO H/V interrupts
-                        todo!();
+                        println!("H/V interrupts: {:02X}", val & 0x30);
                     }
-                    if val & 0x80 != 0 {
-                        println!("VBlank NMIs enabled");
-                    } else {
-                        println!("VBlank NMIs disabled");
+                    if val & 0x80 != self.nmitimen & 0x80 {
+                        if val & 0x80 != 0 {
+                            println!("VBlank NMIs enabled");
+                        } else {
+                            println!("VBlank NMIs disabled");
+                        }
                     }
                     Some(self.nmitimen = val)
                 }
@@ -403,6 +409,8 @@ where
                         0x06 => Some(
                             self.dma[ch].das = (self.dma[ch].das & 0x00FF) | ((val as u16) << 8),
                         ),
+                        // DASxB - Indirect HDMA Address (bank)
+                        0x07 => Some(self.dma[ch].dasb = val),
 
                         _ => todo!(),
                     }
