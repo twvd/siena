@@ -32,7 +32,7 @@ where
         line_paletted: &mut [Color],
         priority: bool,
     ) {
-        if self.tm & (1 << bg) == 0 {
+        if (self.tm | self.ts) & (1 << bg) == 0 {
             return;
         }
 
