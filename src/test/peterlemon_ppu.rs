@@ -10,7 +10,7 @@ macro_rules! ppu_test {
             test_display(
                 include_bytes!(concat!("../../../souper_tests/SNES/PPU/", $testfn)),
                 &hex!($hash),
-                20000,
+                60000,
                 true,
             );
         }
