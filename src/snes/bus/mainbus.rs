@@ -107,6 +107,15 @@ struct DMAChannel {
 
     /// Unused byte
     unused: u8,
+
+    /// HDMA state: do transfer
+    hdma_dotransfer: bool,
+
+    /// HDMA state: repeat
+    hdma_repeat: bool,
+
+    /// HDMA state: line counter
+    hdma_lines: u8,
 }
 
 impl DMAChannel {
@@ -121,6 +130,9 @@ impl DMAChannel {
             a2a: 0xFFFF,
             ntrl: 0xFF,
             unused: 0xFF,
+            hdma_dotransfer: false,
+            hdma_repeat: false,
+            hdma_lines: 0,
         }
     }
 
@@ -150,7 +162,7 @@ impl DMAChannel {
         if self.das == 0 {
             0x10000
         } else {
-            Address::from(self.das + (self.das % 4))
+            Address::from(self.das)
         }
     }
 
@@ -160,6 +172,36 @@ impl DMAChannel {
 
     pub fn a_addr(&self) -> Address {
         Address::from(self.a1b) << 16 | Address::from(self.a1t)
+    }
+
+    pub fn hdma_current_a_addr(&self) -> Address {
+        if self.hdma_is_indirect() {
+            self.hdma_current_a_addr_indirect()
+        } else {
+            self.hdma_current_a_addr_direct()
+        }
+    }
+
+    pub fn hdma_set_current_a_addr(&mut self, addr: Address) {
+        if self.hdma_is_indirect() {
+            self.dasb = (addr >> 16) as u8;
+            self.das = addr as u16;
+        } else {
+            self.a1b = (addr >> 16) as u8;
+            self.a1t = addr as u16;
+        }
+    }
+
+    pub fn hdma_current_a_addr_direct(&self) -> Address {
+        Address::from(self.a1b) << 16 | Address::from(self.a2a)
+    }
+
+    pub fn hdma_current_a_addr_indirect(&self) -> Address {
+        Address::from(self.dasb) << 16 | Address::from(self.das)
+    }
+
+    pub fn hdma_is_indirect(&self) -> bool {
+        self.dmap & (1 << 6) != 0
     }
 }
 
@@ -215,40 +257,125 @@ where
                     DMAStep::Fixed => self.dma[ch].a_addr(),
                     _ => todo!(),
                 };
-                match self.dma[ch].mode() {
-                    0 => match self.dma[ch].direction() {
-                        DMADirection::CPUToIO => {
-                            let v = self.read(a_addr);
-                            self.write(b_addr, v);
-                        }
-                        _ => todo!(),
-                    },
-                    1 => {
-                        let b_addr = b_addr + (i & 1);
-                        match self.dma[ch].direction() {
-                            DMADirection::CPUToIO => {
-                                let v = self.read(a_addr);
-                                self.write(b_addr, v);
-                            }
-                            _ => todo!(),
-                        }
+
+                self.dma_transfer_step(ch, a_addr, b_addr, i);
+            }
+        }
+    }
+
+    fn dma_transfer_unit(&mut self, ch: usize, a_addr: Address, b_addr: Address) -> Address {
+        let mut c = 0;
+        while self.dma_transfer_step(ch, a_addr, b_addr, c) > 0 {
+            c += 1;
+        }
+        c + 1
+    }
+
+    /// Transfers one BYTE of a DMA transfer unit
+    fn dma_transfer_step(
+        &mut self,
+        ch: usize,
+        a_addr: Address,
+        b_addr: Address,
+        unit_offset: Address,
+    ) -> Address {
+        match self.dma[ch].mode() {
+            0 => {
+                match self.dma[ch].direction() {
+                    DMADirection::CPUToIO => {
+                        let v = self.read(a_addr);
+                        self.write(b_addr, v);
                     }
                     _ => todo!(),
                 }
+                0
             }
+            1 => {
+                let b_addr = b_addr + (unit_offset % 2);
+                match self.dma[ch].direction() {
+                    DMADirection::CPUToIO => {
+                        let v = self.read(a_addr);
+                        self.write(b_addr, v);
+                    }
+                    _ => todo!(),
+                }
+                1 - (unit_offset % 2)
+            }
+            2 => {
+                match self.dma[ch].direction() {
+                    DMADirection::CPUToIO => {
+                        let v = self.read(a_addr);
+                        self.write(b_addr, v);
+                    }
+                    _ => todo!(),
+                }
+                1 - (unit_offset % 2)
+            }
+            _ => panic!("Unimplemented DMA mode {}", self.dma[ch].mode()),
         }
     }
 
     fn hdma_reset(&mut self) {
         for ch in 0..DMA_CHANNELS {
-            if self.hdmaen & (1 << ch) != 0 {}
+            if self.hdmaen & (1 << ch) == 0 {
+                continue;
+            }
+
+            // Reset current address to start address
+            self.dma[ch].a2a = self.dma[ch].a1t;
+
+            self.hdma_load_next_entry(ch);
         }
     }
 
     fn hdma_run(&mut self) {
         for ch in 0..DMA_CHANNELS {
-            if self.hdmaen & (1 << ch) != 0 {}
+            if self.hdmaen & (1 << ch) == 0 {
+                continue;
+            }
+
+            // Current cycle ended?
+            if !self.dma[ch].hdma_repeat && self.dma[ch].hdma_lines == 0 {
+                continue;
+            }
+
+            if self.dma[ch].hdma_dotransfer {
+                let a_addr = self.dma[ch].hdma_current_a_addr();
+                let b_addr = self.dma[ch].b_addr();
+                let len = self.dma_transfer_unit(ch, a_addr, b_addr);
+
+                self.dma[ch].hdma_set_current_a_addr(a_addr.wrapping_add(len));
+            }
+
+            self.dma[ch].hdma_lines -= 1;
+            self.dma[ch].hdma_dotransfer = self.dma[ch].hdma_repeat;
+
+            if self.dma[ch].hdma_lines == 0 {
+                // Next entry
+                self.hdma_load_next_entry(ch);
+            }
         }
+    }
+
+    fn hdma_load_next_entry(&mut self, ch: usize) {
+        // Load flags (line count + repeat) from table
+        let replc = self.read(self.dma[ch].hdma_current_a_addr());
+
+        self.dma[ch].hdma_repeat = replc & (1 << 7) != 0;
+        self.dma[ch].hdma_lines = replc & !(1 << 7);
+
+        // Bump address to next table entry
+        self.dma[ch].a2a = self.dma[ch].a2a.wrapping_add(1);
+
+        if self.dma[ch].hdma_is_indirect() {
+            let indirect_addr = self.read16(self.dma[ch].hdma_current_a_addr_direct());
+
+            // Next entry
+            self.dma[ch].a2a = self.dma[ch].a2a.wrapping_add(2);
+            self.dma[ch].das = indirect_addr;
+        }
+
+        self.dma[ch].hdma_dotransfer = true;
     }
 }
 
