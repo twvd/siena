@@ -16,7 +16,8 @@ where
 
     fn cindex_to_color(&self, bg: usize, tile: &Tile, idx: u8) -> Color {
         let palette = match tile.bpp {
-            BPP::Two => bg as u8 * 32 + tile.map.palettenr() * 4,
+            BPP::Two if self.get_screen_mode() == 0 => bg as u8 * 32 + tile.map.palettenr() * 4,
+            BPP::Two => tile.map.palettenr() * 4,
             BPP::Four => tile.map.palettenr() * 16,
             BPP::Eight => 0,
         };
