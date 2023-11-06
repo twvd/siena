@@ -88,7 +88,9 @@ pub struct PPU<TRenderer: Renderer> {
     cycles: usize,
     last_scanline: usize,
     intreq_vblank: bool,
+    intreq_hblank: bool,
     vblank: bool,
+    hblank: bool,
 
     vram: Vec<VramWord>,
     vmadd: Cell<u16>,
@@ -161,7 +163,9 @@ where
             cycles: 0,
             last_scanline: 0,
             intreq_vblank: false,
+            intreq_hblank: false,
             vblank: false,
+            hblank: false,
 
             vram: vec![0; VRAM_WORDS],
             vmadd: Cell::new(0),
@@ -315,7 +319,7 @@ where
         self.bgmode & (1 << (7 - bg)) != 0
     }
 
-    fn get_current_scanline(&self) -> usize {
+    pub fn get_current_scanline(&self) -> usize {
         self.cycles / Self::CYCLES_PER_SCANLINE
     }
 
@@ -332,6 +336,12 @@ where
         self.intreq_vblank = false;
         v
     }
+
+    pub fn get_clr_intreq_hblank(&mut self) -> bool {
+        let v = self.intreq_hblank;
+        self.intreq_hblank = false;
+        v
+    }
 }
 
 impl<TRenderer> Tickable for PPU<TRenderer>
@@ -342,14 +352,26 @@ where
         self.cycles =
             (self.cycles + ticks) % (Self::CYCLES_PER_SCANLINE * Self::SCANLINES_PER_FRAME);
 
+        if self.in_hblank() {
+            if !self.hblank {
+                // Entered HBlank
+                self.hblank = true;
+                self.intreq_hblank = true;
+            }
+        } else {
+            self.hblank = false;
+        }
+
         if self.get_current_scanline() != self.last_scanline {
             self.last_scanline = self.get_current_scanline();
 
-            if !self.vblank && self.in_vblank() {
-                // Entered VBlank
-                self.vblank = true;
-                self.intreq_vblank = true;
-                self.renderer.update()?;
+            if self.in_vblank() {
+                if !self.vblank {
+                    // Entered VBlank
+                    self.vblank = true;
+                    self.intreq_vblank = true;
+                    self.renderer.update()?;
+                }
             } else {
                 self.vblank = false;
                 if self.last_scanline < SCREEN_HEIGHT {

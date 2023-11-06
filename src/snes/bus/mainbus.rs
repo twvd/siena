@@ -40,6 +40,9 @@ where
     /// DMA channels
     dma: [DMAChannel; DMA_CHANNELS],
 
+    /// Enabled HDMA channels
+    hdmaen: u8,
+
     /// WMADD - WRAM B-bus access port
     wmadd: Cell<Address>,
 
@@ -95,6 +98,15 @@ struct DMAChannel {
 
     /// DMA byte-counter / Indirect HDMA address (bank)
     dasb: u8,
+
+    /// HDMA Table Current Address
+    a2a: u16,
+
+    /// HDMA Line-Counter (from current Table entry)
+    ntrl: u8,
+
+    /// Unused byte
+    unused: u8,
 }
 
 impl DMAChannel {
@@ -106,6 +118,9 @@ impl DMAChannel {
             a1b: 0xFF,
             das: 0xFFFF,
             dasb: 0xFF,
+            a2a: 0xFFFF,
+            ntrl: 0xFF,
+            unused: 0xFF,
         }
     }
 
@@ -158,6 +173,7 @@ where
             wram: vec![0; WRAM_SIZE],
             trace,
             dma: [DMAChannel::new(); DMA_CHANNELS],
+            hdmaen: 0,
 
             ppu: PPU::<TRenderer>::new(renderer),
 
@@ -182,6 +198,10 @@ where
         for ch in 0..DMA_CHANNELS {
             if chmask & (1 << ch) == 0 {
                 continue;
+            }
+
+            if self.hdmaen & (1 << ch) != 0 {
+                println!("??? Doing GDMA on a channel ({}) enabled for HDMA", ch);
             }
 
             if self.trace == BusTrace::All {
@@ -216,6 +236,18 @@ where
                     _ => todo!(),
                 }
             }
+        }
+    }
+
+    fn hdma_reset(&mut self) {
+        for ch in 0..DMA_CHANNELS {
+            if self.hdmaen & (1 << ch) != 0 {}
+        }
+    }
+
+    fn hdma_run(&mut self) {
+        for ch in 0..DMA_CHANNELS {
+            if self.hdmaen & (1 << ch) != 0 {}
         }
     }
 }
@@ -320,6 +352,16 @@ where
                         0x05 => Some(self.dma[ch].das as u8),
                         // DASxH - Indirect HDMA Address (high)  / DMA Byte-Counter (high)
                         0x06 => Some((self.dma[ch].das >> 8) as u8),
+                        // DASxB - Indirect HDMA Address (bank)
+                        0x07 => Some(self.dma[ch].dasb),
+                        // A2AxL - HDMA Table Current Address (low) (R/W)
+                        0x08 => Some(self.dma[ch].a2a as u8),
+                        // A2AxH - HDMA Table Current Address (high) (R/W)
+                        0x09 => Some((self.dma[ch].a2a >> 8) as u8),
+                        // NTRLx - HDMA Line-Counter (from current Table entry) (R/W)
+                        0x0A => Some(self.dma[ch].ntrl),
+                        // UNUSEDx - Unused Byte (R/W)
+                        0x0B | 0x0F => Some(self.dma[ch].unused),
 
                         _ => None,
                     }
@@ -447,6 +489,8 @@ where
                 }
                 // MDMAEN - Select General Purpose DMA Channel(s) and Start Transfer
                 0x420B => Some(self.gdma_run(val)),
+                // HDMAEN - Select H-Blank DMA (H-DMA) Channel(s) (W)
+                0x420C => Some(self.hdmaen = val),
                 // MEMSEL - Memory-2 Waitstate Control
                 0x420D => Some(self.memsel = val),
                 // RDDIVL - Unsigned Division Result (Quotient) (lower 8bit) (R)
@@ -465,24 +509,39 @@ where
                         0x00 => Some(self.dma[ch].dmap = val),
                         // BBADx - DMA/HDMA I/O-Bus Address
                         0x01 => Some(self.dma[ch].bbad = val),
-                        // A1TxL - HDMA Table Start Address (low)  / DMA Curr Addr (low)
+                        // A1TxL - HDMA Table Start Address (low)
+                        // DMA Curr Addr (low)
                         0x02 => Some(self.dma[ch].a1t = (self.dma[ch].a1t & 0xFF00) | val as u16),
-                        // A1TxH - HDMA Table Start Address (high)  / DMA Curr Addr (high)
+                        // A1TxH - HDMA Table Start Address (high)
+                        // DMA Curr Addr (high)
                         0x03 => Some(
                             self.dma[ch].a1t = (self.dma[ch].a1t & 0x00FF) | ((val as u16) << 8),
                         ),
-                        // A1TxB - HDMA Table Start Address (bank) / DMA Curr Addr (bank)
+                        // A1TxB - HDMA Table Start Address (bank)
+                        // DMA Curr Addr (bank)
                         0x04 => Some(self.dma[ch].a1b = val),
-                        // DASxL - Indirect HDMA Address (low)  / DMA Byte-Counter (low)
+                        // DASxL - Indirect HDMA Address (low)
+                        // DMA Byte-Counter (low)
                         0x05 => Some(self.dma[ch].das = (self.dma[ch].das & 0xFF00) | val as u16),
-                        // DASxH - Indirect HDMA Address (high)  / DMA Byte-Counter (high)
+                        // DASxH - Indirect HDMA Address (high)
+                        // DMA Byte-Counter (high)
                         0x06 => Some(
                             self.dma[ch].das = (self.dma[ch].das & 0x00FF) | ((val as u16) << 8),
                         ),
                         // DASxB - Indirect HDMA Address (bank)
                         0x07 => Some(self.dma[ch].dasb = val),
+                        // A2AxL - HDMA Table Current Address (low) (R/W)
+                        0x08 => Some(self.dma[ch].a2a = (self.dma[ch].a2a & 0xFF00) | val as u16),
+                        // A2AxH - HDMA Table Current Address (high) (R/W)
+                        0x09 => {
+                            Some(self.dma[ch].a2a = (self.dma[ch].a2a & 0x00FF) | (val as u16) << 8)
+                        }
+                        // NTRLx - HDMA Line-Counter (from current Table entry) (R/W)
+                        0x0A => Some(self.dma[ch].ntrl = val),
+                        // UNUSEDx - Unused Byte (R/W)
+                        0x0B | 0x0F => Some(self.dma[ch].unused = val),
 
-                        _ => todo!(),
+                        _ => None,
                     }
                 }
 
@@ -524,7 +583,18 @@ where
     fn tick(&mut self, ticks: Ticks) -> Result<()> {
         self.ppu.tick(ticks)?;
 
-        if self.ppu.get_clr_intreq_vblank() && self.nmitimen & (1 << 7) != 0 {
+        let entered_vblank = self.ppu.get_clr_intreq_vblank();
+        let entered_hblank = self.ppu.get_clr_intreq_hblank();
+
+        if entered_hblank && !self.ppu.in_vblank() {
+            if self.ppu.get_current_scanline() == 0 {
+                self.hdma_reset();
+            }
+
+            self.hdma_run();
+        }
+
+        if entered_vblank && self.nmitimen & (1 << 7) != 0 {
             self.intreq_nmi = true;
         }
 
