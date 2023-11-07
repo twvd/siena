@@ -35,6 +35,8 @@ const VMAIN_INC_MASK: u8 = 0x03;
 const VMAIN_TRANSLATE_MASK: u8 = 0x03;
 const VMAIN_TRANSLATE_SHIFT: u8 = 2;
 
+const OAM_SIZE: usize = 512 + 32;
+
 #[derive(FromPrimitive)]
 pub enum TilemapDimensions {
     D32x32 = 0,
@@ -114,6 +116,11 @@ pub struct PPU<TRenderer: Renderer> {
 
     tm: u8,
     ts: u8,
+
+    obsel: u8,
+    oamadd: Cell<u16>,
+    oam: [u8; OAM_SIZE],
+    oam_writebuf: u8,
 }
 
 #[derive(Debug)]
@@ -183,6 +190,11 @@ where
             bgxxofs_prev: 0,
             tm: 0,
             ts: 0,
+
+            obsel: 0,
+            oamadd: Cell::new(0),
+            oam: [0; OAM_SIZE],
+            oam_writebuf: 0,
         }
     }
 

@@ -161,3 +161,53 @@ fn cgram_read_overflow() {
     assert_eq!(p.read(0x213B), Some(0xCC)); // RDCGRAM
     assert_eq!(p.read(0x213B), Some(0xDD)); // RDCGRAM
 }
+
+#[test]
+fn oam_write_seq() {
+    let mut p = ppu();
+    p.write(0x2102, 0);
+    p.write(0x2103, 0);
+    assert_eq!(p.oam[0..3], [0, 0, 0]);
+
+    // First write buffers
+    p.write(0x2104, 0xAA);
+    assert_eq!(p.oam[0..3], [0, 0, 0]);
+    p.write(0x2104, 0xBB);
+    assert_eq!(p.oam[0..3], [0xAA, 0xBB, 0]);
+
+    p.write(0x2104, 0xCC);
+    assert_eq!(p.oam[0..3], [0xAA, 0xBB, 0]);
+    p.write(0x2104, 0xDD);
+    assert_eq!(p.oam[0..5], [0xAA, 0xBB, 0xCC, 0xDD, 0]);
+
+    // Test end of OAM towards the 32 byte extension table
+    p.write(0x2102, (510 & 0xFF) as u8);
+    p.write(0x2103, (510 >> 8) as u8);
+    assert_eq!(p.oam[510..513], [0, 0, 0]);
+    p.write(0x2104, 0xAA);
+    assert_eq!(p.oam[510..513], [0, 0, 0]);
+    p.write(0x2104, 0xBB);
+    assert_eq!(p.oam[510..513], [0xAA, 0xBB, 0]);
+    p.write(0x2104, 0xCC); // passes immediately
+    assert_eq!(p.oam[510..513], [0xAA, 0xBB, 0xCC]);
+}
+
+#[test]
+fn oam_write_exttable() {
+    let mut p = ppu();
+    assert_eq!(p.oam[512], 0);
+    p.write(0x2102, (512 & 0xFF) as u8);
+    p.write(0x2103, (512 >> 8) as u8);
+    p.write(0x2104, 0xAA);
+    assert_eq!(p.oam[512], 0xAA);
+}
+
+#[test]
+fn oam_write_exttable_mirror() {
+    let mut p = ppu();
+    assert_eq!(p.oam[512], 0);
+    p.write(0x2102, (0x220 & 0xFF) as u8);
+    p.write(0x2103, (0x220 >> 8) as u8);
+    p.write(0x2104, 0xAA);
+    assert_eq!(p.oam[512], 0xAA);
+}

@@ -87,13 +87,56 @@ where
         match bank {
             // System area
             0x00..=0x3F | 0x80..=0xBF => match addr {
+                // OBSEL - Object Size and Object Base
+                0x2101 => {
+                    println!("OBSEL = {}", val);
+                    Some(self.obsel = val)
+                }
+                // OAMADDL - OAM Address and Priority Rotation (W)
+                0x2102 => {
+                    let v = self.oamadd.get() & 0xFF00;
+                    Some(self.oamadd.set(v | val as u16))
+                }
+                // OAMADDH - OAM Address and Priority Rotation (W)
+                0x2103 => {
+                    let v = self.oamadd.get() & 0x00FF;
+                    let val = val & 0x83; // bit 10-14 unused
+                    if val & 0x80 != 0 {
+                        // Obj priority
+                        todo!();
+                    }
+                    Some(self.oamadd.set(v | (val as u16) << 8))
+                }
+                // OAMDATA - OAM Data Write (W)
+                0x2104 => {
+                    let oaddr = self.oamadd.get();
+
+                    // Deal with the upper table mirrors
+                    let addr = if oaddr >= 0x200 {
+                        (oaddr & 0x21F) as usize
+                    } else {
+                        oaddr as usize
+                    };
+
+                    let even = addr % 2 == 0;
+                    if even {
+                        self.oam_writebuf = val;
+                    }
+                    if !even && addr <= 0x1FF {
+                        self.oam[addr - 1] = self.oam_writebuf;
+                        self.oam[addr] = val;
+                    }
+                    if addr > 0x1FF {
+                        self.oam[addr] = val;
+                    }
+                    Some(self.oamadd.set((oaddr + 1) & 0x3FF))
+                }
                 // BGMODE - BG Mode and BG Character Size
                 0x2105 => {
                     if self.bgmode & 7 != val & 7 {
                         println!("PPU screen mode: {}", val & 7);
                     }
-                    self.bgmode = val;
-                    Some(())
+                    Some(self.bgmode = val)
                 }
                 // BGxSC - BGx Screen Base and Screen Size
                 0x2107..=0x210A => Some(self.bgxsc[addr - 0x2107] = val),
