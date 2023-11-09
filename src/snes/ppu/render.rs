@@ -8,12 +8,14 @@ where
 {
     fn cgram_to_color(&self, addr: u8) -> Color {
         let entry = self.cgram[addr as usize];
+        let brightness = (self.inidisp & 0x0F) as usize;
 
-        if self.inidisp & 0x80 != 0 {
-            // Force blank
+        if brightness == 0 || self.inidisp & 0x80 != 0 {
+            // Force blank or no brightness
             return (0, 0, 0);
         }
 
+        // RGB555 -> RGB888 conversion
         let (r, g, b) = (
             (((entry >> 0) & 0x1F) as u8) << 3,  // Red, 5-bit
             (((entry >> 5) & 0x1F) as u8) << 3,  // Green, 5-bit
@@ -21,13 +23,14 @@ where
         );
 
         // Apply master brightness
-        let brightness = f32::from(self.inidisp & 0x0F) / 15.0_f32;
+        let brightness = brightness + 1;
+        let (r, g, b) = (
+            ((r as usize * brightness) >> 4) as u8,
+            ((g as usize * brightness) >> 4) as u8,
+            ((b as usize * brightness) >> 4) as u8,
+        );
 
-        (
-            (f32::from(r) * brightness).to_u8().unwrap(),
-            (f32::from(g) * brightness).to_u8().unwrap(),
-            (f32::from(b) * brightness).to_u8().unwrap(),
-        )
+        (r, g, b)
     }
 
     fn cindex_to_color(&self, bg: usize, tile: &Tile, idx: u8) -> Color {
