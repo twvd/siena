@@ -122,6 +122,8 @@ pub struct PPU<TRenderer: Renderer> {
     oamadd: Cell<u16>,
     oam: [u8; OAM_SIZE],
     oam_writebuf: u8,
+
+    inidisp: u8,
 }
 
 #[derive(Debug)]
@@ -196,6 +198,8 @@ where
             oamadd: Cell::new(0),
             oam: [0; OAM_SIZE],
             oam_writebuf: 0,
+
+            inidisp: 0,
         }
     }
 

@@ -8,10 +8,25 @@ where
 {
     fn cgram_to_color(&self, addr: u8) -> Color {
         let entry = self.cgram[addr as usize];
-        (
+
+        if self.inidisp & 0x80 != 0 {
+            // Force blank
+            return (0, 0, 0);
+        }
+
+        let (r, g, b) = (
             (((entry >> 0) & 0x1F) as u8) << 3,  // Red, 5-bit
             (((entry >> 5) & 0x1F) as u8) << 3,  // Green, 5-bit
             (((entry >> 10) & 0x1F) as u8) << 3, // Blue, 5-bit
+        );
+
+        // Apply master brightness
+        let brightness = f32::from(self.inidisp & 0x0F) / 15.0_f32;
+
+        (
+            (f32::from(r) * brightness).to_u8().unwrap(),
+            (f32::from(g) * brightness).to_u8().unwrap(),
+            (f32::from(b) * brightness).to_u8().unwrap(),
         )
     }
 
@@ -72,6 +87,10 @@ where
         line_paletted: &mut [Color],
         priority: u8,
     ) {
+        if (self.tm | self.ts) & (1 << 4) == 0 {
+            return;
+        }
+
         for idx in 0..OAM_ENTRIES {
             let e = self.get_oam_entry(idx);
 

@@ -87,11 +87,10 @@ where
         match bank {
             // System area
             0x00..=0x3F | 0x80..=0xBF => match addr {
+                // INIDISP - Display Control 1 (W)
+                0x2100 => Some(self.inidisp = val),
                 // OBSEL - Object Size and Object Base
-                0x2101 => {
-                    println!("OBSEL = {}", val);
-                    Some(self.obsel = val)
-                }
+                0x2101 => Some(self.obsel = val),
                 // OAMADDL - OAM Address and Priority Rotation (W)
                 0x2102 => {
                     let v = self.oamadd.get() & 0xFF00;
