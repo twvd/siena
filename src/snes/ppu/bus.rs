@@ -103,7 +103,7 @@ where
                     let val = val & 0x83; // bit 10-14 unused
                     if val & 0x80 != 0 {
                         // Obj priority
-                        todo!();
+                        // TODO
                     }
                     Some(self.oamadd.set(v | (val as u16) << 8))
                 }

@@ -1,5 +1,6 @@
 pub mod bus;
 pub mod render;
+pub mod sprites;
 
 #[cfg(test)]
 pub mod tests;

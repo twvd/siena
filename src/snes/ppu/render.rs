@@ -1,3 +1,4 @@
+use super::sprites::{SpriteTile, OAM_ENTRIES};
 use super::*;
 use crate::frontend::{Color, Renderer};
 
@@ -21,6 +22,11 @@ where
             BPP::Four => tile.map.palettenr() * 16,
             BPP::Eight => 0,
         };
+        self.cgram_to_color(palette + idx)
+    }
+
+    fn sprite_cindex_to_color(&self, tile: &SpriteTile, idx: u8) -> Color {
+        let palette = 128 + (tile.oam.palette() * 16);
         self.cgram_to_color(palette + idx)
     }
 
@@ -59,101 +65,133 @@ where
         }
     }
 
+    pub fn render_scanline_sprites(
+        &mut self,
+        scanline: usize,
+        line_idx: &mut [u8],
+        line_paletted: &mut [Color],
+        priority: u8,
+    ) {
+        for idx in 0..OAM_ENTRIES {
+            let e = self.get_oam_entry(idx);
+
+            if e.priority != priority {
+                continue;
+            }
+
+            if (e.y..(e.y + e.height)).contains(&scanline) {
+                for x in e.x..(e.x + e.width) {
+                    if x >= line_idx.len() {
+                        break;
+                    }
+
+                    let t_x = (x - e.x) / 8;
+                    let t_y = (scanline - e.y) / 8;
+                    let sprite = self.get_sprite_tile(&e, t_x, t_y);
+
+                    let coloridx = sprite.get_coloridx((x - e.x) % 8, (scanline - e.y) % 8);
+                    if coloridx == 0 || line_idx[x] != 0 {
+                        continue;
+                    }
+                    line_idx[x] = coloridx;
+                    line_paletted[x] = self.sprite_cindex_to_color(&sprite, coloridx);
+                }
+            }
+        }
+    }
+
     pub fn render_scanline(&mut self, scanline: usize) {
         let mut line_idx: [u8; SCREEN_WIDTH] = [0; SCREEN_WIDTH];
         let mut line_paletted: [Color; SCREEN_WIDTH] = [(0, 0, 0); SCREEN_WIDTH];
 
         match self.get_screen_mode() {
             0 => {
-                let mut rs = |layer, prio| {
-                    self.render_scanline_bglayer(
-                        scanline,
-                        layer,
-                        &mut line_idx,
-                        &mut line_paletted,
-                        prio,
-                    )
-                };
                 // 4 layers, 2bpp (4 colors)
-                // TODO Sprites with priority 3
+                // Sprites with priority 3
+                self.render_scanline_sprites(scanline, &mut line_idx, &mut line_paletted, 3);
                 // BG1 tiles with priority 1
-                rs(0, true);
+                self.render_scanline_bglayer(scanline, 0, &mut line_idx, &mut line_paletted, true);
                 // BG2 tiles with priority 1
-                rs(1, true);
-                // TODO Sprites with priority 2
+                self.render_scanline_bglayer(scanline, 1, &mut line_idx, &mut line_paletted, true);
+                // Sprites with priority 2
+                self.render_scanline_sprites(scanline, &mut line_idx, &mut line_paletted, 2);
                 // BG1 tiles with priority 0
-                rs(0, false);
+                self.render_scanline_bglayer(scanline, 0, &mut line_idx, &mut line_paletted, false);
                 // BG2 tiles with priority 0
-                rs(1, false);
-                // TODO Sprites with priority 1
+                self.render_scanline_bglayer(scanline, 1, &mut line_idx, &mut line_paletted, false);
+                // Sprites with priority 1
+                self.render_scanline_sprites(scanline, &mut line_idx, &mut line_paletted, 1);
                 // BG3 tiles with priority 1
-                rs(2, true);
+                self.render_scanline_bglayer(scanline, 2, &mut line_idx, &mut line_paletted, true);
                 // BG4 tiles with priority 1
-                rs(3, true);
-                // TODO Sprites with priority 0
+                self.render_scanline_bglayer(scanline, 3, &mut line_idx, &mut line_paletted, true);
+                // Sprites with priority 0
+                self.render_scanline_sprites(scanline, &mut line_idx, &mut line_paletted, 0);
                 // BG3 tiles with priority 0
-                rs(2, false);
+                self.render_scanline_bglayer(scanline, 2, &mut line_idx, &mut line_paletted, false);
                 // BG4 tiles with priority 0
-                rs(3, false);
+                self.render_scanline_bglayer(scanline, 3, &mut line_idx, &mut line_paletted, false);
             }
             1 => {
                 let bg3_prio = self.bgmode & (1 << 3) != 0;
-                let mut rs = |layer, prio| {
-                    self.render_scanline_bglayer(
-                        scanline,
-                        layer,
-                        &mut line_idx,
-                        &mut line_paletted,
-                        prio,
-                    )
-                };
                 // BG3 tiles with priority 1 if bit 3 of $2105 is set
                 if bg3_prio {
-                    rs(2, true);
-                }
-                // TODO Sprites with priority 3
-                // BG1 tiles with priority 1
-                rs(0, true);
-                // BG2 tiles with priority 1
-                rs(1, true);
-                // TODO Sprites with priority 2
-                // BG1 tiles with priority 0
-                rs(0, false);
-                // BG2 tiles with priority 0
-                rs(1, false);
-                // TODO Sprites with priority 1
-                // BG3 tiles with priority 1 if bit 3 of $2105 is clear
-                if !bg3_prio {
-                    rs(2, true);
-                }
-                // TODO Sprites with priority 0
-                // BG3 tiles with priority 0
-                rs(2, false);
-            }
-            3 => {
-                let mut rs = |layer, prio| {
                     self.render_scanline_bglayer(
                         scanline,
-                        layer,
+                        2,
                         &mut line_idx,
                         &mut line_paletted,
-                        prio,
-                    )
-                };
+                        true,
+                    );
+                }
+                // Sprites with priority 3
+                self.render_scanline_sprites(scanline, &mut line_idx, &mut line_paletted, 3);
+                // BG1 tiles with priority 1
+                self.render_scanline_bglayer(scanline, 0, &mut line_idx, &mut line_paletted, true);
+                // BG2 tiles with priority 1
+                self.render_scanline_bglayer(scanline, 1, &mut line_idx, &mut line_paletted, true);
+                // Sprites with priority 2
+                self.render_scanline_sprites(scanline, &mut line_idx, &mut line_paletted, 2);
+                // BG1 tiles with priority 0
+                self.render_scanline_bglayer(scanline, 0, &mut line_idx, &mut line_paletted, false);
+                // BG2 tiles with priority 0
+                self.render_scanline_bglayer(scanline, 1, &mut line_idx, &mut line_paletted, false);
+                // Sprites with priority 1
+                self.render_scanline_sprites(scanline, &mut line_idx, &mut line_paletted, 1);
+                // BG3 tiles with priority 1 if bit 3 of $2105 is clear
+                if !bg3_prio {
+                    self.render_scanline_bglayer(
+                        scanline,
+                        2,
+                        &mut line_idx,
+                        &mut line_paletted,
+                        true,
+                    );
+                }
+                // Sprites with priority 0
+                self.render_scanline_sprites(scanline, &mut line_idx, &mut line_paletted, 0);
+                // BG3 tiles with priority 0
+                self.render_scanline_bglayer(scanline, 2, &mut line_idx, &mut line_paletted, false);
+            }
+            3 => {
                 // 2 layers, bg1: 8bpp (256 colors)
                 // bg2: 4bpp (16 colors)
-                // TODO Sprites with priority 3
+                // Sprites with priority 3
+                self.render_scanline_sprites(scanline, &mut line_idx, &mut line_paletted, 3);
                 // BG1 tiles with priority 1
-                rs(0, true);
-                // TODO Sprites with priority 2
+                self.render_scanline_bglayer(scanline, 0, &mut line_idx, &mut line_paletted, true);
+                // Sprites with priority 2
+                self.render_scanline_sprites(scanline, &mut line_idx, &mut line_paletted, 2);
                 // BG2 tiles with priority 1
-                rs(1, true);
-                // TODO Sprites with priority 1
+                self.render_scanline_bglayer(scanline, 1, &mut line_idx, &mut line_paletted, true);
+                // Sprites with priority 1
+                self.render_scanline_sprites(scanline, &mut line_idx, &mut line_paletted, 1);
                 // BG1 tiles with priority 0
-                rs(0, false);
-                // TODO Sprites with priority 0
+                self.render_scanline_bglayer(scanline, 0, &mut line_idx, &mut line_paletted, false);
+                // Sprites with priority 0
+                self.render_scanline_sprites(scanline, &mut line_idx, &mut line_paletted, 0);
                 // BG2 tiles with priority 0
-                rs(1, false);
+                self.render_scanline_bglayer(scanline, 1, &mut line_idx, &mut line_paletted, false);
             }
             _ => todo!(),
         }

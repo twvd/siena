@@ -708,7 +708,8 @@ where
     TRenderer: Renderer,
 {
     fn tick(&mut self, ticks: Ticks) -> Result<()> {
-        self.ppu.tick(ticks)?;
+        // This ratio is not based on anything that makes sense yet
+        self.ppu.tick(ticks * 8)?;
 
         let entered_vblank = self.ppu.get_clr_intreq_vblank();
         let entered_hblank = self.ppu.get_clr_intreq_hblank();
