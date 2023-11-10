@@ -1,6 +1,7 @@
 pub mod bus;
 pub mod render;
 pub mod sprites;
+pub mod tile;
 
 #[cfg(test)]
 pub mod tests;
@@ -13,6 +14,8 @@ use num_traits::{FromPrimitive, ToPrimitive};
 
 use crate::frontend::Renderer;
 use crate::tickable::{Tickable, Ticks};
+
+use tile::Tile;
 
 pub const SCREEN_WIDTH: usize = 8 * 32;
 pub const SCREEN_HEIGHT: usize = 8 * 28;
@@ -70,7 +73,7 @@ impl TilemapEntry {
     }
 }
 
-#[derive(Debug, ToPrimitive)]
+#[derive(Clone, Copy, Debug, ToPrimitive)]
 pub enum BPP {
     // BPP == number of bitplanes
     Two = 2,   // 4 colors
@@ -126,35 +129,29 @@ pub struct PPU<TRenderer: Renderer> {
     inidisp: u8,
 }
 
-#[derive(Debug)]
-pub struct Tile<'a> {
+pub struct BgTile<'a> {
     data: &'a [u16],
     map: &'a TilemapEntry,
     bpp: BPP,
 }
-impl<'a> Tile<'a> {
-    pub fn get_coloridx(&self, x: usize, y: usize) -> u8 {
-        let mut result: u8 = 0;
-        let bitp_w = self.bpp.num_bitplanes() / VRAM_WORDSIZE;
-        let y = if self.map.flip_y() { 7 - y } else { y };
-
-        let (x_a, x_b) = if self.map.flip_x() {
-            (1 << x, 1 << 8 + x)
-        } else {
-            (1 << 7 - x, 1 << 15 - x)
-        };
-
-        for i in 0..bitp_w {
-            let offset = y + (8 * i);
-
-            if self.data[offset] & x_a != 0 {
-                result |= 1 << (i * VRAM_WORDSIZE);
-            }
-            if self.data[offset] & x_b != 0 {
-                result |= 1 << ((i * VRAM_WORDSIZE) + 1);
-            }
-        }
-        result
+impl<'a, 'tdata> Tile<'tdata> for BgTile<'a>
+where
+    'a: 'tdata,
+{
+    fn get_tile_data(&self) -> &'tdata [VramWord] {
+        self.data
+    }
+    fn get_tile_flip_x(&self) -> bool {
+        self.map.flip_x()
+    }
+    fn get_tile_flip_y(&self) -> bool {
+        self.map.flip_y()
+    }
+    fn get_tile_bpp(&self) -> BPP {
+        self.bpp
+    }
+    fn get_tile_palette(&self) -> u8 {
+        self.map.palettenr()
     }
 }
 
@@ -320,11 +317,12 @@ where
         }
     }
 
-    fn get_tile<'a>(&'a self, bg: usize, tile: &'a TilemapEntry) -> Tile {
+    /// Retrieve a pixel data reference to a specific bg layer tile.
+    fn get_bg_tile<'a>(&'a self, bg: usize, tile: &'a TilemapEntry) -> BgTile {
         let bpp = self.get_layer_bpp(bg);
         let len = 8 * bpp.num_bitplanes() / VRAM_WORDSIZE;
         let idx = (self.bgxnba[bg] as usize * 4096) + (tile.charnr() as usize * len);
-        Tile {
+        BgTile {
             data: &self.vram[idx..(idx + len)],
             bpp,
             map: tile,

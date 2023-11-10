@@ -47,38 +47,30 @@ impl OAMEntry {
     }
 }
 
-#[derive(Debug)]
+/// A sprite tile is a single 8 x 8 pixel segment of a sprite.
 pub struct SpriteTile<'a> {
     pub data: &'a [VramWord],
     pub oam: &'a OAMEntry,
 }
-impl<'a> SpriteTile<'a> {
-    pub fn get_coloridx(&self, x: usize, y: usize) -> u8 {
-        let mut result: u8 = 0;
-        let bitp_w = BPP::Four.num_bitplanes() / VRAM_WORDSIZE;
-        let y = if self.oam.flip_y() {
-            TILE_HEIGHT - 1 - y
-        } else {
-            y
-        };
-
-        let (x_a, x_b) = if self.oam.flip_x() {
-            (1 << x, 1 << 8 + x)
-        } else {
-            (1 << 7 - x, 1 << 15 - x)
-        };
-
-        for i in 0..bitp_w {
-            let offset = y + (TILE_WIDTH * i);
-
-            if self.data[offset] & x_a != 0 {
-                result |= 1 << (i * VRAM_WORDSIZE);
-            }
-            if self.data[offset] & x_b != 0 {
-                result |= 1 << ((i * VRAM_WORDSIZE) + 1);
-            }
-        }
-        result
+impl<'a, 'tdata> Tile<'tdata> for SpriteTile<'a>
+where
+    'a: 'tdata,
+{
+    fn get_tile_data(&self) -> &'tdata [VramWord] {
+        self.data
+    }
+    fn get_tile_flip_x(&self) -> bool {
+        self.oam.flip_x()
+    }
+    fn get_tile_flip_y(&self) -> bool {
+        self.oam.flip_y()
+    }
+    fn get_tile_bpp(&self) -> BPP {
+        // Sprites are alwaye 4BPP
+        BPP::Four
+    }
+    fn get_tile_palette(&self) -> u8 {
+        self.oam.palette()
     }
 }
 
@@ -86,11 +78,18 @@ impl<TRenderer> PPU<TRenderer>
 where
     TRenderer: Renderer,
 {
+    /// Retrieve a sprite entry from OAM
     pub fn get_oam_entry(&self, idx: usize) -> OAMEntry {
+        // Base OAM table entry
         let e = &self.oam[(idx * 4)..((idx + 1) * 4)];
+
+        // The two bits left in the 32-byte extended table
+        // at the end of OAM.
         let extoffset_byte = 512 + (idx / 4);
         let extoffset_sh = (idx % 4) * 2;
         let ext = (self.oam[extoffset_byte] >> extoffset_sh) & 0x03;
+
+        // Determine size (in pixels)
         let large = ext & 0x02 != 0;
         let (width, height) = match ((self.obsel >> 5) & 0x07, large) {
             // Small sprites
@@ -120,6 +119,8 @@ where
         }
     }
 
+    /// Retrieve a pixel data reference to a specific sprite tile.
+    /// One tile is an 8x8 pixel segment of a sprite.
     pub fn get_sprite_tile<'a>(
         &'a self,
         oam: &'a OAMEntry,
@@ -127,19 +128,17 @@ where
         tile_y: usize,
     ) -> SpriteTile {
         let base_addr = (self.obsel as usize & 0x07) * 8192;
-        let len = 32 * BPP::Four.num_bitplanes() / VRAM_WORDSIZE;
-
+        let len = TILE_HEIGHT * BPP::Four.num_bitplanes() / VRAM_WORDSIZE;
         let idx = base_addr + (oam.get_tileidx(tile_x, tile_y) << 4);
         let idx = if oam.tileidx >= 0x100 {
+            // Add the configured gap between 0x100..0x101
             idx + ((self.obsel as usize >> 3) & 3) * 4096
         } else {
             idx
         };
-        let idx = idx & VRAM_ADDRMASK;
-        let end_idx = (idx + len) & VRAM_ADDRMASK;
 
         SpriteTile {
-            data: &self.vram[idx..end_idx],
+            data: &self.vram[idx..(idx + len)],
             oam,
         }
     }

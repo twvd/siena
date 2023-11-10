@@ -33,11 +33,12 @@ where
         (r, g, b)
     }
 
-    fn cindex_to_color(&self, bg: usize, tile: &Tile, idx: u8) -> Color {
-        let palette = match tile.bpp {
-            BPP::Two if self.get_screen_mode() == 0 => bg as u8 * 32 + tile.map.palettenr() * 4,
-            BPP::Two => tile.map.palettenr() * 4,
-            BPP::Four => tile.map.palettenr() * 16,
+    fn cindex_to_color<'a>(&self, bg: usize, tile: &impl Tile<'a>, idx: u8) -> Color {
+        let paletteidx = tile.get_tile_palette();
+        let palette = match tile.get_tile_bpp() {
+            BPP::Two if self.get_screen_mode() == 0 => bg as u8 * 32 + paletteidx * 4,
+            BPP::Two => paletteidx * 4,
+            BPP::Four => paletteidx * 16,
             BPP::Eight => 0,
         };
         self.cgram_to_color(palette + idx)
@@ -70,7 +71,7 @@ where
                 continue;
             }
 
-            let chr = self.get_tile(bg, &entry);
+            let chr = self.get_bg_tile(bg, &entry);
             let tx = (x + bghofs) % tilesize;
             let ty = (scanline + bgvofs) % tilesize;
 
