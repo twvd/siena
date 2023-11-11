@@ -9,11 +9,13 @@ use crate::frontend::test::TestRenderer;
 use crate::snes::bus::mainbus::{BusTrace, Mainbus};
 use crate::snes::bus::Bus;
 use crate::snes::cpu_65816::cpu::Cpu65816;
+use crate::snes::joypad::Joypad;
 use crate::snes::ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
 fn test_display(rom: &[u8], pass_hash: &[u8], time_limit: u128, stable: bool) {
     let (display, dispstatus) = TestRenderer::new_test(SCREEN_WIDTH, SCREEN_HEIGHT);
-    let bus = Mainbus::<TestRenderer>::new(rom, BusTrace::None, display);
+    let (joypads, _) = Joypad::new_channel_all();
+    let bus = Mainbus::<TestRenderer>::new(rom, BusTrace::None, display, joypads);
     let reset = bus.read16(0xFFFC);
     let mut cpu = Cpu65816::<Mainbus<TestRenderer>>::new(bus, reset);
 

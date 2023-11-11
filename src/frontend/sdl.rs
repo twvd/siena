@@ -93,19 +93,18 @@ impl Renderer for SDLRenderer {
 
         Ok(())
     }
+}
 
-    /// TODO move to input component
-    fn poll(&mut self) -> bool {
+pub struct SDLEventPump {}
+impl SDLEventPump {
+    pub fn new() -> Self {
+        Self {}
+    }
+
+    pub fn poll(&self) -> Option<Event> {
         SDL.with(|cell| {
             let mut sdls = cell.borrow_mut();
-            for ev in sdls.pump.poll_iter() {
-                match ev {
-                    Event::Quit { .. } => return false,
-                    _ => (),
-                }
-            }
-
-            true
+            sdls.pump.poll_event()
         })
     }
 }

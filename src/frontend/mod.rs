@@ -17,9 +17,6 @@ pub trait Renderer {
 
     /// Renders changes to screen
     fn update(&mut self) -> Result<()>;
-
-    /// TODO move to input component
-    fn poll(&mut self) -> bool;
 }
 
 pub struct NullRenderer {}
@@ -32,9 +29,5 @@ impl Renderer for NullRenderer {
 
     fn update(&mut self) -> Result<()> {
         Ok(())
-    }
-
-    fn poll(&mut self) -> bool {
-        true
     }
 }

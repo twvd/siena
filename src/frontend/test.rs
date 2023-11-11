@@ -91,8 +91,4 @@ impl Renderer for TestRenderer {
         });
         Ok(())
     }
-
-    fn poll(&mut self) -> bool {
-        true
-    }
 }
