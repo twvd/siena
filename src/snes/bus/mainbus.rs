@@ -69,6 +69,12 @@ where
     wrdiv: u16,
     rddiv: u16,
     rdmpy: u16,
+
+    /// H/V-interrupt registers
+    last_scanline: usize,
+    vtime: u16,
+    htime: u16,
+    timeup: Cell<bool>,
 }
 
 enum DMADirection {
@@ -243,6 +249,11 @@ where
             wrdiv: 0,
             rddiv: 0,
             rdmpy: 0,
+
+            last_scanline: 0,
+            htime: 0,
+            vtime: 0,
+            timeup: Cell::new(false),
         }
     }
 
@@ -452,6 +463,16 @@ where
                         Some(2 | (self.openbus.get() & 0x70))
                     }
                 }
+                // TIMEUP - H/V-Timer IRQ flag (R)
+                0x4211 => {
+                    let v = self.timeup.get();
+                    self.timeup.set(false);
+                    if v {
+                        Some((self.openbus.get() & 0x7F) | 0x80)
+                    } else {
+                        Some(self.openbus.get() & 0x7F)
+                    }
+                }
                 // HVBJOY - H/V-Blank flag and Joypad Busy flag (R)
                 0x4212 => {
                     // TODO auto-joypad-read busy
@@ -591,14 +612,28 @@ where
                     self.wmadd.set(addr & WRAM_MASK);
                     Some(())
                 }
+                // HTIMEL/HTIMEH - H-Count timer setting (W)
+                0x4207 => Some(self.htime = (self.htime & 0xFF00) | val as u16),
+                0x4208 => Some(self.htime = ((self.htime & 0x00FF) | (val as u16) << 8) & 0x01),
+                // VTIMEL/VTIMEH - V-Count timer setting (W)
+                0x4209 => Some(self.vtime = (self.vtime & 0xFF00) | val as u16),
+                0x420A => Some(self.vtime = ((self.vtime & 0x00FF) | (val as u16) << 8) & 0x01),
                 // JOYWR - Joypad Output (W)
                 0x4016 => Some(self.joypads.iter_mut().for_each(|j| j.strobe())),
                 // NMITIMEN - Interrupt Enable and Joypad Request (W)
                 0x4200 => {
                     // TODO joypad
                     if val & 0x30 != self.nmitimen & 0x30 {
-                        // TODO H/V interrupts
-                        println!("H/V interrupts: {:02X}", val & 0x30);
+                        println!(
+                            "H/V interrupts: {:02X} - VTIME {}, HTIME {}",
+                            (val >> 4) & 0x03,
+                            self.vtime,
+                            self.htime
+                        );
+                        if (val >> 4) & 0x03 == 0 {
+                            // TIMEUP gets cleared when disabling H/V interrupts
+                            self.timeup.set(false);
+                        }
                     }
                     if val & 0x80 != self.nmitimen & 0x80 {
                         if val & 0x80 != 0 {
@@ -619,8 +654,6 @@ where
                     // the division result.
                     self.rddiv = val as u16;
 
-                    //println!("Multiply: {} * {} = {}", self.wrmpya, val, result);
-
                     Some(self.rdmpy = result)
                 }
                 // WRDIVL - Set unsigned 16bit Dividend (lower 8bit) (W)
@@ -636,7 +669,6 @@ where
                     } else {
                         self.rddiv = self.wrdiv / val as u16;
                         self.rdmpy = self.wrdiv.rem_euclid(val as u16);
-                        //println!("Division: {} / {} = {} ({})", self.wrdiv, val, self.rddiv, self.rdmpy);
                     }
                     Some(())
                 }
@@ -750,6 +782,26 @@ where
 
         if entered_vblank && self.nmitimen & (1 << 7) != 0 {
             self.intreq_nmi = true;
+        }
+
+        // H/V interrupt
+        // TODO stop at EXACT H rather than at 0
+        let hvint = match (self.nmitimen >> 4) & 0x03 {
+            // Disabled
+            0 => false,
+            // H=H + V=*
+            1 => self.ppu.get_current_scanline() != self.last_scanline,
+            // H=0, V=V (2) + H=H, V=V (3)
+            2 | 3 => {
+                self.ppu.get_current_scanline() != self.last_scanline
+                    && self.ppu.get_current_scanline() == usize::from(self.vtime)
+            }
+            _ => unreachable!(),
+        };
+        self.last_scanline = self.ppu.get_current_scanline();
+        if hvint {
+            self.intreq_int = true;
+            self.timeup.set(true);
         }
 
         Ok(())
