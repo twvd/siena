@@ -307,7 +307,10 @@ where
                         let v = self.read(a_addr);
                         self.write(b_addr, v);
                     }
-                    _ => todo!(),
+                    DMADirection::IOToCPU => {
+                        let v = self.read(b_addr);
+                        self.write(a_addr, v);
+                    }
                 }
                 0
             }
