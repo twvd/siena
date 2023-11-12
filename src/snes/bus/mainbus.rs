@@ -616,27 +616,19 @@ where
                     Some(())
                 }
                 // HTIMEL/HTIMEH - H-Count timer setting (W)
-                0x4207 => Some(self.htime = (self.htime & 0xFF00) | val as u16),
-                0x4208 => Some(self.htime = ((self.htime & 0x00FF) | (val as u16) << 8) & 0x01),
+                0x4207 => Some(self.htime = ((self.htime & 0xFF00) | val as u16) & 0x1FF),
+                0x4208 => Some(self.htime = ((self.htime & 0x00FF) | (val as u16) << 8) & 0x1FF),
                 // VTIMEL/VTIMEH - V-Count timer setting (W)
-                0x4209 => Some(self.vtime = (self.vtime & 0xFF00) | val as u16),
-                0x420A => Some(self.vtime = ((self.vtime & 0x00FF) | (val as u16) << 8) & 0x01),
+                0x4209 => Some(self.vtime = ((self.vtime & 0xFF00) | val as u16) & 0x1FF),
+                0x420A => Some(self.vtime = ((self.vtime & 0x00FF) | (val as u16) << 8) & 0x1FF),
                 // JOYWR - Joypad Output (W)
                 0x4016 => Some(self.joypads.iter_mut().for_each(|j| j.strobe())),
                 // NMITIMEN - Interrupt Enable and Joypad Request (W)
                 0x4200 => {
                     // TODO joypad
-                    if val & 0x30 != self.nmitimen & 0x30 {
-                        println!(
-                            "H/V interrupts: {:02X} - VTIME {}, HTIME {}",
-                            (val >> 4) & 0x03,
-                            self.vtime,
-                            self.htime
-                        );
-                        if (val >> 4) & 0x03 == 0 {
-                            // TIMEUP gets cleared when disabling H/V interrupts
-                            self.timeup.set(false);
-                        }
+                    if (val >> 4) & 0x03 == 0 {
+                        // TIMEUP gets cleared when disabling H/V interrupts
+                        self.timeup.set(false);
                     }
                     if val & 0x80 != self.nmitimen & 0x80 {
                         if val & 0x80 != 0 {
