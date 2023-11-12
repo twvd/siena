@@ -336,7 +336,7 @@ where
 
     fn is_layer_16x16(&self, bg: usize) -> bool {
         debug_assert!((0..4).contains(&bg));
-        self.bgmode & (1 << (7 - bg)) != 0
+        self.bgmode & (1 << (4 + bg)) != 0
     }
 
     pub fn get_current_scanline(&self) -> usize {
