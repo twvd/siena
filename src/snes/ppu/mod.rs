@@ -90,6 +90,9 @@ impl BPP {
 }
 
 pub struct PPU<TRenderer: Renderer> {
+    // Debug toggles to mask certain bg/obj layers
+    pub dbg_layermask: u8,
+
     renderer: TRenderer,
     cycles: usize,
     last_scanline: usize,
@@ -166,6 +169,8 @@ where
 
     pub fn new(renderer: TRenderer) -> Self {
         Self {
+            dbg_layermask: 0,
+
             renderer,
             cycles: 0,
             last_scanline: 0,

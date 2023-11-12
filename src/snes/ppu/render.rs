@@ -57,7 +57,7 @@ where
         line_paletted: &mut [Color],
         priority: bool,
     ) {
-        if (self.tm | self.ts) & (1 << bg) == 0 {
+        if ((self.tm | self.ts) & !self.dbg_layermask) & (1 << bg) == 0 {
             return;
         }
 
@@ -91,7 +91,7 @@ where
         line_paletted: &mut [Color],
         priority: u8,
     ) {
-        if (self.tm | self.ts) & (1 << 4) == 0 {
+        if ((self.tm | self.ts) & !self.dbg_layermask) & (1 << 4) == 0 {
             return;
         }
 

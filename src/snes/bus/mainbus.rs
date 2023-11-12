@@ -30,13 +30,13 @@ where
 {
     cartridge: Vec<u8>,
     wram: Vec<u8>,
-    trace: BusTrace,
+    pub trace: BusTrace,
 
     /// Controllers
     joypads: [Joypad; JOYPAD_COUNT],
 
     /// Picture Processing Unit
-    ppu: PPU<TRenderer>,
+    pub ppu: PPU<TRenderer>,
 
     /// MEMSEL - Memory-2 Waitstate Control
     memsel: u8,
