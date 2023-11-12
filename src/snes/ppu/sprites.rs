@@ -1,8 +1,6 @@
 use super::*;
 
 pub const OAM_ENTRIES: usize = 128;
-pub const TILE_WIDTH: usize = 8;
-pub const TILE_HEIGHT: usize = 8;
 
 #[derive(Debug)]
 pub struct OAMEntry {

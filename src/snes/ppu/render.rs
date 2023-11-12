@@ -63,7 +63,7 @@ where
 
         let bghofs = self.bgxhofs[bg] as usize;
         let bgvofs = self.bgxvofs[bg] as usize;
-        let tilesize = 8;
+        let tilesize = self.get_bg_tile_size(bg);
 
         for x in 0..SCREEN_WIDTH {
             let entry = self.get_tilemap_entry_xy(bg, x, scanline);
@@ -71,16 +71,20 @@ where
                 continue;
             }
 
-            let chr = self.get_bg_tile(bg, &entry);
-            let tx = (x + bghofs) % tilesize;
-            let ty = (scanline + bgvofs) % tilesize;
+            // Determine coordinates within the tile. This is
+            // a full tile (so either 8x8 or 16x16).
+            let px_x = (x + bghofs) % tilesize;
+            let px_y = (scanline + bgvofs) % tilesize;
+            // get_bg_tile will select the sub-tile (for 16x16).
+            let tile = self.get_bg_tile(bg, &entry, px_x, px_y);
 
-            let c = chr.get_coloridx(tx, ty);
+            // Wrap coordinates back here to the (sub)-tile size
+            let c = tile.get_coloridx(px_x % TILE_WIDTH, px_y % TILE_HEIGHT);
             if c == 0 || line_idx[x] != 0 {
                 continue;
             }
             line_idx[x] = c;
-            line_paletted[x] = self.cindex_to_color(bg, &chr, c);
+            line_paletted[x] = self.cindex_to_color(bg, &tile, c);
         }
     }
 
@@ -108,11 +112,12 @@ where
                         break;
                     }
 
-                    let t_x = (x - e.x) / 8;
-                    let t_y = (scanline - e.y) / 8;
+                    let t_x = (x - e.x) / TILE_WIDTH;
+                    let t_y = (scanline - e.y) / TILE_HEIGHT;
                     let sprite = self.get_sprite_tile(&e, t_x, t_y);
 
-                    let coloridx = sprite.get_coloridx((x - e.x) % 8, (scanline - e.y) % 8);
+                    let coloridx =
+                        sprite.get_coloridx((x - e.x) % TILE_WIDTH, (scanline - e.y) % TILE_HEIGHT);
                     if coloridx == 0 || line_idx[x] != 0 {
                         continue;
                     }

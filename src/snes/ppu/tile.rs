@@ -1,5 +1,8 @@
 use super::*;
 
+pub const TILE_WIDTH: usize = 8;
+pub const TILE_HEIGHT: usize = 8;
+
 /// A tile is a single 8 x 8 pixel segment of a background layer
 /// or a sprite.
 pub trait Tile<'tdata> {

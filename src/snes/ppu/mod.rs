@@ -15,7 +15,7 @@ use num_traits::{FromPrimitive, ToPrimitive};
 use crate::frontend::Renderer;
 use crate::tickable::{Tickable, Ticks};
 
-use tile::Tile;
+use tile::{Tile, TILE_HEIGHT, TILE_WIDTH};
 
 pub const SCREEN_WIDTH: usize = 8 * 32;
 pub const SCREEN_HEIGHT: usize = 8 * 28;
@@ -259,46 +259,42 @@ where
     fn get_tilemap_entry_xy(&self, bg: usize, x: usize, y: usize) -> TilemapEntry {
         let bghofs = self.bgxhofs[bg] as usize;
         let bgvofs = self.bgxvofs[bg] as usize;
-        let tilesize = 8;
+        let tilesize = self.get_bg_tile_size(bg);
 
         match self.get_screen_mode() {
             0 | 1 | 3 => {
-                if !self.is_layer_16x16(bg) {
-                    // AA BB CC DD, size = 0x800 per sub-map
-                    // 00  32x32   AA
-                    //             AA
-                    // 01  64x32   AB
-                    //             AB
-                    // 10  32x64   AA
-                    //             BB
-                    // 11  64x64   AB
-                    //             CD
-                    let (expand_x, expand_y) = match self.get_tilemap_dimensions(bg) {
-                        TilemapDimensions::D32x32 => (false, false),
-                        TilemapDimensions::D32x64 => (false, true),
-                        TilemapDimensions::D64x32 => (true, false),
-                        TilemapDimensions::D64x64 => (true, true),
-                    };
-                    let tm_x = (bghofs + x) / tilesize;
-                    let tm_y = (bgvofs + y) / tilesize;
+                // AA BB CC DD, size = 0x800 per sub-map
+                // 00  32x32   AA
+                //             AA
+                // 01  64x32   AB
+                //             AB
+                // 10  32x64   AA
+                //             BB
+                // 11  64x64   AB
+                //             CD
+                let (expand_x, expand_y) = match self.get_tilemap_dimensions(bg) {
+                    TilemapDimensions::D32x32 => (false, false),
+                    TilemapDimensions::D32x64 => (false, true),
+                    TilemapDimensions::D64x32 => (true, false),
+                    TilemapDimensions::D64x64 => (true, true),
+                };
+                let tm_x = (bghofs + x) / tilesize;
+                let tm_y = (bgvofs + y) / tilesize;
 
-                    // 32 tiles per row in the sub-map, 0-31
-                    let mut idx = ((tm_y & 0x1F) << 5) + (tm_x & 0x1F);
-                    if expand_y {
-                        if expand_x {
-                            idx += (tm_y & 0x20) << 6;
-                        } else {
-                            idx += (tm_y & 0x20) << 5;
-                        }
-                    }
+                // 32 tiles per row in the sub-map, 0-31
+                let mut idx = ((tm_y & 0x1F) << 5) + (tm_x & 0x1F);
+                if expand_y {
                     if expand_x {
-                        idx += (tm_x & 0x20) << 5;
+                        idx += (tm_y & 0x20) << 6;
+                    } else {
+                        idx += (tm_y & 0x20) << 5;
                     }
-
-                    self.get_tilemap_entry(bg, idx)
-                } else {
-                    todo!()
                 }
+                if expand_x {
+                    idx += (tm_x & 0x20) << 5;
+                }
+
+                self.get_tilemap_entry(bg, idx)
             }
             _ => todo!(),
         }
@@ -323,20 +319,44 @@ where
     }
 
     /// Retrieve a pixel data reference to a specific bg layer tile.
-    fn get_bg_tile<'a>(&'a self, bg: usize, tile: &'a TilemapEntry) -> BgTile {
+    fn get_bg_tile<'a>(
+        &'a self,
+        bg: usize,
+        entry: &'a TilemapEntry,
+        px_x: usize,
+        px_y: usize,
+    ) -> BgTile {
         let bpp = self.get_layer_bpp(bg);
-        let len = 8 * bpp.num_bitplanes() / VRAM_WORDSIZE;
-        let idx = (self.bgxnba[bg] as usize * 4096) + (tile.charnr() as usize * len);
+        let len = TILE_HEIGHT * bpp.num_bitplanes() / VRAM_WORDSIZE;
+
+        // Determine tile/character table index
+        // For 8x8, always what is indicated by the map.
+        // For 16x16:
+        // T+00 T+01
+        // T+16 T+17
+        let mut tilenr = entry.charnr() as usize;
+        if self.get_bg_tile_size(bg) == 16 && px_x > TILE_WIDTH {
+            tilenr += 1;
+        }
+        if self.get_bg_tile_size(bg) == 16 && px_y > TILE_HEIGHT {
+            tilenr += 16;
+        }
+
+        let idx = (self.bgxnba[bg] as usize * 4096) + (tilenr * len);
         BgTile {
             data: &self.vram[idx..(idx + len)],
             bpp,
-            map: tile,
+            map: entry,
         }
     }
 
-    fn is_layer_16x16(&self, bg: usize) -> bool {
+    pub fn get_bg_tile_size(&self, bg: usize) -> usize {
         debug_assert!((0..4).contains(&bg));
-        self.bgmode & (1 << (4 + bg)) != 0
+        if self.bgmode & (1 << (4 + bg)) != 0 {
+            16
+        } else {
+            8
+        }
     }
 
     pub fn get_current_scanline(&self) -> usize {
