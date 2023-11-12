@@ -48,6 +48,10 @@ struct Args {
     #[arg(short, long)]
     verbose: bool,
 
+    /// Sticky joypad controls
+    #[arg(long)]
+    sticky: bool,
+
     /// Bus trace mode
     #[arg(
         long,
@@ -74,7 +78,10 @@ fn main() -> Result<()> {
         _ => panic!("Illogical cartridge file size: 0x{:08X}", f.len()),
     };
 
-    let (joypads, joypad_senders) = Joypad::new_channel_all();
+    let (mut joypads, joypad_senders) = Joypad::new_channel_all();
+    for j in joypads.iter_mut() {
+        j.sticky_enabled = args.sticky;
+    }
     let display = SDLRenderer::new(SCREEN_WIDTH, SCREEN_HEIGHT)?;
     let eventpump = SDLEventPump::new();
     let bus = Mainbus::<SDLRenderer>::new(&f[load_offset..], args.bustrace, display, joypads);

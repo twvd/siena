@@ -1,16 +1,18 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
+use std::collections::BTreeMap;
 use std::sync::mpsc;
+use std::time::{Duration, Instant};
 
 use num_derive::ToPrimitive;
 use num_traits::ToPrimitive;
-use strum::EnumCount;
+use strum::{EnumCount, EnumIter, IntoEnumIterator};
 
 pub const JOYPAD_COUNT: usize = 4;
 
 pub type Joypads = [Joypad; JOYPAD_COUNT];
 pub type JoypadEventSender = mpsc::Sender<JoypadEvent>;
 
-#[derive(Debug, ToPrimitive, EnumCount)]
+#[derive(Debug, ToPrimitive, EnumCount, EnumIter, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
 pub enum Button {
     B,
     Y,
@@ -37,14 +39,31 @@ pub struct Joypad {
     pub state: Cell<u16>,
     pub scan_pos: Cell<u8>,
     event_recv: mpsc::Receiver<JoypadEvent>,
+    sticky_time: RefCell<BTreeMap<Button, Instant>>,
+    pub sticky_enabled: bool,
+    pub sticky_state: Cell<u16>,
 }
 
 impl Joypad {
+    /// Time an input remains asserted after a key press in sticky mode
+    const STICKY_KEYDOWN_TIME: u128 = 200;
+
     pub fn new(event_recv: mpsc::Receiver<JoypadEvent>) -> Self {
         Self {
             state: Cell::new(0),
             scan_pos: Cell::new(0),
             event_recv,
+
+            sticky_time: RefCell::new(BTreeMap::from_iter(Button::iter().map(|e| {
+                (
+                    e,
+                    Instant::now()
+                        .checked_sub(Duration::from_millis(Self::STICKY_KEYDOWN_TIME as u64))
+                        .unwrap(),
+                )
+            }))),
+            sticky_enabled: false,
+            sticky_state: Cell::new(0),
         }
     }
 
@@ -65,14 +84,35 @@ impl Joypad {
     }
 
     fn poll_events(&self) {
-        if let Ok(e) = self.event_recv.try_recv() {
+        // Clear sticky buttons
+        for b in Button::iter() {
+            if self
+                .sticky_time
+                .borrow()
+                .get(&b)
+                .unwrap()
+                .elapsed()
+                .as_millis()
+                > Self::STICKY_KEYDOWN_TIME
+            {
+                self.sticky_state
+                    .set(self.sticky_state.get() & !(1 << b.to_u16().unwrap()));
+            }
+        }
+        while let Ok(e) = self.event_recv.try_recv() {
             match &e {
                 JoypadEvent::Up(button) => self
                     .state
-                    .set(self.state.get() & !(1 << button.to_u8().unwrap())),
-                JoypadEvent::Down(button) => self
-                    .state
-                    .set(self.state.get() | (1 << button.to_u8().unwrap())),
+                    .set(self.state.get() & !(1 << button.to_u16().unwrap())),
+                JoypadEvent::Down(button) => {
+                    self.sticky_time
+                        .borrow_mut()
+                        .insert(*button, Instant::now());
+                    self.state
+                        .set(self.state.get() | (1 << button.to_u16().unwrap()));
+                    self.sticky_state
+                        .set(self.sticky_state.get() | (1 << button.to_u16().unwrap()));
+                }
             }
         }
     }
@@ -87,16 +127,26 @@ impl Joypad {
         if pos == 0 {
             self.poll_events();
         }
-        let v = ((self.state.get() >> pos) & 1) as u8;
+        let v = ((self.get_state() >> pos) & 1) as u8;
         self.scan_pos.set(pos + 1);
         v
     }
 
+    fn get_state(&self) -> u16 {
+        if self.sticky_enabled {
+            self.sticky_state.get()
+        } else {
+            self.state.get()
+        }
+    }
+
     pub fn read_auto_low(&self) -> u8 {
-        self.state.get().reverse_bits() as u8
+        self.poll_events();
+        self.get_state().reverse_bits() as u8
     }
 
     pub fn read_auto_high(&self) -> u8 {
-        (self.state.get().reverse_bits() >> 8) as u8
+        self.poll_events();
+        (self.get_state().reverse_bits() >> 8) as u8
     }
 }
