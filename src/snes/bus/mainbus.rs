@@ -284,9 +284,10 @@ where
         }
     }
 
-    fn dma_transfer_unit(&mut self, ch: usize, a_addr: Address, b_addr: Address) -> Address {
+    /// Transfer one whole DMA unit (HDMA-only)
+    fn hdma_transfer_unit(&mut self, ch: usize, a_addr: Address, b_addr: Address) -> Address {
         let mut c = 0;
-        while self.dma_transfer_step(ch, a_addr, b_addr, c) > 0 {
+        while self.dma_transfer_step(ch, a_addr.wrapping_add(c), b_addr, c) > 0 {
             c += 1;
         }
         c + 1
@@ -300,6 +301,13 @@ where
         b_addr: Address,
         unit_offset: Address,
     ) -> Address {
+        // This function only increments the B-address according to
+        // the step mode.
+        // the A-address is fixed and must be incremented, if needed,
+        // by the caller.
+        //
+        // This is due to the fact A-address increment behaves
+        // differently for HDMA.
         match self.dma[ch].mode() {
             0 => {
                 match self.dma[ch].direction() {
@@ -366,7 +374,7 @@ where
             if self.dma[ch].hdma_dotransfer {
                 let a_addr = self.dma[ch].hdma_current_a_addr();
                 let b_addr = self.dma[ch].b_addr();
-                let len = self.dma_transfer_unit(ch, a_addr, b_addr);
+                let len = self.hdma_transfer_unit(ch, a_addr, b_addr);
 
                 self.dma[ch].hdma_set_current_a_addr(a_addr.wrapping_add(len));
             }
