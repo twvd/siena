@@ -224,10 +224,32 @@ where
                     }
                     Some(())
                 }
+                // Window BG1/BG2 Mask Settings (W)
+                0x2123 => Some(self.w12sel = val),
+                // W34SEL - Window BG3/BG4 Mask Settings (W)
+                0x2124 => Some(self.w34sel = val),
+                // WOBJSEL - Window OBJ/MATH Mask Settings (W)
+                0x2125 => Some(self.wobjsel = val),
+                // WH0 - Window 1 Left Position (X1) (W)
+                0x2126 => Some(self.w1_left = val),
+                // WH1 - Window 1 Right Position (X2) (W)
+                0x2127 => Some(self.w1_right = val),
+                // WH2 - Window 2 Left Position (X1) (W)
+                0x2128 => Some(self.w2_left = val),
+                // WH3 - Window 2 Right Position (X2) (W)
+                0x2129 => Some(self.w2_right = val),
+                // WBGLOG - Window 1/2 Mask Logic (W)
+                0x212A => Some(self.wbglog = val),
+                // WOBJLOG - Window 1/2 Mask Logic (W)
+                0x212B => Some(self.wobjlog = val),
                 // TM - Main Screen Designation
                 0x212C => Some(self.tm = val),
                 // TS - Sub Screen Designation
                 0x212D => Some(self.ts = val),
+                // TMW - Window Area Main Screen Disable (W)
+                0x212E => Some(self.tmw = val),
+                // TSW - Window Area Sub Screen Disable (W)
+                0x212F => Some(self.tsw = val),
                 // RDCGRAM - Palette CGRAM Data Read
                 0x213B => None,
 

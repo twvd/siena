@@ -130,6 +130,19 @@ pub struct PPU<TRenderer: Renderer> {
     oam_writebuf: u8,
 
     inidisp: u8,
+
+    // Window settings
+    w1_left: u8,
+    w1_right: u8,
+    w2_left: u8,
+    w2_right: u8,
+    tmw: u8,
+    tsw: u8,
+    w12sel: u8,
+    w34sel: u8,
+    wobjsel: u8,
+    wbglog: u8,
+    wobjlog: u8,
 }
 
 pub struct BgTile<'a> {
@@ -202,6 +215,18 @@ where
             oam_writebuf: 0,
 
             inidisp: 0,
+
+            w1_left: 0,
+            w1_right: 0,
+            w2_left: 0,
+            w2_right: 0,
+            tmw: 0,
+            tsw: 0,
+            w12sel: 0,
+            w34sel: 0,
+            wobjsel: 0,
+            wbglog: 0,
+            wobjlog: 0,
         }
     }
 
