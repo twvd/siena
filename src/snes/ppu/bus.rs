@@ -250,6 +250,12 @@ where
                 0x212E => Some(self.tmw = val),
                 // TSW - Window Area Sub Screen Disable (W)
                 0x212F => Some(self.tsw = val),
+                // CGWSEL - Color Math Control Register A (W)
+                0x2130 => Some(self.cgwsel = val),
+                // CGADSUB - Color Math Control Register B (W)
+                0x2131 => Some(self.cgadsub = val),
+                // COLDATA - Color Math Sub Screen Backdrop Color (W)
+                0x2132 => Some(self.coldata = val),
                 // RDCGRAM - Palette CGRAM Data Read
                 0x213B => None,
 

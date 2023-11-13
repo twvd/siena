@@ -143,6 +143,11 @@ pub struct PPU<TRenderer: Renderer> {
     wobjsel: u8,
     wbglog: u8,
     wobjlog: u8,
+
+    // Color math settings
+    cgwsel: u8,
+    cgadsub: u8,
+    coldata: u8,
 }
 
 pub struct BgTile<'a> {
@@ -227,6 +232,10 @@ where
             wobjsel: 0,
             wbglog: 0,
             wobjlog: 0,
+
+            cgwsel: 0,
+            cgadsub: 0,
+            coldata: 0,
         }
     }
 
