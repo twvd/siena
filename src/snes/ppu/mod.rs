@@ -16,6 +16,7 @@ use num_traits::{FromPrimitive, ToPrimitive};
 use crate::frontend::Renderer;
 use crate::tickable::{Tickable, Ticks};
 
+use color::SnesColor;
 use tile::{Tile, TILE_HEIGHT, TILE_WIDTH};
 
 pub const SCREEN_WIDTH: usize = 8 * 32;
@@ -148,7 +149,7 @@ pub struct PPU<TRenderer: Renderer> {
     // Color math settings
     cgwsel: u8,
     cgadsub: u8,
-    coldata: u8,
+    coldata: SnesColor,
 }
 
 pub struct BgTile<'a> {
@@ -236,7 +237,7 @@ where
 
             cgwsel: 0,
             cgadsub: 0,
-            coldata: 0,
+            coldata: SnesColor::BLACK,
         }
     }
 

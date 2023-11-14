@@ -255,7 +255,18 @@ where
                 // CGADSUB - Color Math Control Register B (W)
                 0x2131 => Some(self.cgadsub = val),
                 // COLDATA - Color Math Sub Screen Backdrop Color (W)
-                0x2132 => Some(self.coldata = val),
+                0x2132 => {
+                    if val & (1 << 5) != 0 {
+                        self.coldata = self.coldata.with_r(val & 0x1F);
+                    }
+                    if val & (1 << 6) != 0 {
+                        self.coldata = self.coldata.with_g(val & 0x1F);
+                    }
+                    if val & (1 << 7) != 0 {
+                        self.coldata = self.coldata.with_b(val & 0x1F);
+                    }
+                    Some(())
+                }
                 // RDCGRAM - Palette CGRAM Data Read
                 0x213B => None,
 
