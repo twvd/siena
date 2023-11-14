@@ -1,4 +1,5 @@
 pub mod bus;
+pub mod color;
 pub mod render;
 pub mod sprites;
 pub mod tile;

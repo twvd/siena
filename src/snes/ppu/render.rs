@@ -1,16 +1,17 @@
+use super::color::SnesColor;
 use super::sprites::{SpriteTile, OAM_ENTRIES};
 use super::*;
-use crate::frontend::{Color, Renderer};
+use crate::frontend::Renderer;
 
 struct RenderState {
     idx: [u8; SCREEN_WIDTH],
-    paletted: [Color; SCREEN_WIDTH],
+    paletted: [SnesColor; SCREEN_WIDTH],
     layer: [u8; SCREEN_WIDTH],
     layermask: u8,
 }
 
 impl RenderState {
-    pub fn new(backdrop: Color, layermask: u8) -> Self {
+    pub fn new(backdrop: SnesColor, layermask: u8) -> Self {
         Self {
             idx: [0; SCREEN_WIDTH],
             paletted: [backdrop; SCREEN_WIDTH],
@@ -24,34 +25,11 @@ impl<TRenderer> PPU<TRenderer>
 where
     TRenderer: Renderer,
 {
-    fn cgram_to_color(&self, addr: u8) -> Color {
-        let entry = self.cgram[addr as usize];
-        let brightness = (self.inidisp & 0x0F) as usize;
-
-        if brightness == 0 || self.inidisp & 0x80 != 0 {
-            // Force blank or no brightness
-            return (0, 0, 0);
-        }
-
-        // RGB555 -> RGB888 conversion
-        let (r, g, b) = (
-            (((entry >> 0) & 0x1F) as u8) << 3,  // Red, 5-bit
-            (((entry >> 5) & 0x1F) as u8) << 3,  // Green, 5-bit
-            (((entry >> 10) & 0x1F) as u8) << 3, // Blue, 5-bit
-        );
-
-        // Apply master brightness
-        let brightness = brightness + 1;
-        let (r, g, b) = (
-            ((r as usize * brightness) >> 4) as u8,
-            ((g as usize * brightness) >> 4) as u8,
-            ((b as usize * brightness) >> 4) as u8,
-        );
-
-        (r, g, b)
+    fn cgram_to_color(&self, addr: u8) -> SnesColor {
+        SnesColor::from(self.cgram[addr as usize])
     }
 
-    fn cindex_to_color<'a>(&self, bg: usize, tile: &impl Tile<'a>, idx: u8) -> Color {
+    fn cindex_to_color<'a>(&self, bg: usize, tile: &impl Tile<'a>, idx: u8) -> SnesColor {
         let paletteidx = tile.get_tile_palette();
         let palette = match tile.get_tile_bpp() {
             BPP::Two if self.get_screen_mode() == 0 => bg as u8 * 32 + paletteidx * 4,
@@ -62,7 +40,7 @@ where
         self.cgram_to_color(palette + idx)
     }
 
-    fn sprite_cindex_to_color(&self, tile: &SpriteTile, idx: u8) -> Color {
+    fn sprite_cindex_to_color(&self, tile: &SpriteTile, idx: u8) -> SnesColor {
         let palette = 128 + (tile.oam.palette() * 16);
         self.cgram_to_color(palette + idx)
     }
@@ -145,7 +123,7 @@ where
         &mut self,
         scanline: usize,
         layermask: u8,
-        backdrop: Color,
+        backdrop: SnesColor,
     ) -> RenderState {
         let mut state = RenderState::new(backdrop, layermask);
 
@@ -240,8 +218,17 @@ where
         );
 
         // Send line to screen buffer
+        let brightness = (self.inidisp & 0x0F) as usize;
         for (x, p) in mainscreen.paletted.into_iter().enumerate() {
-            self.renderer.set_pixel(x, scanline, p);
+            let pixel = if brightness == 0 || self.inidisp & 0x80 != 0 {
+                // Force blank or no brightness
+                SnesColor::BLACK
+            } else {
+                // Apply master brightness
+                p.apply_brightness(brightness)
+            };
+
+            self.renderer.set_pixel(x, scanline, pixel.to_native());
         }
     }
 }
