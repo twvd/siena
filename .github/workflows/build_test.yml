@@ -22,8 +22,8 @@ jobs:
       uses: taiki-e/install-action@cargo-llvm-cov
     - name: Fetch submodules
       run: git submodule update --init --recursive
-    - name: Checkout souper_tests
-      run: git clone --recurse-submodules https://github.com/twvd/souper_tests.git ../souper_tests
+    - name: Checkout siena_tests
+      run: git clone --recurse-submodules https://github.com/twvd/siena_tests.git ../siena_tests
     - name: Code formatting check
       run: cargo fmt --check
     - name: Build

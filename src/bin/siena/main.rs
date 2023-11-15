@@ -6,13 +6,13 @@ use clap::Parser;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 
-use souper::frontend::sdl::{SDLEventPump, SDLRenderer};
-use souper::frontend::Renderer;
-use souper::snes::bus::mainbus::{BusTrace, Mainbus};
-use souper::snes::bus::Bus;
-use souper::snes::cpu_65816::cpu::Cpu65816;
-use souper::snes::joypad::{Button, Joypad, JoypadEvent};
-use souper::snes::ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
+use siena::frontend::sdl::{SDLEventPump, SDLRenderer};
+use siena::frontend::Renderer;
+use siena::snes::bus::mainbus::{BusTrace, Mainbus};
+use siena::snes::bus::Bus;
+use siena::snes::cpu_65816::cpu::Cpu65816;
+use siena::snes::joypad::{Button, Joypad, JoypadEvent};
+use siena::snes::ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
 fn map_keycode(keycode: Keycode) -> Option<(usize, Button)> {
     match keycode {

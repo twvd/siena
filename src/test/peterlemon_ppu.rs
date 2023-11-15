@@ -8,7 +8,7 @@ macro_rules! ppu_test {
         #[test]
         fn $testname() {
             test_display(
-                include_bytes!(concat!("../../../souper_tests/SNES/PPU/", $testfn)),
+                include_bytes!(concat!("../../../siena_tests/SNES/PPU/", $testfn)),
                 &hex!($hash),
                 60000,
                 true,
@@ -22,7 +22,7 @@ macro_rules! ppu_test_ns {
         #[test]
         fn $testname() {
             test_display(
-                include_bytes!(concat!("../../../souper_tests/SNES/PPU/", $testfn)),
+                include_bytes!(concat!("../../../siena_tests/SNES/PPU/", $testfn)),
                 &hex!($hash),
                 60000,
                 false,

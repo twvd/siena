@@ -413,7 +413,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "souper"
+name = "siena"
 version = "0.1.0"
 dependencies = [
  "anyhow",

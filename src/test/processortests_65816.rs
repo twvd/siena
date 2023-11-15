@@ -15,7 +15,7 @@ macro_rules! _cpu_test {
             assert_eq!(stringify!($testfn), format!("instr_{:02x}", $instr));
 
             let filename = format!(
-                "../souper_tests/ProcessorTests/65816/v1/{:02x}.n.json",
+                "../siena_tests/ProcessorTests/65816/v1/{:02x}.n.json",
                 $instr
             );
             let testcases: Value =

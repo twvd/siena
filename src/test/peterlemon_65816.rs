@@ -9,7 +9,7 @@ macro_rules! test {
         fn $testname() {
             test_display(
                 include_bytes!(concat!(
-                    "../../../souper_tests/SNES/CPUTest/CPU/",
+                    "../../../siena_tests/SNES/CPUTest/CPU/",
                     stringify!($testname),
                     "/CPU",
                     stringify!($testname),

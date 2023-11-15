@@ -3,7 +3,7 @@ use std::fs;
 
 use anyhow::{bail, Result};
 
-use souper::snes::cpu_65816::instruction::Instruction;
+use siena::snes::cpu_65816::instruction::Instruction;
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
