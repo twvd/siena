@@ -53,6 +53,14 @@ where
                 0x212C => None,
                 // TS - Sub Screen Designation
                 0x212D => None,
+                // SLHV - Latch H/V-Counter by Software (R)
+                0x2137 => {
+                    self.hlatch.set(self.get_current_h() as u8);
+                    self.vlatch.set(self.get_current_scanline() as u8);
+
+                    // Read openbus
+                    None
+                }
                 // RDCGRAM - Palette CGRAM Data Read
                 0x213B => {
                     let addr = self.cgadd.get();
@@ -74,6 +82,10 @@ where
 
                     Some(valb)
                 }
+                // OPHCT - Horizontal Counter Latch (R)
+                0x213C => Some(self.hlatch.get()),
+                // OPVCT - Vertical Counter Latch (R)
+                0x213D => Some(self.vlatch.get()),
 
                 _ => None,
             },

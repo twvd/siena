@@ -150,6 +150,10 @@ pub struct PPU<TRenderer: Renderer> {
     cgwsel: u8,
     cgadsub: u8,
     coldata: SnesColor,
+
+    // H/V latches
+    hlatch: Cell<u8>,
+    vlatch: Cell<u8>,
 }
 
 pub struct BgTile<'a> {
@@ -238,6 +242,9 @@ where
             cgwsel: 0,
             cgadsub: 0,
             coldata: SnesColor::BLACK,
+
+            hlatch: Cell::new(0),
+            vlatch: Cell::new(0),
         }
     }
 
@@ -397,6 +404,10 @@ where
 
     pub fn get_current_scanline(&self) -> usize {
         self.cycles / Self::CYCLES_PER_SCANLINE
+    }
+
+    pub fn get_current_h(&self) -> usize {
+        self.cycles % Self::CYCLES_PER_SCANLINE
     }
 
     pub fn in_vblank(&self) -> bool {
