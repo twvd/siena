@@ -5,6 +5,7 @@ use dbg_hex::dbg_hex;
 
 use crate::frontend::Renderer;
 use crate::snes::bus::{Address, Bus, BusMember};
+use crate::snes::cartridge::Cartridge;
 use crate::snes::joypad::{Joypad, JOYPAD_COUNT};
 use crate::snes::ppu::PPU;
 use crate::tickable::{Tickable, Ticks};
@@ -28,7 +29,7 @@ pub struct Mainbus<TRenderer>
 where
     TRenderer: Renderer,
 {
-    cartridge: Vec<u8>,
+    cartridge: Cartridge,
     wram: Vec<u8>,
     pub trace: BusTrace,
 
@@ -220,13 +221,13 @@ where
     TRenderer: Renderer,
 {
     pub fn new(
-        cartridge: &[u8],
+        cartridge: Cartridge,
         trace: BusTrace,
         renderer: TRenderer,
         joypads: [Joypad; JOYPAD_COUNT],
     ) -> Self {
         Self {
-            cartridge: cartridge.to_owned(),
+            cartridge,
             wram: vec![0; WRAM_SIZE],
             trace,
             dma: [DMAChannel::new(); DMA_CHANNELS],
@@ -549,19 +550,14 @@ where
                         _ => None,
                     }
                 }
-                // WS1/2 LoROM
-                0x8000..=0xFFFF => Some(self.cartridge[addr - 0x8000 + (bank & !0x80) * 0x8000]),
+                // LoROM
+                0x8000..=0xFFFF => self.cartridge.read(fulladdr),
 
                 _ => None,
             },
-            // WS1 HiROM
-            0x40..=0x7D => {
-                Some(self.cartridge[(addr + ((bank - 0x40) * 0x10000)) % self.cartridge.len()])
-            }
+            0x40..=0x7D => self.cartridge.read(fulladdr),
             // Full WRAM area
             0x7E..=0x7F => Some(self.wram[((bank - 0x7E) * WRAM_BANK_SIZE) + addr]),
-            // WS2 HiROM
-            0xC0..=0xFF => Some(self.cartridge[addr + ((bank - 0xC0) * 0x10000)]),
             _ => None,
         };
 
@@ -735,6 +731,7 @@ where
 
                 _ => None,
             },
+            0x70..=0x7D => self.cartridge.write(fulladdr, val),
             // Full WRAM area
             0x7E..=0x7F => Some(self.wram[((bank - 0x7E) * WRAM_BANK_SIZE) + addr] = val),
 
@@ -819,7 +816,7 @@ mod tests {
     fn mainbus() -> Mainbus<NullRenderer> {
         let (joypads, _) = Joypad::new_channel_all();
         Mainbus::<NullRenderer>::new(
-            &[],
+            Cartridge::new_empty(),
             BusTrace::All,
             NullRenderer::new(0, 0).unwrap(),
             joypads,

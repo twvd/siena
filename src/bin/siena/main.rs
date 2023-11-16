@@ -10,6 +10,7 @@ use siena::frontend::sdl::{SDLEventPump, SDLRenderer};
 use siena::frontend::Renderer;
 use siena::snes::bus::mainbus::{BusTrace, Mainbus};
 use siena::snes::bus::Bus;
+use siena::snes::cartridge::Cartridge;
 use siena::snes::cpu_65816::cpu::Cpu65816;
 use siena::snes::joypad::{Button, Joypad, JoypadEvent};
 use siena::snes::ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
@@ -69,14 +70,6 @@ fn main() -> Result<()> {
     let mut args = Args::parse();
 
     let f = fs::read(args.filename)?;
-    let load_offset = match f.len() % 1024 {
-        0 => 0,
-        0x200 => {
-            println!("Cartridge contains 0x200 bytes of weird header");
-            0x200
-        }
-        _ => panic!("Illogical cartridge file size: 0x{:08X}", f.len()),
-    };
 
     let (mut joypads, joypad_senders) = Joypad::new_channel_all();
     for j in joypads.iter_mut() {
@@ -84,7 +77,9 @@ fn main() -> Result<()> {
     }
     let display = SDLRenderer::new(SCREEN_WIDTH, SCREEN_HEIGHT)?;
     let eventpump = SDLEventPump::new();
-    let bus = Mainbus::<SDLRenderer>::new(&f[load_offset..], args.bustrace, display, joypads);
+    let cart = Cartridge::load(&f);
+    println!("Cartridge: {}", &cart);
+    let bus = Mainbus::<SDLRenderer>::new(cart, args.bustrace, display, joypads);
 
     let reset = bus.read16(0xFFFC);
     let mut cpu = Cpu65816::<Mainbus<SDLRenderer>>::new(bus, reset);
