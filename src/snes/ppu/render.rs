@@ -3,6 +3,7 @@ use super::sprites::{SpriteTile, OAM_ENTRIES};
 use super::*;
 use crate::frontend::Renderer;
 
+const LAYER_BACKDROP: u8 = 255;
 struct RenderState {
     idx: [u8; SCREEN_WIDTH],
     paletted: [SnesColor; SCREEN_WIDTH],
@@ -15,7 +16,7 @@ impl RenderState {
         Self {
             idx: [0; SCREEN_WIDTH],
             paletted: [backdrop; SCREEN_WIDTH],
-            layer: [255; SCREEN_WIDTH],
+            layer: [LAYER_BACKDROP; SCREEN_WIDTH],
             layermask,
         }
     }
@@ -213,22 +214,66 @@ where
     pub fn render_scanline(&mut self, scanline: usize) {
         let mainscreen = self.render_scanline_screen(
             scanline,
-            (self.tm | self.ts) & !self.dbg_layermask,
+            self.tm & !self.dbg_layermask,
             self.cgram_to_color(0),
         );
+        let subscreen =
+            self.render_scanline_screen(scanline, self.ts & !self.dbg_layermask, self.coldata);
 
         // Send line to screen buffer
         let brightness = (self.inidisp & 0x0F) as usize;
-        for (x, p) in mainscreen.paletted.into_iter().enumerate() {
-            let pixel = if brightness == 0 || self.inidisp & 0x80 != 0 {
+        for x in 0..mainscreen.paletted.len() {
+            if brightness == 0 || self.inidisp & 0x80 != 0 {
                 // Force blank or no brightness
-                SnesColor::BLACK
-            } else {
-                // Apply master brightness
-                p.apply_brightness(brightness)
-            };
+                self.renderer
+                    .set_pixel(x, scanline, SnesColor::BLACK.to_native());
+                continue;
+            }
 
-            self.renderer.set_pixel(x, scanline, pixel.to_native());
+            let pixel = self.apply_colormath(
+                mainscreen.paletted[x],
+                subscreen.paletted[x],
+                mainscreen.layer[x],
+                subscreen.layer[x],
+            );
+
+            // Apply master brightness and output
+            self.renderer
+                .set_pixel(x, scanline, pixel.apply_brightness(brightness).to_native());
         }
+    }
+
+    fn apply_colormath(
+        &self,
+        mainclr: SnesColor,
+        subclr: SnesColor,
+        mainlayer: u8,
+        sublayer: u8,
+    ) -> SnesColor {
+        let mut pixel = mainclr;
+
+        let apply = 0
+            != self.cgadsub
+                & (1 << match mainlayer {
+                    LAYER_BACKDROP => 5,
+                    // BG1/BG2/BG3/BG4/OBJ
+                    _ => mainlayer,
+                });
+        if !apply || (self.cgwsel >> 4) & 3 == 3 {
+            // Disabled
+            return pixel;
+        }
+        // TODO MathWindow
+
+        if self.cgadsub & (1 << 7) == 0 {
+            pixel += subclr;
+        } else {
+            pixel -= subclr;
+        }
+        if self.cgadsub & (1 << 6) != 0 {
+            //pixel /= 2;
+        }
+
+        pixel
     }
 }

@@ -58,3 +58,39 @@ impl SnesColor {
         )
     }
 }
+
+impl std::ops::Add for SnesColor {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self(
+            ((self.0 & 0x1F) + (other.0 & 0x1F)) & 0x1F
+                | ((self.0 & 0x3E0) + (other.0 & 0x3E0)) & 0x3E0
+                | ((self.0 & 0x7C00) + (other.0 & 0x7C00)) & 0x7C00,
+        )
+    }
+}
+
+impl std::ops::Sub for SnesColor {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        Self(
+            ((self.0 & 0x1F) - (other.0 & 0x1F)) & 0x1F
+                | ((self.0 & 0x3E0) - (other.0 & 0x3E0)) & 0x3E0
+                | ((self.0 & 0x7C00) - (other.0 & 0x7C00)) & 0x7C00,
+        )
+    }
+}
+
+impl std::ops::AddAssign for SnesColor {
+    fn add_assign(&mut self, other: Self) {
+        *self = *self + other;
+    }
+}
+
+impl std::ops::SubAssign for SnesColor {
+    fn sub_assign(&mut self, other: Self) {
+        *self = *self - other;
+    }
+}
