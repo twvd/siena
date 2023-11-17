@@ -266,12 +266,15 @@ where
         // TODO MathWindow
 
         if self.cgadsub & (1 << 7) == 0 {
+            // Add mode
             pixel += subclr;
         } else {
+            // Subtract mode
             pixel -= subclr;
         }
         if self.cgadsub & (1 << 6) != 0 {
-            //pixel /= 2;
+            // Division by 2
+            pixel = pixel.div_2();
         }
 
         pixel

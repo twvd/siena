@@ -57,6 +57,11 @@ impl SnesColor {
                 as u16,
         )
     }
+
+    /// Divide by two
+    pub fn div_2(&self) -> Self {
+        Self((self.0 >> 2) & !0x210)
+    }
 }
 
 impl std::ops::Add for SnesColor {
