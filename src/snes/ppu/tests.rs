@@ -211,3 +211,15 @@ fn oam_write_exttable_mirror() {
     p.write(0x2104, 0xAA);
     assert_eq!(p.oam[512], 0xAA);
 }
+
+#[test]
+fn signed_mul() {
+    let mut p = ppu();
+    p.write(0x211B, 0x22); // M7A
+    p.write(0x211B, 0x11); // M7A
+    p.write(0x211C, 0x33); // M7B
+    let mut result = p.read(0x2134).unwrap() as i32;
+    result |= (p.read(0x2135).unwrap() as i32) << 8;
+    result |= (p.read(0x2136).unwrap() as i32) << 16;
+    assert_eq!(result, (0x1122_i32 * 0x33_i32));
+}

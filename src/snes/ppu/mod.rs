@@ -154,6 +154,9 @@ pub struct PPU<TRenderer: Renderer> {
     // H/V latches
     hlatch: Cell<u8>,
     vlatch: Cell<u8>,
+
+    m7a: u16,
+    m7b: u8,
 }
 
 pub struct BgTile<'a> {
@@ -245,6 +248,9 @@ where
 
             hlatch: Cell::new(0),
             vlatch: Cell::new(0),
+
+            m7a: 0,
+            m7b: 0,
         }
     }
 

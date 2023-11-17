@@ -53,6 +53,21 @@ where
                 0x212C => None,
                 // TS - Sub Screen Designation
                 0x212D => None,
+                // MPYL - Signed Multiply Result (lower 8bit) (R)
+                0x2134 => {
+                    let res = i32::from(self.m7a as i16) * i32::from(self.m7b as i8);
+                    Some(res as u8)
+                }
+                // MPYM - Signed Multiply Result (middle 8bit) (R)
+                0x2135 => {
+                    let res = i32::from(self.m7a as i16) * i32::from(self.m7b as i8);
+                    Some((res >> 8) as u8)
+                }
+                // MPYH - Signed Multiply Result (upper 8bit) (R)
+                0x2136 => {
+                    let res = i32::from(self.m7a as i16) * i32::from(self.m7b as i8);
+                    Some((res >> 16) as u8)
+                }
                 // SLHV - Latch H/V-Counter by Software (R)
                 0x2137 => {
                     self.hlatch.set(self.get_current_h() as u8);
@@ -213,6 +228,10 @@ where
                     self.vram_autoinc(true);
                     Some(self.vram[addr] = (cur & 0xFF) | (val as u16) << 8)
                 }
+                // M7A - Rotation/Scaling Parameter A (and Maths 16bit operand) (W)
+                0x211B => Some(self.m7a = self.m7a >> 8 | (val as u16) << 8),
+                // M7B - Rotation/Scaling Parameter B (and Maths 8bit operand) (W)
+                0x211C => Some(self.m7b = val),
                 // CGADD - Palette CGRAM Address (Color Generator Memory)
                 0x2121 => {
                     self.cgadd.set(val);
