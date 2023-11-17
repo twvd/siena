@@ -66,7 +66,7 @@ impl std::ops::Add for SnesColor {
         Self(
             ((self.0 & 0x1F) + (other.0 & 0x1F)) & 0x1F
                 | ((self.0 & 0x3E0) + (other.0 & 0x3E0)) & 0x3E0
-                | ((self.0 & 0x7C00) + (other.0 & 0x7C00)) & 0x7C00,
+                | ((self.0 & 0x7C00).saturating_add(other.0 & 0x7C00)) & 0x7C00,
         )
     }
 }
@@ -76,9 +76,9 @@ impl std::ops::Sub for SnesColor {
 
     fn sub(self, other: Self) -> Self {
         Self(
-            ((self.0 & 0x1F) - (other.0 & 0x1F)) & 0x1F
-                | ((self.0 & 0x3E0) - (other.0 & 0x3E0)) & 0x3E0
-                | ((self.0 & 0x7C00) - (other.0 & 0x7C00)) & 0x7C00,
+            ((self.0 & 0x1F).saturating_sub(other.0 & 0x1F)) & 0x1F
+                | ((self.0 & 0x3E0).saturating_sub(other.0 & 0x3E0)) & 0x3E0
+                | ((self.0 & 0x7C00).saturating_sub(other.0 & 0x7C00)) & 0x7C00,
         )
     }
 }
