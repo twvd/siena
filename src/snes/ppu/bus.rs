@@ -76,6 +76,19 @@ where
                     // Read openbus
                     None
                 }
+                // RDOAM - OAM Data Read (R)
+                0x2138 => {
+                    let oaddr = self.oamadd.get();
+
+                    // Deal with the upper table mirrors
+                    let addr = if oaddr >= 0x200 {
+                        (oaddr & 0x21F) as usize
+                    } else {
+                        oaddr as usize
+                    };
+                    self.oamadd.set((oaddr + 1) & 0x3FF);
+                    Some(self.oam[addr])
+                }
                 // RDCGRAM - Palette CGRAM Data Read
                 0x213B => {
                     let addr = self.cgadd.get();
@@ -164,6 +177,7 @@ where
                     }
                     Some(self.bgmode = val)
                 }
+                0x2106 => Some(()),
                 // BGxSC - BGx Screen Base and Screen Size
                 0x2107..=0x210A => Some(self.bgxsc[addr - 0x2107] = val),
                 // BG12NBA - BG Character Data Area Designation

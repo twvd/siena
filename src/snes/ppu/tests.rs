@@ -223,3 +223,16 @@ fn signed_mul() {
     result |= (p.read(0x2136).unwrap() as i32) << 16;
     assert_eq!(result, (0x1122_i32 * 0x33_i32));
 }
+
+#[test]
+fn oam_read() {
+    let mut p = ppu();
+    p.oam[3] = 1;
+    p.oam[4] = 2;
+    p.oam[5] = 3;
+    p.write(0x2102, 3);
+    p.write(0x2103, 0);
+    assert_eq!(p.read(0x2138), Some(1));
+    assert_eq!(p.read(0x2138), Some(2));
+    assert_eq!(p.read(0x2138), Some(3));
+}
