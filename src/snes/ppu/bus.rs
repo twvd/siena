@@ -13,24 +13,14 @@ where
         match bank {
             // System area
             0x00..=0x3F | 0x80..=0xBF => match addr {
-                // BGMODE - BG Mode and BG Character Size
-                0x2105 => None,
                 // BGxSC - BGx Screen Base and Screen Size
                 0x2107..=0x210A => Some(self.bgxsc[addr - 0x2107]),
-                // BG12NBA/BG34NBA - BG Character Data Area Designation
-                0x210B..=0x210C => None,
-                // BGxHOFS/BGxVOFS - BGx Horizontal/Vertical Scroll
-                0x210D..=0x2114 => None,
                 // VMAIN - VRAM Address Increment Mode
                 0x2115 => Some(self.vmain),
                 // VMADDL - VRAM Address (lower 8bit)
                 0x2116 => Some(self.vmadd.get() as u8),
                 // VMADDH - VRAM Address (upper 8bit)
                 0x2117 => Some((self.vmadd.get() >> 8) as u8),
-                // VMDATAL - VRAM Data write (lower 8bit)
-                0x2118 => None,
-                // VMDATAH - VRAM Data write (upper 8bit)
-                0x2119 => None,
                 // RDVRAML - VRAM Data Read (lower 8bit)
                 // TODO prefetch glitch
                 //0x2139 => {
@@ -45,14 +35,6 @@ where
                 //    self.vram_autoinc(true);
                 //    v
                 //}
-                // CGADD - Palette CGRAM Address (Color Generator Memory)
-                0x2121 => None,
-                // CGDATA - Palette CGRAM Data Write
-                0x2122 => None,
-                // TM - Main Screen Designation
-                0x212C => None,
-                // TS - Sub Screen Designation
-                0x212D => None,
                 // MPYL - Signed Multiply Result (lower 8bit) (R)
                 0x2134 => {
                     let res = i32::from(self.m7a as i16) * i32::from(self.m7b as i8);
@@ -312,8 +294,6 @@ where
                     }
                     Some(())
                 }
-                // RDCGRAM - Palette CGRAM Data Read
-                0x213B => None,
 
                 _ => None,
             },

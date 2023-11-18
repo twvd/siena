@@ -445,24 +445,10 @@ where
                     self.wmadd.set(addr.wrapping_add(1) & WRAM_MASK);
                     Some(val)
                 }
-                // WMADDL/M/H - WRAM Address
-                0x2181..=0x2183 => None,
                 // JOYA - Joypad Input Register A (R)
                 0x4016 => Some(self.joypads[0].read() | self.joypads[2].read() << 1),
                 // JOYB - Joypad Input Register B (R)
                 0x4017 => Some(self.joypads[1].read() | self.joypads[3].read() << 1 | 0x0C),
-                // NMITIMEN - Interrupt Enable and Joypad Request (W)
-                0x4200 => None,
-                // WRMPYA - Set unsigned 8bit Multiplicand (W)
-                0x4202 => None,
-                // WRMPYB - Set unsigned 8bit Multiplier and Start Multiplication (W)
-                0x4203 => None,
-                // WRDIVL - Set unsigned 16bit Dividend (lower 8bit) (W)
-                0x4204 => None,
-                // WRDIVH - Set unsigned 16bit Dividend (upper 8bit) (W)
-                0x4205 => None,
-                // WRDIVB - Set unsigned 8bit Divisor and Start Division (W)
-                0x4206 => None,
                 // MDMAEN - Select General Purpose DMA Channel(s) and Start Transfer
                 0x420B => Some(0xFF),
                 // MEMSEL - Memory-2 Waitstate Control
@@ -677,14 +663,6 @@ where
                 0x420C => Some(self.hdmaen = val),
                 // MEMSEL - Memory-2 Waitstate Control
                 0x420D => Some(self.memsel = val),
-                // RDDIVL - Unsigned Division Result (Quotient) (lower 8bit) (R)
-                0x4214 => None,
-                // RDDIVH - Unsigned Division Result (Quotient) (upper 8bit) (R)
-                0x4215 => None,
-                // RDMPYL - Unsigned Division Remainder / Multiply Product (lo.8bit) (R)
-                0x4216 => None,
-                // RDMPYH - Unsigned Division Remainder / Multiply Product (up.8bit) (R)
-                0x4217 => None,
                 // DMA parameter area
                 0x4300..=0x43FF => {
                     let ch = (addr >> 4) & 0x07;
