@@ -3,23 +3,60 @@ use super::sprites::{SpriteTile, OAM_ENTRIES};
 use super::*;
 use crate::frontend::Renderer;
 
+use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
+
 const LAYER_BACKDROP: u8 = 255;
 struct RenderState {
     idx: [u8; SCREEN_WIDTH],
     paletted: [SnesColor; SCREEN_WIDTH],
     layer: [u8; SCREEN_WIDTH],
+    windowlayermask: u8,
     layermask: u8,
+    window: WindowState,
 }
 
 impl RenderState {
-    pub fn new(backdrop: SnesColor, layermask: u8) -> Self {
+    pub fn new(
+        backdrop: SnesColor,
+        layermask: u8,
+        window: WindowState,
+        windowlayermask: u8,
+    ) -> Self {
         Self {
             idx: [0; SCREEN_WIDTH],
             paletted: [backdrop; SCREEN_WIDTH],
             layer: [LAYER_BACKDROP; SCREEN_WIDTH],
             layermask,
+            window,
+            windowlayermask,
         }
     }
+}
+
+type WindowLine = [bool; SCREEN_WIDTH];
+
+#[derive(Clone)]
+struct WindowState {
+    bg: [WindowLine; 4],
+    math: WindowLine,
+    sprites: WindowLine,
+}
+
+#[derive(FromPrimitive, Eq, PartialEq, Copy, Clone, Debug)]
+enum WindowArea {
+    Disable = 0,
+    // TODO 1 = also disabled
+    Inner = 2,
+    Outer = 3,
+}
+
+#[derive(FromPrimitive, Eq, PartialEq, Copy, Clone, Debug)]
+enum WindowMask {
+    Or = 0,
+    And = 1,
+    Xor = 2,
+    Xnor = 3,
 }
 
 impl<TRenderer> PPU<TRenderer>
@@ -67,6 +104,11 @@ where
                 continue;
             }
 
+            if state.window.bg[bg][x] && state.windowlayermask & (1 << bg) != 0 {
+                // Masked by window.
+                continue;
+            }
+
             // Determine coordinates within the tile. This is
             // a full tile (so either 8x8 or 16x16).
             let px_x = (x + bghofs) % tilesize;
@@ -100,7 +142,12 @@ where
             if (e.y..(e.y + e.height)).contains(&scanline) {
                 for x in e.x..(e.x + e.width) {
                     if x >= state.idx.len() {
+                        // Outside of visible area.
                         break;
+                    }
+                    if state.window.sprites[x] && state.windowlayermask & (1 << 4) != 0 {
+                        // Masked by window.
+                        continue;
                     }
 
                     let t_x = (x - e.x) / TILE_WIDTH;
@@ -125,8 +172,11 @@ where
         scanline: usize,
         layermask: u8,
         backdrop: SnesColor,
+        windows: WindowState,
+        windowlayermask: u8,
     ) -> RenderState {
-        let mut state = RenderState::new(backdrop, layermask);
+        // TODO remove double copies of WindowState
+        let mut state = RenderState::new(backdrop, layermask, windows, windowlayermask);
 
         match self.get_screen_mode() {
             0 => {
@@ -212,13 +262,21 @@ where
     }
 
     pub fn render_scanline(&mut self, scanline: usize) {
+        let windows = self.render_windows();
         let mainscreen = self.render_scanline_screen(
             scanline,
             self.tm & !self.dbg_layermask,
             self.cgram_to_color(0),
+            windows.clone(),
+            self.tmw,
         );
-        let subscreen =
-            self.render_scanline_screen(scanline, self.ts & !self.dbg_layermask, self.coldata);
+        let subscreen = self.render_scanline_screen(
+            scanline,
+            self.ts & !self.dbg_layermask,
+            self.coldata,
+            windows.clone(),
+            self.tsw,
+        );
 
         // Send line to screen buffer
         let brightness = (self.inidisp & 0x0F) as usize;
@@ -235,6 +293,7 @@ where
                 subscreen.paletted[x],
                 mainscreen.layer[x],
                 subscreen.layer[x],
+                mainscreen.window.math[x],
             );
 
             // Apply master brightness and output
@@ -248,9 +307,24 @@ where
         mainclr: SnesColor,
         subclr: SnesColor,
         mainlayer: u8,
-        sublayer: u8,
+        _sublayer: u8,
+        in_window: bool,
     ) -> SnesColor {
+        // 5-4  Color Math Enable
+        // (0=Always, 1=MathWindow, 2=NotMathWin, 3=Never)
+        let cm_enable = (self.cgwsel >> 4) & 0x03;
+        // 7-6  Force Main Screen Black
+        // (3=Always, 2=MathWindow, 1=NotMathWin, 0=Never)
+        let force_main_black = (self.cgwsel >> 6) & 0x03;
+
         let mut pixel = mainclr;
+
+        if force_main_black == 3
+            || (in_window && force_main_black == 2)
+            || (!in_window && force_main_black == 1)
+        {
+            pixel = SnesColor::BLACK;
+        }
 
         let apply = 0
             != self.cgadsub
@@ -259,11 +333,15 @@ where
                     // BG1/BG2/BG3/BG4/OBJ
                     _ => mainlayer,
                 });
-        if !apply || (self.cgwsel >> 4) & 3 == 3 {
-            // Disabled
+        if !apply || cm_enable == 3 {
+            // Disabled always or disabled for layer
             return pixel;
         }
-        // TODO MathWindow
+
+        if (cm_enable == 1 && !in_window) || (cm_enable == 2 && in_window) {
+            // In wrong side of window
+            return pixel;
+        }
 
         if self.cgadsub & (1 << 7) == 0 {
             // Add mode
@@ -278,5 +356,75 @@ where
         }
 
         pixel
+    }
+
+    fn render_window(
+        &self,
+        w1area: WindowArea,
+        w2area: WindowArea,
+        mask: WindowMask,
+    ) -> WindowLine {
+        let in_window = |area, range: &std::ops::RangeInclusive<u8>, x| {
+            (area == WindowArea::Inner && range.contains(&x))
+                || (area == WindowArea::Outer && !range.contains(&x))
+        };
+
+        let w1 = self.w1_left..=self.w1_right;
+        let w2 = self.w2_left..=self.w2_right;
+        let mut ret = [false; SCREEN_WIDTH];
+
+        if w1area == WindowArea::Disable && w2area == WindowArea::Disable {
+            return ret;
+        }
+
+        let use_masking = w1area != WindowArea::Disable && w2area != WindowArea::Disable;
+
+        for x in 0..=u8::MAX {
+            let in_w1 = in_window(w1area, &w1, x);
+            let in_w2 = in_window(w2area, &w2, x);
+
+            if !use_masking {
+                ret[x as usize] = in_w1 || in_w2;
+            } else {
+                ret[x as usize] = match mask {
+                    WindowMask::Or => in_w1 || in_w2,
+                    WindowMask::And => in_w1 && in_w2,
+                    WindowMask::Xor => in_w1 ^ in_w2,
+                    WindowMask::Xnor => !(in_w1 ^ in_w2),
+                };
+            }
+        }
+
+        ret
+    }
+
+    fn render_windows(&self) -> WindowState {
+        // Bit  W12   W34   WOBJ
+        // 7-6  BG2   BG4   MATH  Window-2 Area
+        // 5-4  BG2   BG4   MATH  Window-1 Area
+        // 3-2  BG1   BG3   OBJ   Window-2 Area
+        // 1-0  BG1   BG3   OBJ   Window-1 Area
+        //
+        // Bit  WBG   WOBJ
+        // 7-6  BG4   -     Window 1/2 Mask Logic
+        // 5-4  BG3   -     Window 1/2 Mask Logic
+        // 3-2  BG2   MATH  Window 1/2 Mask Logic
+        // 1-0  BG1   OBJ   Window 1/2 Mask Logic
+        let w12a = |sh| WindowArea::from_u8((self.w12sel >> sh) & 0x03_u8).unwrap();
+        let w34a = |sh| WindowArea::from_u8((self.w34sel >> sh) & 0x03_u8).unwrap();
+        let wobja = |sh| WindowArea::from_u8((self.wobjsel >> sh) & 0x03_u8).unwrap();
+        let wbgm = |sh| WindowMask::from_u8((self.wbglog >> sh) & 0x03_u8).unwrap();
+        let wobjm = |sh| WindowMask::from_u8((self.wobjlog >> sh) & 0x03_u8).unwrap();
+
+        WindowState {
+            bg: [
+                self.render_window(w12a(0), w12a(2), wbgm(0)),
+                self.render_window(w12a(4), w12a(6), wbgm(2)),
+                self.render_window(w34a(0), w34a(2), wbgm(4)),
+                self.render_window(w34a(4), w34a(6), wbgm(6)),
+            ],
+            sprites: self.render_window(wobja(0), wobja(2), wobjm(0)),
+            math: self.render_window(wobja(4), wobja(6), wobjm(2)),
+        }
     }
 }
