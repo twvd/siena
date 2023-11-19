@@ -190,7 +190,7 @@ where
     TRenderer: Renderer,
 {
     const CYCLES_PER_SCANLINE: usize = 340 * 4;
-    const SCANLINES_PER_FRAME: usize = 262;
+    const SCANLINES_PER_FRAME: usize = 262; // including V-blank
     const VBLANK_START: usize = 0xE1;
     const LINE_HBLANK_START: usize = 274 * 4;
 

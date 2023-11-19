@@ -391,8 +391,8 @@ where
     }
 
     fn hdma_load_next_entry(&mut self, ch: usize) {
-        // Load flags (line count + repeat) from table
-        let replc = self.read(self.dma[ch].hdma_current_a_addr());
+        // Load flags (line count + repeat) from table (A1B + A2A)
+        let replc = self.read(self.dma[ch].hdma_current_a_addr_direct());
 
         self.dma[ch].hdma_repeat = replc & (1 << 7) != 0;
         self.dma[ch].hdma_lines = replc & !(1 << 7);
@@ -401,9 +401,10 @@ where
         self.dma[ch].a2a = self.dma[ch].a2a.wrapping_add(1);
 
         if self.dma[ch].hdma_is_indirect() {
+            // Read from table (A1B + A2A)
             let indirect_addr = self.read16(self.dma[ch].hdma_current_a_addr_direct());
 
-            // Next entry
+            // Next table entry
             self.dma[ch].a2a = self.dma[ch].a2a.wrapping_add(2);
             self.dma[ch].das = indirect_addr;
         }
