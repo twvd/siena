@@ -163,7 +163,7 @@ impl fmt::Display for Cartridge {
     }
 }
 
-impl BusMember for Cartridge {
+impl BusMember<Address> for Cartridge {
     fn read(&self, fulladdr: Address) -> Option<u8> {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 

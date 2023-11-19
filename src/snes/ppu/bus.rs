@@ -3,7 +3,7 @@ use super::*;
 use crate::frontend::Renderer;
 use crate::snes::bus::{Address, BusMember};
 
-impl<TRenderer> BusMember for PPU<TRenderer>
+impl<TRenderer> BusMember<Address> for PPU<TRenderer>
 where
     TRenderer: Renderer,
 {

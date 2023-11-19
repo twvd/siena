@@ -3,51 +3,36 @@ pub mod testbus;
 
 use crate::tickable::Tickable;
 
-/// Address data type (actually 24-bit)
+use num_traits::{PrimInt, WrappingAdd};
+
+/// Main CPU address data type (actually 24-bit)
 pub type Address = u32;
 
-/// Address mask
+/// Main CPU address mask
 pub const ADDRESS_MASK: Address = 0x00FFFFFF;
 
-/// Total address space
+/// Main CPU total address space
 pub const ADDRESS_SPACE_SIZE: usize = 16 * 1024 * 1024;
 pub const ADDRESS_SPACE: u32 = 16 * 1024 * 1024;
 
-pub trait BusMember {
-    fn read(&self, addr: Address) -> Option<u8>;
-    fn write(&mut self, addr: Address, val: u8) -> Option<()>;
+pub trait BusMember<T: PrimInt> {
+    fn read(&self, addr: T) -> Option<u8>;
+    fn write(&mut self, addr: T, val: u8) -> Option<()>;
 }
 
-pub trait Bus: Tickable {
-    fn read(&self, addr: Address) -> u8;
-    fn write(&mut self, addr: Address, val: u8);
+pub trait Bus<T: PrimInt + WrappingAdd>: Tickable {
+    fn read(&self, addr: T) -> u8;
+    fn write(&mut self, addr: T, val: u8);
     fn get_clr_nmi(&mut self) -> bool;
     fn get_clr_int(&mut self) -> bool;
 
-    /// Writes an entire u8 slice to the bus from a specified
-    /// address offset.
-    fn write_slice(&mut self, from: &[u8], offset: Address) {
-        for (i, b) in from.into_iter().enumerate() {
-            self.write(offset.wrapping_add(i as Address) & ADDRESS_MASK, *b);
-        }
-    }
-
-    /// Reads the specified size from the specified address
-    /// into a u8 vec.
-    fn read_vec(&self, addr: Address, size: usize) -> Vec<u8> {
-        let mut addr = addr;
-        let mut ret: Vec<u8> = vec![];
-        for _ in 0..size {
-            ret.push(self.read(addr));
-            addr = addr.wrapping_add(1) & ADDRESS_MASK;
-        }
-        ret
-    }
+    // TODO this is pretty awful
+    fn get_mask(&self) -> T;
 
     /// Write 16-bits to addr + 1 and addr (specific access order),
     /// in little endian.
-    fn write16(&mut self, addr: Address, val: u16) {
-        self.write(addr.wrapping_add(1), (val >> 8) as u8);
+    fn write16(&mut self, addr: T, val: u16) {
+        self.write(addr.wrapping_add(&T::one()), (val >> 8) as u8);
         self.write(addr, val as u8);
     }
 
@@ -55,47 +40,47 @@ pub trait Bus: Tickable {
     /// in little endian.
     /// This access order is inverted, for operations that
     /// require that..
-    fn write16_acc_low(&mut self, addr: Address, val: u16) {
+    fn write16_acc_low(&mut self, addr: T, val: u16) {
         self.write(addr, val as u8);
-        self.write(addr.wrapping_add(1), (val >> 8) as u8);
+        self.write(addr.wrapping_add(&T::one()), (val >> 8) as u8);
     }
 
     /// Read 16-bits from addr and addr + 1,
     /// from little endian.
-    fn read16(&self, addr: Address) -> u16 {
+    fn read16(&self, addr: T) -> u16 {
         let l = self.read(addr);
-        let h = self.read(addr.wrapping_add(1));
+        let h = self.read(addr.wrapping_add(&T::one()));
         l as u16 | (h as u16) << 8
     }
 }
 
-impl core::fmt::Debug for dyn Bus {
+impl<T> core::fmt::Debug for dyn Bus<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Bus")
     }
 }
 
-pub struct BusIterator<'a> {
-    bus: &'a dyn Bus,
-    next: Address,
+pub struct BusIterator<'a, T: PrimInt + WrappingAdd> {
+    bus: &'a dyn Bus<T>,
+    next: T,
 }
 
-impl<'a> BusIterator<'a> {
-    pub fn new_from(bus: &'a dyn Bus, offset: Address) -> BusIterator {
-        BusIterator { bus, next: offset }
+impl<'a, T: PrimInt + WrappingAdd> BusIterator<'a, T> {
+    pub fn new_from(bus: &'a dyn Bus<T>, offset: T) -> Self {
+        Self { bus, next: offset }
     }
 
-    pub fn new(bus: &'a dyn Bus) -> BusIterator {
-        Self::new_from(bus, 0)
+    pub fn new(bus: &'a dyn Bus<T>) -> Self {
+        Self::new_from(bus, T::zero())
     }
 }
 
-impl<'a> Iterator for BusIterator<'a> {
+impl<'a, T: PrimInt + WrappingAdd> Iterator for BusIterator<'a, T> {
     type Item = u8;
 
     fn next(&mut self) -> Option<Self::Item> {
         let curr = self.next;
-        self.next = self.next.wrapping_add(1) & ADDRESS_MASK;
+        self.next = self.next.wrapping_add(&T::one()) & self.bus.get_mask();
 
         Some(self.bus.read(curr))
     }
@@ -140,7 +125,7 @@ mod tests {
 
     #[test]
     fn bus_write16() {
-        let mut b: Box<dyn Bus> = Box::new(testbus());
+        let mut b = testbus();
         b.write16(0x1000, 0x55AA);
         assert_eq!(b.read(0x1000), 0xAA);
         assert_eq!(b.read(0x1001), 0x55);
@@ -148,7 +133,7 @@ mod tests {
 
     #[test]
     fn bus_read16() {
-        let mut b: Box<dyn Bus> = Box::new(testbus());
+        let mut b = testbus();
         b.write(0x1000, 0xAA);
         b.write(0x1001, 0x55);
         assert_eq!(b.read16(0x1000), 0x55AA);

@@ -9,7 +9,7 @@ use super::instruction::{AddressingMode, Instruction, InstructionType};
 use super::regs::{Flag, Register, RegisterFile, RegisterWidth};
 
 /// Main SNES CPU (65816)
-pub struct Cpu65816<TBus: Bus> {
+pub struct Cpu65816<TBus: Bus<Address>> {
     pub bus: TBus,
     pub regs: RegisterFile,
     pub cycles: Ticks,
@@ -17,7 +17,7 @@ pub struct Cpu65816<TBus: Bus> {
 
 impl<TBus> Cpu65816<TBus>
 where
-    TBus: Bus,
+    TBus: Bus<Address>,
 {
     const INTVEC_COP: Address = 0x00FFE4;
     const INTVEC_BRK: Address = 0x00FFE6;

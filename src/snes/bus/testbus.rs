@@ -49,7 +49,11 @@ impl Testbus {
     }
 }
 
-impl Bus for Testbus {
+impl Bus<Address> for Testbus {
+    fn get_mask(&self) -> Address {
+        ADDRESS_MASK
+    }
+
     fn read(&self, addr: Address) -> u8 {
         assert_eq!(addr & ADDRESS_MASK, addr);
 

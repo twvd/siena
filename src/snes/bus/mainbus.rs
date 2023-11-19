@@ -4,7 +4,7 @@ use anyhow::Result;
 use dbg_hex::dbg_hex;
 
 use crate::frontend::Renderer;
-use crate::snes::bus::{Address, Bus, BusMember};
+use crate::snes::bus::{Address, Bus, BusMember, ADDRESS_MASK};
 use crate::snes::cartridge::Cartridge;
 use crate::snes::joypad::{Joypad, JOYPAD_COUNT};
 use crate::snes::ppu::PPU;
@@ -413,10 +413,14 @@ where
     }
 }
 
-impl<TRenderer> Bus for Mainbus<TRenderer>
+impl<TRenderer> Bus<Address> for Mainbus<TRenderer>
 where
     TRenderer: Renderer,
 {
+    fn get_mask(&self) -> Address {
+        ADDRESS_MASK
+    }
+
     fn read(&self, fulladdr: Address) -> u8 {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
