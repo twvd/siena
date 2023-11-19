@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::fs;
 
 use crate::snes::bus::testbus::{Access, Testbus};
-use crate::snes::bus::{Address, Bus};
+use crate::snes::bus::{Address, Bus, ADDRESS_MASK};
 use crate::snes::cpu_65816::cpu::Cpu65816;
 use crate::snes::cpu_65816::regs::RegisterFile;
 
@@ -84,12 +84,12 @@ fn run_testcase(testcase: &Value, check_trace: bool, multi_steps: bool) {
     let testcase_cycles = testcase["cycles"].as_array().unwrap();
     let test_cycles = testcase_cycles.len();
 
-    let mut bus = Testbus::new();
+    let mut bus = Testbus::<Address>::new(ADDRESS_MASK);
     for (addr, val) in ram_initial {
         bus.write(addr, val);
     }
 
-    let mut cpu = Cpu65816::<Testbus>::new(bus, 0);
+    let mut cpu = Cpu65816::<Testbus<Address>>::new(bus, 0);
     cpu.regs = regs_initial.clone();
     cpu.bus.reset_trace();
 
@@ -104,7 +104,7 @@ fn run_testcase(testcase: &Value, check_trace: bool, multi_steps: bool) {
 
     // Extract the bus trace now so we don't record the
     // verification later.
-    let bus = std::mem::replace(&mut cpu.bus, Testbus::new());
+    let bus = std::mem::replace(&mut cpu.bus, Testbus::<Address>::new(ADDRESS_MASK));
     let bus_trace = bus.get_trace();
 
     if multi_steps {

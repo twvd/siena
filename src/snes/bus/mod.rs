@@ -91,8 +91,8 @@ mod tests {
     use super::testbus::Testbus;
     use super::*;
 
-    fn testbus() -> Testbus {
-        let mut b = Testbus::new();
+    fn testbus() -> Testbus<Address> {
+        let mut b = Testbus::<Address>::new(ADDRESS_MASK);
         for a in 0..ADDRESS_SPACE {
             b.write(a, a as u8);
         }
