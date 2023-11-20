@@ -117,3 +117,70 @@ pub enum InstructionType {
     SET1,
     ROL,
 }
+
+#[derive(Debug, Error)]
+enum DecodeErr {
+    #[error("End of instruction stream")]
+    EndOfStream,
+}
+
+/// A decoded instruction
+pub struct Instruction {
+    /// Reference to definition in instruction table
+    pub def: &'static InstructionDef,
+
+    /// Immediate values
+    pub immediate: [u8; 2],
+
+    /// Raw bytes
+    pub raw: Vec<u8>,
+
+    /// Instruction length
+    pub len: usize,
+}
+
+impl Instruction {
+    /// Try to decode a single instruction from an iterator.
+    pub fn decode(stream: &mut impl Iterator<Item = u8>) -> Result<Instruction> {
+        let mut raw: Vec<u8> = vec![];
+        let mut rd = || -> Result<u8> {
+            let b = stream.next().ok_or(DecodeErr::EndOfStream)?;
+            raw.push(b);
+            Ok(b)
+        };
+
+        let opcode = rd()?;
+        let def = &INSTRUCTION_TABLE[opcode as usize];
+        let mut args = [0; 4];
+        let len = def.len;
+        for i in 0..(len - 1) {
+            args[i] = rd()?;
+        }
+
+        // Transform immediate values
+        let mut immediate = [0; 2];
+        immediate[0] = args[0];
+        immediate[1] = args[1];
+
+        Ok(Instruction {
+            def,
+            immediate,
+            raw,
+            len,
+        })
+    }
+}
+
+impl fmt::Display for Instruction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut s = self.def.mnemonic.to_string();
+        let mut deci = 0;
+
+        while s.contains('@') {
+            s = s.replacen('@', format!("${:02X}", self.immediate[deci]).as_str(), 1);
+            deci += 1;
+        }
+
+        write!(f, "{:02X?} {}", self.raw, s.as_str())
+    }
+}

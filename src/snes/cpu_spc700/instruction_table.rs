@@ -32,7 +32,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x02 - SET1  d.0
     // ........, 2 bytes, 4 cycles
     instr!(
-        "SET1  d.0",
+        "SET1  @.0",
         InstructionType::SET1,
         2,
         [Operand::DirectPageBit(0), Operand::None]
@@ -40,7 +40,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x03 - BBS   d.0, r
     // ........, 3 bytes, 5/7 cycles
     instr!(
-        "BBS   d.0, @",
+        "BBS   @.0, @",
         InstructionType::BBS,
         3,
         [Operand::DirectPageBit(0), Operand::Relative]
@@ -48,7 +48,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x04 - OR    A, d
     // N.....Z., 2 bytes, 3 cycles
     instr!(
-        "OR    A, d",
+        "OR    A, @",
         InstructionType::OR,
         2,
         [Operand::Register(Register::A), Operand::DirectPage]
@@ -72,7 +72,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x07 - OR    A, [d+X]
     // N.....Z., 2 bytes, 6 cycles
     instr!(
-        "OR    A, [d+X]",
+        "OR    A, [@+X]",
         InstructionType::OR,
         2,
         [Operand::Register(Register::A), Operand::XIndexIndirect]
@@ -88,7 +88,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x09 - OR    dd, ds
     // N.....Z., 3 bytes, 6 cycles
     instr!(
-        "OR    dd, ds",
+        "OR    @@, @s",
         InstructionType::OR,
         3,
         [Operand::DirectPage, Operand::DirectPage]
@@ -104,7 +104,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x0B - ASL   d
     // N.....ZC, 2 bytes, 4 cycles
     instr!(
-        "ASL   d",
+        "ASL   @",
         InstructionType::ASL,
         2,
         [Operand::DirectPage, Operand::None]
@@ -160,7 +160,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x12 - CLR1  d.0
     // ........, 2 bytes, 4 cycles
     instr!(
-        "CLR1  d.0",
+        "CLR1  @.0",
         InstructionType::CLR1,
         2,
         [Operand::DirectPageBit(0), Operand::None]
@@ -168,7 +168,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x13 - BBC   d.0, r
     // ........, 3 bytes, 5/7 cycles
     instr!(
-        "BBC   d.0, @",
+        "BBC   @.0, @",
         InstructionType::BBC,
         3,
         [Operand::DirectPageBit(0), Operand::Relative]
@@ -176,7 +176,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x14 - OR    A, d+X
     // N.....Z., 2 bytes, 4 cycles
     instr!(
-        "OR    A, d+X",
+        "OR    A, @+X",
         InstructionType::OR,
         2,
         [Operand::Register(Register::A), Operand::DirectPageX]
@@ -200,7 +200,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x17 - OR    A, [d]+Y
     // N.....Z., 2 bytes, 6 cycles
     instr!(
-        "OR    A, [d]+Y",
+        "OR    A, [@]+Y",
         InstructionType::OR,
         2,
         [Operand::Register(Register::A), Operand::IndirectYIndex]
@@ -208,7 +208,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x18 - OR    d, #i
     // N.....Z., 3 bytes, 5 cycles
     instr!(
-        "OR    d, @",
+        "OR    @, @",
         InstructionType::OR,
         3,
         [Operand::DirectPage, Operand::Immediate]
@@ -224,7 +224,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x1A - DECW  d
     // N.....Z., 2 bytes, 6 cycles
     instr!(
-        "DECW  d",
+        "DECW  @",
         InstructionType::DECW,
         2,
         [Operand::DirectPage, Operand::None]
@@ -232,7 +232,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x1B - ASL   d+X
     // N.....ZC, 2 bytes, 5 cycles
     instr!(
-        "ASL   d+X",
+        "ASL   @+X",
         InstructionType::ASL,
         2,
         [Operand::DirectPageX, Operand::None]
@@ -288,7 +288,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x22 - SET1  d.1
     // ........, 2 bytes, 4 cycles
     instr!(
-        "SET1  d.1",
+        "SET1  @.1",
         InstructionType::SET1,
         2,
         [Operand::DirectPageBit(1), Operand::None]
@@ -296,7 +296,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x23 - BBS   d.1, r
     // ........, 3 bytes, 5/7 cycles
     instr!(
-        "BBS   d.1, @",
+        "BBS   @.1, @",
         InstructionType::BBS,
         3,
         [Operand::DirectPageBit(1), Operand::Relative]
@@ -304,7 +304,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x24 - AND   A, d
     // N.....Z., 2 bytes, 3 cycles
     instr!(
-        "AND   A, d",
+        "AND   A, @",
         InstructionType::AND,
         2,
         [Operand::Register(Register::A), Operand::DirectPage]
@@ -328,7 +328,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x27 - AND   A, [d+X]
     // N.....Z., 2 bytes, 6 cycles
     instr!(
-        "AND   A, [d+X]",
+        "AND   A, [@+X]",
         InstructionType::AND,
         2,
         [Operand::Register(Register::A), Operand::XIndexIndirect]
@@ -344,7 +344,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x29 - AND   dd, ds
     // N.....Z., 3 bytes, 6 cycles
     instr!(
-        "AND   dd, ds",
+        "AND   @@, @s",
         InstructionType::AND,
         3,
         [Operand::DirectPage, Operand::DirectPage]
@@ -360,7 +360,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x2B - ROL   d
     // N.....ZC, 2 bytes, 4 cycles
     instr!(
-        "ROL   d",
+        "ROL   @",
         InstructionType::ROL,
         2,
         [Operand::DirectPage, Operand::None]
@@ -384,7 +384,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x2E - CBNE  d, r
     // ........, 3 bytes, 5/7 cycles
     instr!(
-        "CBNE  d, @",
+        "CBNE  @, @",
         InstructionType::CBNE,
         3,
         [Operand::DirectPage, Operand::Relative]
@@ -416,7 +416,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x32 - CLR1  d.1
     // ........, 2 bytes, 4 cycles
     instr!(
-        "CLR1  d.1",
+        "CLR1  @.1",
         InstructionType::CLR1,
         2,
         [Operand::DirectPageBit(1), Operand::None]
@@ -424,7 +424,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x33 - BBC   d.1, r
     // ........, 3 bytes, 5/7 cycles
     instr!(
-        "BBC   d.1, @",
+        "BBC   @.1, @",
         InstructionType::BBC,
         3,
         [Operand::DirectPageBit(1), Operand::Relative]
@@ -432,7 +432,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x34 - AND   A, d+X
     // N.....Z., 2 bytes, 4 cycles
     instr!(
-        "AND   A, d+X",
+        "AND   A, @+X",
         InstructionType::AND,
         2,
         [Operand::Register(Register::A), Operand::DirectPageX]
@@ -456,7 +456,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x37 - AND   A, [d]+Y
     // N.....Z., 2 bytes, 6 cycles
     instr!(
-        "AND   A, [d]+Y",
+        "AND   A, [@]+Y",
         InstructionType::AND,
         2,
         [Operand::Register(Register::A), Operand::IndirectYIndex]
@@ -464,7 +464,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x38 - AND   d, #i
     // N.....Z., 3 bytes, 5 cycles
     instr!(
-        "AND   d, @",
+        "AND   @, @",
         InstructionType::AND,
         3,
         [Operand::DirectPage, Operand::Immediate]
@@ -480,7 +480,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x3A - INCW  d
     // N.....Z., 2 bytes, 6 cycles
     instr!(
-        "INCW  d",
+        "INCW  @",
         InstructionType::INCW,
         2,
         [Operand::DirectPage, Operand::None]
@@ -488,7 +488,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x3B - ROL   d+X
     // N.....ZC, 2 bytes, 5 cycles
     instr!(
-        "ROL   d+X",
+        "ROL   @+X",
         InstructionType::ROL,
         2,
         [Operand::DirectPageX, Operand::None]
@@ -512,7 +512,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x3E - CMP   X, d
     // N.....ZC, 2 bytes, 3 cycles
     instr!(
-        "CMP   X, d",
+        "CMP   X, @",
         InstructionType::CMP,
         2,
         [Operand::Register(Register::X), Operand::DirectPage]
@@ -544,7 +544,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x42 - SET1  d.2
     // ........, 2 bytes, 4 cycles
     instr!(
-        "SET1  d.2",
+        "SET1  @.2",
         InstructionType::SET1,
         2,
         [Operand::DirectPageBit(2), Operand::None]
@@ -552,7 +552,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x43 - BBS   d.2, r
     // ........, 3 bytes, 5/7 cycles
     instr!(
-        "BBS   d.2, @",
+        "BBS   @.2, @",
         InstructionType::BBS,
         3,
         [Operand::DirectPageBit(2), Operand::Relative]
@@ -560,7 +560,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x44 - EOR   A, d
     // N.....Z., 2 bytes, 3 cycles
     instr!(
-        "EOR   A, d",
+        "EOR   A, @",
         InstructionType::EOR,
         2,
         [Operand::Register(Register::A), Operand::DirectPage]
@@ -584,7 +584,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x47 - EOR   A, [d+X]
     // N.....Z., 2 bytes, 6 cycles
     instr!(
-        "EOR   A, [d+X]",
+        "EOR   A, [@+X]",
         InstructionType::EOR,
         2,
         [Operand::Register(Register::A), Operand::XIndexIndirect]
@@ -600,7 +600,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x49 - EOR   dd, ds
     // N.....Z., 3 bytes, 6 cycles
     instr!(
-        "EOR   dd, ds",
+        "EOR   @@, @s",
         InstructionType::EOR,
         3,
         [Operand::DirectPage, Operand::DirectPage]
@@ -616,7 +616,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x4B - LSR   d
     // N.....ZC, 2 bytes, 4 cycles
     instr!(
-        "LSR   d",
+        "LSR   @",
         InstructionType::LSR,
         2,
         [Operand::DirectPage, Operand::None]
@@ -648,7 +648,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x4F - PCALL u
     // ........, 2 bytes, 6 cycles
     instr!(
-        "PCALL u",
+        "PCALL @",
         InstructionType::PCALL,
         2,
         [Operand::Immediate, Operand::None]
@@ -672,7 +672,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x52 - CLR1  d.2
     // ........, 2 bytes, 4 cycles
     instr!(
-        "CLR1  d.2",
+        "CLR1  @.2",
         InstructionType::CLR1,
         2,
         [Operand::DirectPageBit(2), Operand::None]
@@ -680,7 +680,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x53 - BBC   d.2, r
     // ........, 3 bytes, 5/7 cycles
     instr!(
-        "BBC   d.2, @",
+        "BBC   @.2, @",
         InstructionType::BBC,
         3,
         [Operand::DirectPageBit(2), Operand::Relative]
@@ -688,7 +688,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x54 - EOR   A, d+X
     // N.....Z., 2 bytes, 4 cycles
     instr!(
-        "EOR   A, d+X",
+        "EOR   A, @+X",
         InstructionType::EOR,
         2,
         [Operand::Register(Register::A), Operand::DirectPageX]
@@ -712,7 +712,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x57 - EOR   A, [d]+Y
     // N.....Z., 2 bytes, 6 cycles
     instr!(
-        "EOR   A, [d]+Y",
+        "EOR   A, [@]+Y",
         InstructionType::EOR,
         2,
         [Operand::Register(Register::A), Operand::IndirectYIndex]
@@ -720,7 +720,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x58 - EOR   d, #i
     // N.....Z., 3 bytes, 5 cycles
     instr!(
-        "EOR   d, @",
+        "EOR   @, @",
         InstructionType::EOR,
         3,
         [Operand::DirectPage, Operand::Immediate]
@@ -736,7 +736,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x5A - CMPW  YA, d
     // N.....ZC, 2 bytes, 4 cycles
     instr!(
-        "CMPW  YA, d",
+        "CMPW  YA, @",
         InstructionType::CMPW,
         2,
         [Operand::None, Operand::DirectPage]
@@ -744,7 +744,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x5B - LSR   d+X
     // N.....ZC, 2 bytes, 5 cycles
     instr!(
-        "LSR   d+X",
+        "LSR   @+X",
         InstructionType::LSR,
         2,
         [Operand::DirectPageX, Operand::None]
@@ -803,7 +803,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x62 - SET1  d.3
     // ........, 2 bytes, 4 cycles
     instr!(
-        "SET1  d.3",
+        "SET1  @.3",
         InstructionType::SET1,
         2,
         [Operand::DirectPageBit(3), Operand::None]
@@ -811,7 +811,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x63 - BBS   d.3, r
     // ........, 3 bytes, 5/7 cycles
     instr!(
-        "BBS   d.3, @",
+        "BBS   @.3, @",
         InstructionType::BBS,
         3,
         [Operand::DirectPageBit(3), Operand::Relative]
@@ -819,7 +819,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x64 - CMP   A, d
     // N.....ZC, 2 bytes, 3 cycles
     instr!(
-        "CMP   A, d",
+        "CMP   A, @",
         InstructionType::CMP,
         2,
         [Operand::Register(Register::A), Operand::DirectPage]
@@ -843,7 +843,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x67 - CMP   A, [d+X]
     // N.....ZC, 2 bytes, 6 cycles
     instr!(
-        "CMP   A, [d+X]",
+        "CMP   A, [@+X]",
         InstructionType::CMP,
         2,
         [Operand::Register(Register::A), Operand::XIndexIndirect]
@@ -859,7 +859,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x69 - CMP   dd, ds
     // N.....ZC, 3 bytes, 6 cycles
     instr!(
-        "CMP   dd, ds",
+        "CMP   @@, @s",
         InstructionType::CMP,
         3,
         [Operand::DirectPage, Operand::DirectPage]
@@ -875,7 +875,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x6B - ROR   d
     // N.....ZC, 2 bytes, 4 cycles
     instr!(
-        "ROR   d",
+        "ROR   @",
         InstructionType::ROR,
         2,
         [Operand::DirectPage, Operand::None]
@@ -899,7 +899,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x6E - DBNZ  d, r
     // ........, 3 bytes, 5/7 cycles
     instr!(
-        "DBNZ  d, @",
+        "DBNZ  @, @",
         InstructionType::DBNZ,
         3,
         [Operand::DirectPage, Operand::Relative]
@@ -931,7 +931,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x72 - CLR1  d.3
     // ........, 2 bytes, 4 cycles
     instr!(
-        "CLR1  d.3",
+        "CLR1  @.3",
         InstructionType::CLR1,
         2,
         [Operand::DirectPageBit(3), Operand::None]
@@ -939,7 +939,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x73 - BBC   d.3, r
     // ........, 3 bytes, 5/7 cycles
     instr!(
-        "BBC   d.3, @",
+        "BBC   @.3, @",
         InstructionType::BBC,
         3,
         [Operand::DirectPageBit(3), Operand::Relative]
@@ -947,7 +947,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x74 - CMP   A, d+X
     // N.....ZC, 2 bytes, 4 cycles
     instr!(
-        "CMP   A, d+X",
+        "CMP   A, @+X",
         InstructionType::CMP,
         2,
         [Operand::Register(Register::A), Operand::DirectPageX]
@@ -971,7 +971,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x77 - CMP   A, [d]+Y
     // N.....ZC, 2 bytes, 6 cycles
     instr!(
-        "CMP   A, [d]+Y",
+        "CMP   A, [@]+Y",
         InstructionType::CMP,
         2,
         [Operand::Register(Register::A), Operand::IndirectYIndex]
@@ -979,7 +979,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x78 - CMP   d, #i
     // N.....ZC, 3 bytes, 5 cycles
     instr!(
-        "CMP   d, @",
+        "CMP   @, @",
         InstructionType::CMP,
         3,
         [Operand::DirectPage, Operand::Immediate]
@@ -995,7 +995,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x7A - ADDW  YA, d
     // NV..H.ZC, 2 bytes, 5 cycles
     instr!(
-        "ADDW  YA, d",
+        "ADDW  YA, @",
         InstructionType::ADDW,
         2,
         [Operand::None, Operand::DirectPage]
@@ -1003,7 +1003,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x7B - ROR   d+X
     // N.....ZC, 2 bytes, 5 cycles
     instr!(
-        "ROR   d+X",
+        "ROR   @+X",
         InstructionType::ROR,
         2,
         [Operand::DirectPageX, Operand::None]
@@ -1030,7 +1030,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x7E - CMP   Y, d
     // N.....ZC, 2 bytes, 3 cycles
     instr!(
-        "CMP   Y, d",
+        "CMP   Y, @",
         InstructionType::CMP,
         2,
         [Operand::Register(Register::Y), Operand::DirectPage]
@@ -1062,7 +1062,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x82 - SET1  d.4
     // ........, 2 bytes, 4 cycles
     instr!(
-        "SET1  d.4",
+        "SET1  @.4",
         InstructionType::SET1,
         2,
         [Operand::DirectPageBit(4), Operand::None]
@@ -1070,7 +1070,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x83 - BBS   d.4, r
     // ........, 3 bytes, 5/7 cycles
     instr!(
-        "BBS   d.4, @",
+        "BBS   @.4, @",
         InstructionType::BBS,
         3,
         [Operand::DirectPageBit(4), Operand::Relative]
@@ -1078,7 +1078,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x84 - ADC   A, d
     // NV..H.ZC, 2 bytes, 3 cycles
     instr!(
-        "ADC   A, d",
+        "ADC   A, @",
         InstructionType::ADC,
         2,
         [Operand::Register(Register::A), Operand::DirectPage]
@@ -1102,7 +1102,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x87 - ADC   A, [d+X]
     // NV..H.ZC, 2 bytes, 6 cycles
     instr!(
-        "ADC   A, [d+X]",
+        "ADC   A, [@+X]",
         InstructionType::ADC,
         2,
         [Operand::Register(Register::A), Operand::XIndexIndirect]
@@ -1118,7 +1118,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x89 - ADC   dd, ds
     // NV..H.ZC, 3 bytes, 6 cycles
     instr!(
-        "ADC   dd, ds",
+        "ADC   @@, @s",
         InstructionType::ADC,
         3,
         [Operand::DirectPage, Operand::DirectPage]
@@ -1134,7 +1134,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x8B - DEC   d
     // N.....Z., 2 bytes, 4 cycles
     instr!(
-        "DEC   d",
+        "DEC   @",
         InstructionType::DEC,
         2,
         [Operand::DirectPage, Operand::None]
@@ -1166,7 +1166,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x8F - MOV   d, #i
     // ........, 3 bytes, 5 cycles
     instr!(
-        "MOV   d, @",
+        "MOV   @, @",
         InstructionType::MOV,
         3,
         [Operand::DirectPage, Operand::Immediate]
@@ -1190,7 +1190,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x92 - CLR1  d.4
     // ........, 2 bytes, 4 cycles
     instr!(
-        "CLR1  d.4",
+        "CLR1  @.4",
         InstructionType::CLR1,
         2,
         [Operand::DirectPageBit(4), Operand::None]
@@ -1198,7 +1198,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x93 - BBC   d.4, r
     // ........, 3 bytes, 5/7 cycles
     instr!(
-        "BBC   d.4, @",
+        "BBC   @.4, @",
         InstructionType::BBC,
         3,
         [Operand::DirectPageBit(4), Operand::Relative]
@@ -1206,7 +1206,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x94 - ADC   A, d+X
     // NV..H.ZC, 2 bytes, 4 cycles
     instr!(
-        "ADC   A, d+X",
+        "ADC   A, @+X",
         InstructionType::ADC,
         2,
         [Operand::Register(Register::A), Operand::DirectPageX]
@@ -1230,7 +1230,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x97 - ADC   A, [d]+Y
     // NV..H.ZC, 2 bytes, 6 cycles
     instr!(
-        "ADC   A, [d]+Y",
+        "ADC   A, [@]+Y",
         InstructionType::ADC,
         2,
         [Operand::Register(Register::A), Operand::IndirectYIndex]
@@ -1238,7 +1238,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x98 - ADC   d, #i
     // NV..H.ZC, 3 bytes, 5 cycles
     instr!(
-        "ADC   d, @",
+        "ADC   @, @",
         InstructionType::ADC,
         3,
         [Operand::DirectPage, Operand::Immediate]
@@ -1254,7 +1254,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x9A - SUBW  YA, d
     // NV..H.ZC, 2 bytes, 5 cycles
     instr!(
-        "SUBW  YA, d",
+        "SUBW  YA, @",
         InstructionType::SUBW,
         2,
         [Operand::None, Operand::DirectPage]
@@ -1262,7 +1262,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x9B - DEC   d+X
     // N.....Z., 2 bytes, 5 cycles
     instr!(
-        "DEC   d+X",
+        "DEC   @+X",
         InstructionType::DEC,
         2,
         [Operand::DirectPageX, Operand::None]
@@ -1321,7 +1321,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xA2 - SET1  d.5
     // ........, 2 bytes, 4 cycles
     instr!(
-        "SET1  d.5",
+        "SET1  @.5",
         InstructionType::SET1,
         2,
         [Operand::DirectPageBit(5), Operand::None]
@@ -1329,7 +1329,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xA3 - BBS   d.5, r
     // ........, 3 bytes, 5/7 cycles
     instr!(
-        "BBS   d.5, @",
+        "BBS   @.5, @",
         InstructionType::BBS,
         3,
         [Operand::DirectPageBit(5), Operand::Relative]
@@ -1337,7 +1337,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xA4 - SBC   A, d
     // NV..H.ZC, 2 bytes, 3 cycles
     instr!(
-        "SBC   A, d",
+        "SBC   A, @",
         InstructionType::SBC,
         2,
         [Operand::Register(Register::A), Operand::DirectPage]
@@ -1361,7 +1361,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xA7 - SBC   A, [d+X]
     // NV..H.ZC, 2 bytes, 6 cycles
     instr!(
-        "SBC   A, [d+X]",
+        "SBC   A, [@+X]",
         InstructionType::SBC,
         2,
         [Operand::Register(Register::A), Operand::XIndexIndirect]
@@ -1377,7 +1377,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xA9 - SBC   dd, ds
     // NV..H.ZC, 3 bytes, 6 cycles
     instr!(
-        "SBC   dd, ds",
+        "SBC   @@, @s",
         InstructionType::SBC,
         3,
         [Operand::DirectPage, Operand::DirectPage]
@@ -1393,7 +1393,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xAB - INC   d
     // N.....Z., 2 bytes, 4 cycles
     instr!(
-        "INC   d",
+        "INC   @",
         InstructionType::INC,
         2,
         [Operand::DirectPage, Operand::None]
@@ -1449,7 +1449,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xB2 - CLR1  d.5
     // ........, 2 bytes, 4 cycles
     instr!(
-        "CLR1  d.5",
+        "CLR1  @.5",
         InstructionType::CLR1,
         2,
         [Operand::DirectPageBit(5), Operand::None]
@@ -1457,7 +1457,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xB3 - BBC   d.5, r
     // ........, 3 bytes, 5/7 cycles
     instr!(
-        "BBC   d.5, @",
+        "BBC   @.5, @",
         InstructionType::BBC,
         3,
         [Operand::DirectPageBit(5), Operand::Relative]
@@ -1465,7 +1465,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xB4 - SBC   A, d+X
     // NV..H.ZC, 2 bytes, 4 cycles
     instr!(
-        "SBC   A, d+X",
+        "SBC   A, @+X",
         InstructionType::SBC,
         2,
         [Operand::Register(Register::A), Operand::DirectPageX]
@@ -1489,7 +1489,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xB7 - SBC   A, [d]+Y
     // NV..H.ZC, 2 bytes, 6 cycles
     instr!(
-        "SBC   A, [d]+Y",
+        "SBC   A, [@]+Y",
         InstructionType::SBC,
         2,
         [Operand::Register(Register::A), Operand::IndirectYIndex]
@@ -1497,7 +1497,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xB8 - SBC   d, #i
     // NV..H.ZC, 3 bytes, 5 cycles
     instr!(
-        "SBC   d, @",
+        "SBC   @, @",
         InstructionType::SBC,
         3,
         [Operand::DirectPage, Operand::Immediate]
@@ -1513,7 +1513,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xBA - MOVW  YA, d
     // N.....Z., 2 bytes, 5 cycles
     instr!(
-        "MOVW  YA, d",
+        "MOVW  YA, @",
         InstructionType::MOVW,
         2,
         [Operand::None, Operand::DirectPage]
@@ -1521,7 +1521,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xBB - INC   d+X
     // N.....Z., 2 bytes, 5 cycles
     instr!(
-        "INC   d+X",
+        "INC   @+X",
         InstructionType::INC,
         2,
         [Operand::DirectPageX, Operand::None]
@@ -1580,7 +1580,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xC2 - SET1  d.6
     // ........, 2 bytes, 4 cycles
     instr!(
-        "SET1  d.6",
+        "SET1  @.6",
         InstructionType::SET1,
         2,
         [Operand::DirectPageBit(6), Operand::None]
@@ -1588,7 +1588,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xC3 - BBS   d.6, r
     // ........, 3 bytes, 5/7 cycles
     instr!(
-        "BBS   d.6, @",
+        "BBS   @.6, @",
         InstructionType::BBS,
         3,
         [Operand::DirectPageBit(6), Operand::Relative]
@@ -1596,7 +1596,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xC4 - MOV   d, A
     // ........, 2 bytes, 4 cycles
     instr!(
-        "MOV   d, A",
+        "MOV   @, A",
         InstructionType::MOV,
         2,
         [Operand::DirectPage, Operand::Register(Register::A)]
@@ -1620,7 +1620,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xC7 - MOV   [d+X], A
     // ........, 2 bytes, 7 cycles
     instr!(
-        "MOV   [d+X], A",
+        "MOV   [@+X], A",
         InstructionType::MOV,
         2,
         [Operand::XIndexIndirect, Operand::Register(Register::A)]
@@ -1652,7 +1652,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xCB - MOV   d, Y
     // ........, 2 bytes, 4 cycles
     instr!(
-        "MOV   d, Y",
+        "MOV   @, Y",
         InstructionType::MOV,
         2,
         [Operand::DirectPage, Operand::Register(Register::Y)]
@@ -1708,7 +1708,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xD2 - CLR1  d.6
     // ........, 2 bytes, 4 cycles
     instr!(
-        "CLR1  d.6",
+        "CLR1  @.6",
         InstructionType::CLR1,
         2,
         [Operand::DirectPageBit(6), Operand::None]
@@ -1716,7 +1716,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xD3 - BBC   d.6, r
     // ........, 3 bytes, 5/7 cycles
     instr!(
-        "BBC   d.6, @",
+        "BBC   @.6, @",
         InstructionType::BBC,
         3,
         [Operand::DirectPageBit(6), Operand::Relative]
@@ -1724,7 +1724,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xD4 - MOV   d+X, A
     // ........, 2 bytes, 5 cycles
     instr!(
-        "MOV   d+X, A",
+        "MOV   @+X, A",
         InstructionType::MOV,
         2,
         [Operand::DirectPageX, Operand::Register(Register::A)]
@@ -1748,7 +1748,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xD7 - MOV   [d]+Y, A
     // ........, 2 bytes, 7 cycles
     instr!(
-        "MOV   [d]+Y, A",
+        "MOV   [@]+Y, A",
         InstructionType::MOV,
         2,
         [Operand::IndirectYIndex, Operand::Register(Register::A)]
@@ -1756,7 +1756,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xD8 - MOV   d, X
     // ........, 2 bytes, 4 cycles
     instr!(
-        "MOV   d, X",
+        "MOV   @, X",
         InstructionType::MOV,
         2,
         [Operand::DirectPage, Operand::Register(Register::X)]
@@ -1764,7 +1764,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xD9 - MOV   d+Y, X
     // ........, 2 bytes, 5 cycles
     instr!(
-        "MOV   d+Y, X",
+        "MOV   @+Y, X",
         InstructionType::MOV,
         2,
         [Operand::DirectPageY, Operand::Register(Register::X)]
@@ -1772,7 +1772,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xDA - MOVW  d, YA
     // ........, 2 bytes, 5 cycles
     instr!(
-        "MOVW  d, YA",
+        "MOVW  @, YA",
         InstructionType::MOVW,
         2,
         [Operand::DirectPage, Operand::None]
@@ -1780,7 +1780,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xDB - MOV   d+X, Y
     // ........, 2 bytes, 5 cycles
     instr!(
-        "MOV   d+X, Y",
+        "MOV   @+X, Y",
         InstructionType::MOV,
         2,
         [Operand::DirectPageX, Operand::Register(Register::Y)]
@@ -1807,7 +1807,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xDE - CBNE  d+X, r
     // ........, 3 bytes, 6/8 cycles
     instr!(
-        "CBNE  d+X, @",
+        "CBNE  @+X, @",
         InstructionType::CBNE,
         3,
         [Operand::DirectPageX, Operand::Relative]
@@ -1839,7 +1839,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xE2 - SET1  d.7
     // ........, 2 bytes, 4 cycles
     instr!(
-        "SET1  d.7",
+        "SET1  @.7",
         InstructionType::SET1,
         2,
         [Operand::DirectPageBit(7), Operand::None]
@@ -1847,7 +1847,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xE3 - BBS   d.7, r
     // ........, 3 bytes, 5/7 cycles
     instr!(
-        "BBS   d.7, @",
+        "BBS   @.7, @",
         InstructionType::BBS,
         3,
         [Operand::DirectPageBit(7), Operand::Relative]
@@ -1855,7 +1855,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xE4 - MOV   A, d
     // N.....Z., 2 bytes, 3 cycles
     instr!(
-        "MOV   A, d",
+        "MOV   A, @",
         InstructionType::MOV,
         2,
         [Operand::Register(Register::A), Operand::DirectPage]
@@ -1879,7 +1879,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xE7 - MOV   A, [d+X]
     // N.....Z., 2 bytes, 6 cycles
     instr!(
-        "MOV   A, [d+X]",
+        "MOV   A, [@+X]",
         InstructionType::MOV,
         2,
         [Operand::Register(Register::A), Operand::XIndexIndirect]
@@ -1911,7 +1911,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xEB - MOV   Y, d
     // N.....Z., 2 bytes, 3 cycles
     instr!(
-        "MOV   Y, d",
+        "MOV   Y, @",
         InstructionType::MOV,
         2,
         [Operand::Register(Register::Y), Operand::DirectPage]
@@ -1967,7 +1967,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xF2 - CLR1  d.7
     // ........, 2 bytes, 4 cycles
     instr!(
-        "CLR1  d.7",
+        "CLR1  @.7",
         InstructionType::CLR1,
         2,
         [Operand::DirectPageBit(7), Operand::None]
@@ -1975,7 +1975,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xF3 - BBC   d.7, r
     // ........, 3 bytes, 5/7 cycles
     instr!(
-        "BBC   d.7, @",
+        "BBC   @.7, @",
         InstructionType::BBC,
         3,
         [Operand::DirectPageBit(7), Operand::Relative]
@@ -1983,7 +1983,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xF4 - MOV   A, d+X
     // N.....Z., 2 bytes, 4 cycles
     instr!(
-        "MOV   A, d+X",
+        "MOV   A, @+X",
         InstructionType::MOV,
         2,
         [Operand::Register(Register::A), Operand::DirectPageX]
@@ -2007,7 +2007,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xF7 - MOV   A, [d]+Y
     // N.....Z., 2 bytes, 6 cycles
     instr!(
-        "MOV   A, [d]+Y",
+        "MOV   A, [@]+Y",
         InstructionType::MOV,
         2,
         [Operand::Register(Register::A), Operand::IndirectYIndex]
@@ -2015,7 +2015,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xF8 - MOV   X, d
     // N.....Z., 2 bytes, 3 cycles
     instr!(
-        "MOV   X, d",
+        "MOV   X, @",
         InstructionType::MOV,
         2,
         [Operand::Register(Register::X), Operand::DirectPage]
@@ -2023,7 +2023,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xF9 - MOV   X, d+Y
     // N.....Z., 2 bytes, 4 cycles
     instr!(
-        "MOV   X, d+Y",
+        "MOV   X, @+Y",
         InstructionType::MOV,
         2,
         [Operand::Register(Register::X), Operand::DirectPageY]
@@ -2031,7 +2031,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xFA - MOV   dd, ds
     // ........, 3 bytes, 5 cycles
     instr!(
-        "MOV   dd, ds",
+        "MOV   @@, @s",
         InstructionType::MOV,
         3,
         [Operand::DirectPage, Operand::DirectPage]
@@ -2039,7 +2039,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xFB - MOV   Y, d+X
     // N.....Z., 2 bytes, 4 cycles
     instr!(
-        "MOV   Y, d+X",
+        "MOV   Y, @+X",
         InstructionType::MOV,
         2,
         [Operand::Register(Register::Y), Operand::DirectPageX]
