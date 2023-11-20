@@ -153,6 +153,14 @@ where
     fn execute_instruction(&mut self, instr: &Instruction) -> Result<()> {
         match instr.def.instr_type {
             InstructionType::NOP => self.tick_bus(1),
+            InstructionType::EI => {
+                self.regs.write_flags(&[(Flag::I, true)]);
+                self.tick_bus(2)
+            }
+            InstructionType::DI => {
+                self.regs.write_flags(&[(Flag::I, false)]);
+                self.tick_bus(2)
+            }
             _ => todo!(),
         }
     }
