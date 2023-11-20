@@ -75,15 +75,19 @@ pub struct RegisterFile {
 }
 
 impl RegisterFile {
-    pub fn new() -> Self {
+    pub fn from_pc(pc: u16) -> Self {
         Self {
             a: 0,
-            pc: 0,
+            pc,
             psw: 0,
             sp: 0,
             x: 0,
             y: 0,
         }
+    }
+
+    pub fn new() -> Self {
+        Self::from_pc(0)
     }
 
     /// Write a value to a register.
