@@ -1,6 +1,7 @@
 pub mod peterlemon_65816;
 pub mod peterlemon_ppu;
 pub mod processortests_65816;
+pub mod processortests_spc700;
 
 use itertools::Itertools;
 use std::time::Instant;
