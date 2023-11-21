@@ -1167,7 +1167,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // ........, 3 bytes, 5 cycles
     instr!(
         "MOV   @, @",
-        InstructionType::MOV,
+        InstructionType::MOVNoFlags,
         3,
         [Operand::DirectPage, Operand::Immediate]
     ),
@@ -1426,7 +1426,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // ........, 1 bytes, 4 cycles
     instr!(
         "MOV   (X)+, A",
-        InstructionType::MOV,
+        InstructionType::MOVNoFlags,
         1,
         [Operand::IndirectXAutoInc, Operand::Register(Register::A)]
     ),
@@ -1538,7 +1538,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // ........, 1 bytes, 2 cycles
     instr!(
         "MOV   SP, X",
-        InstructionType::MOV,
+        InstructionType::MOVNoFlags,
         1,
         [
             Operand::Register(Register::SP),
@@ -1597,7 +1597,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // ........, 2 bytes, 4 cycles
     instr!(
         "MOV   @, A",
-        InstructionType::MOV,
+        InstructionType::MOVNoFlags,
         2,
         [Operand::DirectPage, Operand::Register(Register::A)]
     ),
@@ -1605,7 +1605,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // ........, 3 bytes, 5 cycles
     instr!(
         "MOV   @, A",
-        InstructionType::MOV,
+        InstructionType::MOVNoFlags,
         3,
         [Operand::Absolute, Operand::Register(Register::A)]
     ),
@@ -1613,7 +1613,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // ........, 1 bytes, 4 cycles
     instr!(
         "MOV   (X), A",
-        InstructionType::MOV,
+        InstructionType::MOVNoFlags,
         1,
         [Operand::IndirectX, Operand::Register(Register::A)]
     ),
@@ -1621,7 +1621,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // ........, 2 bytes, 7 cycles
     instr!(
         "MOV   [@+X], A",
-        InstructionType::MOV,
+        InstructionType::MOVNoFlags,
         2,
         [Operand::XIndexIndirect, Operand::Register(Register::A)]
     ),
@@ -1637,7 +1637,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // ........, 3 bytes, 5 cycles
     instr!(
         "MOV   @, X",
-        InstructionType::MOV,
+        InstructionType::MOVNoFlags,
         3,
         [Operand::Absolute, Operand::Register(Register::X)]
     ),
@@ -1653,7 +1653,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // ........, 2 bytes, 4 cycles
     instr!(
         "MOV   @, Y",
-        InstructionType::MOV,
+        InstructionType::MOVNoFlags,
         2,
         [Operand::DirectPage, Operand::Register(Register::Y)]
     ),
@@ -1661,7 +1661,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // ........, 3 bytes, 5 cycles
     instr!(
         "MOV   @, Y",
-        InstructionType::MOV,
+        InstructionType::MOVNoFlags,
         3,
         [Operand::Absolute, Operand::Register(Register::Y)]
     ),
@@ -1725,7 +1725,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // ........, 2 bytes, 5 cycles
     instr!(
         "MOV   @+X, A",
-        InstructionType::MOV,
+        InstructionType::MOVNoFlags,
         2,
         [Operand::DirectPageX, Operand::Register(Register::A)]
     ),
@@ -1733,7 +1733,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // ........, 3 bytes, 6 cycles
     instr!(
         "MOV   @+X, A",
-        InstructionType::MOV,
+        InstructionType::MOVNoFlags,
         3,
         [Operand::AbsoluteX, Operand::Register(Register::A)]
     ),
@@ -1741,7 +1741,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // ........, 3 bytes, 6 cycles
     instr!(
         "MOV   @+Y, A",
-        InstructionType::MOV,
+        InstructionType::MOVNoFlags,
         3,
         [Operand::AbsoluteY, Operand::Register(Register::A)]
     ),
@@ -1749,7 +1749,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // ........, 2 bytes, 7 cycles
     instr!(
         "MOV   [@]+Y, A",
-        InstructionType::MOV,
+        InstructionType::MOVNoFlags,
         2,
         [Operand::IndirectYIndex, Operand::Register(Register::A)]
     ),
@@ -1757,7 +1757,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // ........, 2 bytes, 4 cycles
     instr!(
         "MOV   @, X",
-        InstructionType::MOV,
+        InstructionType::MOVNoFlags,
         2,
         [Operand::DirectPage, Operand::Register(Register::X)]
     ),
@@ -1765,7 +1765,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // ........, 2 bytes, 5 cycles
     instr!(
         "MOV   @+Y, X",
-        InstructionType::MOV,
+        InstructionType::MOVNoFlags,
         2,
         [Operand::DirectPageY, Operand::Register(Register::X)]
     ),
@@ -1781,7 +1781,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // ........, 2 bytes, 5 cycles
     instr!(
         "MOV   @+X, Y",
-        InstructionType::MOV,
+        InstructionType::MOVNoFlags,
         2,
         [Operand::DirectPageX, Operand::Register(Register::Y)]
     ),
@@ -2031,10 +2031,10 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xFA - MOV   dd, ds
     // ........, 3 bytes, 5 cycles
     instr!(
-        "MOV   @@, @s",
-        InstructionType::MOV,
+        "MOV   @, @",
+        InstructionType::MOVNoFlags,
         3,
-        [Operand::DirectPage, Operand::DirectPage]
+        [Operand::DirectPageNoRead, Operand::DirectPage]
     ),
     // 0xFB - MOV   Y, d+X
     // N.....Z., 2 bytes, 4 cycles

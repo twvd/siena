@@ -179,6 +179,8 @@ where
             InstructionType::OR => self.op_or(instr),
             InstructionType::EOR => self.op_eor(instr),
             InstructionType::AND => self.op_and(instr),
+            InstructionType::MOV => self.op_mov(instr, true),
+            InstructionType::MOVNoFlags => self.op_mov(instr, false),
             _ => todo!(),
         }
     }
@@ -199,6 +201,11 @@ where
             Operand::DirectPage | Operand::DirectPageBit(_) => {
                 let addr = self.map_pageflag(instr.imm8(imm_idx));
                 Ok((imm_idx + 1, self.read_tick(addr), Some(addr)))
+            }
+            Operand::DirectPageNoRead => {
+                let addr = self.map_pageflag(instr.imm8(imm_idx));
+                // Value is invalid (not read)
+                Ok((imm_idx + 1, 0, Some(addr)))
             }
             Operand::DirectPageX => {
                 // Internal cycle (for addition?)
@@ -257,6 +264,13 @@ where
                 self.read_tick(self.regs.pc);
 
                 let addr = self.map_pageflag(SpcAddress::from(self.regs.read8(Register::X)));
+                Ok((imm_idx, self.read_tick(addr), Some(addr)))
+            }
+            Operand::IndirectXAutoInc => {
+                self.tick_bus(1)?;
+
+                let x = self.regs.read8_inc(Register::X);
+                let addr = self.map_pageflag(SpcAddress::from(x));
                 Ok((imm_idx, self.read_tick(addr), Some(addr)))
             }
             Operand::IndirectY => {
@@ -382,6 +396,37 @@ where
 
         self.regs
             .write_flags(&[(Flag::Z, result == 0), (Flag::N, result & 0x80 != 0)]);
+
+        Ok(())
+    }
+
+    /// MOV
+    fn op_mov(&mut self, instr: &Instruction, flags: bool) -> Result<()> {
+        let (src_idx, _, odest_addr) = self.resolve_value(instr, 0, 0)?;
+        let (_, val, _) = self.resolve_value(instr, 1, src_idx)?;
+
+        // Extra wait cycles
+        match (instr.def.operands[0], instr.def.operands[1]) {
+            (Operand::Register(_), Operand::Register(_))
+            | (Operand::Register(_), Operand::IndirectXAutoInc) => self.tick_bus(1)?,
+            _ => (),
+        }
+
+        match instr.def.operands[0] {
+            Operand::Register(r) => self.regs.write(r, val as u16),
+            _ => {
+                if let Some(dest_addr) = odest_addr {
+                    self.write_tick(dest_addr, val)
+                } else {
+                    unreachable!()
+                }
+            }
+        }
+
+        if flags {
+            self.regs
+                .write_flags(&[(Flag::Z, val == 0), (Flag::N, val & 0x80 != 0)]);
+        }
 
         Ok(())
     }
