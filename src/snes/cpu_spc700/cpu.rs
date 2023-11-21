@@ -1,11 +1,10 @@
 use anyhow::Result;
-use num_traits::ToPrimitive;
 
 use crate::snes::bus::{Bus, BusIterator};
 use crate::tickable::Ticks;
 
 use super::instruction::{Instruction, InstructionType, Operand};
-use super::regs::{Flag, Register, RegisterFile, RegisterWidth};
+use super::regs::{Flag, Register, RegisterFile};
 
 pub type SpcAddress = u16;
 pub const SPC_ADDRESS_MASK: SpcAddress = 0xFFFF;
@@ -98,6 +97,18 @@ where
         v
     }
 
+    /// Reads 16-bits from a memory location while ticking
+    /// peripherals for the access time.
+    /// Address wraps at 8-bits.
+    fn read16_tick_a8(&mut self, addr: SpcAddress) -> u16 {
+        let mut v = self.bus.read(addr) as u16;
+        self.tick_bus(1).unwrap();
+        let hi_addr = addr & 0xFF00 | SpcAddress::from((addr as u8).wrapping_add(1));
+        v |= (self.bus.read(hi_addr) as u16) << 8;
+        self.tick_bus(1).unwrap();
+        v
+    }
+
     /// Writes a memory location while ticking peripherals
     /// for the access time.
     fn write_tick(&mut self, addr: SpcAddress, val: u8) {
@@ -165,11 +176,120 @@ where
             }
             InstructionType::SET1 => self.op_setclr1(instr, true),
             InstructionType::CLR1 => self.op_setclr1(instr, false),
+            InstructionType::OR => self.op_or(instr),
             _ => todo!(),
         }
     }
 
-    fn as_directpage<T: Into<SpcAddress>>(&self, addr: T) -> SpcAddress {
+    /// Resolves a value from instruction data, registers, etc.
+    /// Based on the addressing mode and consumes cycles.
+    /// Returns the new index into immediate values and
+    /// the resolved value.
+    fn resolve_value(
+        &mut self,
+        instr: &Instruction,
+        op_idx: usize,
+        imm_idx: usize,
+    ) -> Result<(usize, u8, Option<SpcAddress>)> {
+        match instr.def.operands[op_idx] {
+            Operand::Register(r) => Ok((imm_idx, self.regs.read8(r), None)),
+            Operand::Immediate => Ok((imm_idx + 1, instr.imm8(imm_idx), None)),
+            Operand::DirectPage | Operand::DirectPageBit(_) => {
+                let addr = self.map_pageflag(instr.imm8(imm_idx));
+                Ok((imm_idx + 1, self.read_tick(addr), Some(addr)))
+            }
+            Operand::DirectPageX => {
+                // Internal cycle (for addition?)
+                self.tick_bus(1)?;
+
+                let addr = self.map_pageflag(
+                    instr
+                        .imm8(imm_idx)
+                        .wrapping_add(self.regs.read8(Register::X)),
+                );
+                Ok((imm_idx + 1, self.read_tick(addr), Some(addr)))
+            }
+            Operand::DirectPageY => {
+                // Internal cycle (for addition?)
+                self.tick_bus(1)?;
+
+                let addr = self.map_pageflag(
+                    instr
+                        .imm8(imm_idx)
+                        .wrapping_add(self.regs.read8(Register::Y)),
+                );
+                Ok((imm_idx + 1, self.read_tick(addr), Some(addr)))
+            }
+            Operand::Absolute => {
+                // The longest instruction is 3 bytes, so we can
+                // safely assume this is always at index 0.
+                assert_eq!(imm_idx, 0);
+
+                let addr = instr.imm16();
+                Ok((imm_idx + 2, self.read_tick(addr), Some(addr)))
+            }
+            Operand::AbsoluteX => {
+                // The longest instruction is 3 bytes, so we can
+                // safely assume this is always at index 0.
+                assert_eq!(imm_idx, 0);
+
+                // Internal cycle (for addition?)
+                self.tick_bus(1)?;
+
+                let addr = instr.imm16().wrapping_add(self.regs.read(Register::X));
+                Ok((imm_idx + 2, self.read_tick(addr), Some(addr)))
+            }
+            Operand::AbsoluteY => {
+                // The longest instruction is 3 bytes, so we can
+                // safely assume this is always at index 0.
+                assert_eq!(imm_idx, 0);
+
+                // Internal cycle (for addition?)
+                self.tick_bus(1)?;
+
+                let addr = instr.imm16().wrapping_add(self.regs.read(Register::Y));
+                Ok((imm_idx + 2, self.read_tick(addr), Some(addr)))
+            }
+            Operand::IndirectX => {
+                // We don't use this, but it does happen..
+                self.read_tick(self.regs.pc);
+
+                let addr = self.map_pageflag(SpcAddress::from(self.regs.read8(Register::X)));
+                Ok((imm_idx, self.read_tick(addr), Some(addr)))
+            }
+            Operand::IndirectY => {
+                let addr = self.map_pageflag(SpcAddress::from(self.regs.read8(Register::Y)));
+                Ok((imm_idx, self.read_tick(addr), Some(addr)))
+            }
+            Operand::XIndexIndirect => {
+                // Internal cycle (for addition?)
+                self.tick_bus(1)?;
+
+                let addr = self.read16_tick_a8(
+                    self.map_pageflag(
+                        instr
+                            .imm8(imm_idx)
+                            .wrapping_add(self.regs.read8(Register::X)),
+                    ),
+                );
+                Ok((imm_idx + 1, self.read_tick(addr), Some(addr)))
+            }
+            Operand::IndirectYIndex => {
+                // Internal cycle (for addition?)
+                self.tick_bus(1)?;
+
+                let addr = self
+                    .read16_tick_a8(self.map_pageflag(instr.imm8(imm_idx)))
+                    .wrapping_add(self.regs.read(Register::Y));
+                Ok((imm_idx + 1, self.read_tick(addr), Some(addr)))
+            }
+            _ => todo!(),
+        }
+    }
+
+    /// Translate 8-bit relative address from operands
+    /// to a full address (P flag).
+    fn map_pageflag<T: Into<SpcAddress>>(&self, addr: T) -> SpcAddress {
         if !self.regs.test_flag(Flag::P) {
             addr.into()
         } else {
@@ -182,14 +302,38 @@ where
         let Operand::DirectPageBit(bit) = instr.def.operands[0] else {
             unreachable!()
         };
-        let addr = self.as_directpage(instr.immediate[0]);
-        let val = self.read_tick(addr);
+        let (_, val, Some(addr)) = self.resolve_value(instr, 0, 0)? else {
+            unreachable!()
+        };
 
         if set {
             self.write_tick(addr, val | (1 << bit));
         } else {
             self.write_tick(addr, val & !(1 << bit));
         }
+
+        Ok(())
+    }
+
+    /// OR
+    fn op_or(&mut self, instr: &Instruction) -> Result<()> {
+        let (src_idx, val1, odest_addr) = self.resolve_value(instr, 0, 0)?;
+        let (_, val2, _) = self.resolve_value(instr, 1, src_idx)?;
+
+        let result = val1 | val2;
+        match instr.def.operands[0] {
+            Operand::Register(r) => self.regs.write(r, result as u16),
+            _ => {
+                if let Some(dest_addr) = odest_addr {
+                    self.write_tick(dest_addr, result)
+                } else {
+                    unreachable!()
+                }
+            }
+        }
+
+        self.regs
+            .write_flags(&[(Flag::Z, result == 0), (Flag::N, result & 0x80 != 0)]);
 
         Ok(())
     }

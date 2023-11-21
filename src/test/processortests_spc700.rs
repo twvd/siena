@@ -108,6 +108,7 @@ fn run_testcase(testcase: &Value, check_trace: bool, multi_steps: bool) {
     }
     if cpu.regs != regs_final {
         dbg!(testcase);
+        dbg!(&bus_trace);
         println!("Initial: {}", regs_initial);
         println!("Expected:{}", regs_final);
         println!("Actual:  {}", cpu.regs);
@@ -171,12 +172,14 @@ cpu_test!(instr_00, 0x00);
 //cpu_test!(instr_01, 0x01);
 cpu_test!(instr_02, 0x02);
 //cpu_test!(instr_03, 0x03);
-//cpu_test!(instr_04, 0x04);
-//cpu_test!(instr_05, 0x05);
-//cpu_test!(instr_06, 0x06);
-//cpu_test!(instr_07, 0x07);
-//cpu_test!(instr_08, 0x08);
-//cpu_test!(instr_09, 0x09);
+cpu_test!(instr_04, 0x04);
+cpu_test!(instr_05, 0x05);
+cpu_test!(instr_06, 0x06);
+cpu_test!(instr_07, 0x07);
+cpu_test!(instr_08, 0x08);
+// Decoder reads immediate values first but real CPU follows the
+// first indirection first.
+cpu_test_no_trace!(instr_09, 0x09);
 //cpu_test!(instr_0a, 0x0a);
 //cpu_test!(instr_0b, 0x0b);
 //cpu_test!(instr_0c, 0x0c);
@@ -187,12 +190,14 @@ cpu_test!(instr_02, 0x02);
 //cpu_test!(instr_11, 0x11);
 cpu_test!(instr_12, 0x12);
 //cpu_test!(instr_13, 0x13);
-//cpu_test!(instr_14, 0x14);
-//cpu_test!(instr_15, 0x15);
-//cpu_test!(instr_16, 0x16);
-//cpu_test!(instr_17, 0x17);
-//cpu_test!(instr_18, 0x18);
-//cpu_test!(instr_19, 0x19);
+cpu_test!(instr_14, 0x14);
+cpu_test!(instr_15, 0x15);
+cpu_test!(instr_16, 0x16);
+cpu_test!(instr_17, 0x17);
+cpu_test!(instr_18, 0x18);
+// Decoder reads immediate values first but real CPU follows the
+// first indirection first.
+cpu_test_no_trace!(instr_19, 0x19);
 //cpu_test!(instr_1a, 0x1a);
 //cpu_test!(instr_1b, 0x1b);
 //cpu_test!(instr_1c, 0x1c);

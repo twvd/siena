@@ -23,8 +23,8 @@ pub enum Operand {
     AbsoluteBooleanBit,
     AbsoluteNotBooleanBit,
     AbsoluteXIndexIndirect,
-    XIndexAbsolute,
-    YIndexAbsolute,
+    AbsoluteX,
+    AbsoluteY,
     IndirectX,
     IndirectXAutoInc,
     IndirectY,
@@ -159,8 +159,15 @@ impl Instruction {
 
         // Transform immediate values
         let mut immediate = [0; 2];
-        immediate[0] = args[0];
-        immediate[1] = args[1];
+        if def.len > 2 {
+            // The immediate values are stored in opposite order of the
+            // normal reading order of operands.
+            // Flip them around here so they match the operand indices.
+            immediate[0] = args[1];
+            immediate[1] = args[0];
+        } else {
+            immediate[0] = args[0];
+        }
 
         Ok(Instruction {
             def,
@@ -168,6 +175,20 @@ impl Instruction {
             raw,
             len,
         })
+    }
+
+    /// Read a single 8-bit immediate value.
+    pub fn imm8(&self, idx: usize) -> u8 {
+        self.immediate[idx]
+    }
+
+    /// Read a single 16-bit immediate value.
+    pub fn imm16(&self) -> u16 {
+        // This is reversed because we saved the immediate values
+        // in reverse during decode.
+        // The maximum instruction length is 3, so there can only
+        // ever be one 16-bit immediate value.
+        u16::from_be_bytes(self.immediate)
     }
 }
 

@@ -187,7 +187,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "OR    A, @+X",
         InstructionType::OR,
         3,
-        [Operand::Register(Register::A), Operand::XIndexAbsolute]
+        [Operand::Register(Register::A), Operand::AbsoluteX]
     ),
     // 0x16 - OR    A, !a+Y
     // N.....Z., 3 bytes, 5 cycles
@@ -195,7 +195,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "OR    A, @+Y",
         InstructionType::OR,
         3,
-        [Operand::Register(Register::A), Operand::YIndexAbsolute]
+        [Operand::Register(Register::A), Operand::AbsoluteY]
     ),
     // 0x17 - OR    A, [d]+Y
     // N.....Z., 2 bytes, 6 cycles
@@ -443,7 +443,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "AND   A, @+X",
         InstructionType::AND,
         3,
-        [Operand::Register(Register::A), Operand::XIndexAbsolute]
+        [Operand::Register(Register::A), Operand::AbsoluteX]
     ),
     // 0x36 - AND   A, !a+Y
     // N.....Z., 3 bytes, 5 cycles
@@ -451,7 +451,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "AND   A, @+Y",
         InstructionType::AND,
         3,
-        [Operand::Register(Register::A), Operand::YIndexAbsolute]
+        [Operand::Register(Register::A), Operand::AbsoluteY]
     ),
     // 0x37 - AND   A, [d]+Y
     // N.....Z., 2 bytes, 6 cycles
@@ -699,7 +699,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "EOR   A, @+X",
         InstructionType::EOR,
         3,
-        [Operand::Register(Register::A), Operand::XIndexAbsolute]
+        [Operand::Register(Register::A), Operand::AbsoluteX]
     ),
     // 0x56 - EOR   A, !a+Y
     // N.....Z., 3 bytes, 5 cycles
@@ -707,7 +707,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "EOR   A, @+Y",
         InstructionType::EOR,
         3,
-        [Operand::Register(Register::A), Operand::YIndexAbsolute]
+        [Operand::Register(Register::A), Operand::AbsoluteY]
     ),
     // 0x57 - EOR   A, [d]+Y
     // N.....Z., 2 bytes, 6 cycles
@@ -958,7 +958,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "CMP   A, @+X",
         InstructionType::CMP,
         3,
-        [Operand::Register(Register::A), Operand::XIndexAbsolute]
+        [Operand::Register(Register::A), Operand::AbsoluteX]
     ),
     // 0x76 - CMP   A, !a+Y
     // N.....ZC, 3 bytes, 5 cycles
@@ -966,7 +966,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "CMP   A, @+Y",
         InstructionType::CMP,
         3,
-        [Operand::Register(Register::A), Operand::YIndexAbsolute]
+        [Operand::Register(Register::A), Operand::AbsoluteY]
     ),
     // 0x77 - CMP   A, [d]+Y
     // N.....ZC, 2 bytes, 6 cycles
@@ -1217,7 +1217,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "ADC   A, @+X",
         InstructionType::ADC,
         3,
-        [Operand::Register(Register::A), Operand::XIndexAbsolute]
+        [Operand::Register(Register::A), Operand::AbsoluteX]
     ),
     // 0x96 - ADC   A, !a+Y
     // NV..H.ZC, 3 bytes, 5 cycles
@@ -1225,7 +1225,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "ADC   A, @+Y",
         InstructionType::ADC,
         3,
-        [Operand::Register(Register::A), Operand::YIndexAbsolute]
+        [Operand::Register(Register::A), Operand::AbsoluteY]
     ),
     // 0x97 - ADC   A, [d]+Y
     // NV..H.ZC, 2 bytes, 6 cycles
@@ -1476,7 +1476,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "SBC   A, @+X",
         InstructionType::SBC,
         3,
-        [Operand::Register(Register::A), Operand::XIndexAbsolute]
+        [Operand::Register(Register::A), Operand::AbsoluteX]
     ),
     // 0xB6 - SBC   A, !a+Y
     // NV..H.ZC, 3 bytes, 5 cycles
@@ -1484,7 +1484,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "SBC   A, @+Y",
         InstructionType::SBC,
         3,
-        [Operand::Register(Register::A), Operand::YIndexAbsolute]
+        [Operand::Register(Register::A), Operand::AbsoluteY]
     ),
     // 0xB7 - SBC   A, [d]+Y
     // NV..H.ZC, 2 bytes, 6 cycles
@@ -1735,7 +1735,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "MOV   @+X, A",
         InstructionType::MOV,
         3,
-        [Operand::XIndexAbsolute, Operand::Register(Register::A)]
+        [Operand::AbsoluteX, Operand::Register(Register::A)]
     ),
     // 0xD6 - MOV   !a+Y, A
     // ........, 3 bytes, 6 cycles
@@ -1743,7 +1743,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "MOV   @+Y, A",
         InstructionType::MOV,
         3,
-        [Operand::YIndexAbsolute, Operand::Register(Register::A)]
+        [Operand::AbsoluteY, Operand::Register(Register::A)]
     ),
     // 0xD7 - MOV   [d]+Y, A
     // ........, 2 bytes, 7 cycles
@@ -1994,7 +1994,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "MOV   A, @+X",
         InstructionType::MOV,
         3,
-        [Operand::Register(Register::A), Operand::XIndexAbsolute]
+        [Operand::Register(Register::A), Operand::AbsoluteX]
     ),
     // 0xF6 - MOV   A, !a+Y
     // N.....Z., 3 bytes, 5 cycles
@@ -2002,7 +2002,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "MOV   A, @+Y",
         InstructionType::MOV,
         3,
-        [Operand::Register(Register::A), Operand::YIndexAbsolute]
+        [Operand::Register(Register::A), Operand::AbsoluteY]
     ),
     // 0xF7 - MOV   A, [d]+Y
     // N.....Z., 2 bytes, 6 cycles
