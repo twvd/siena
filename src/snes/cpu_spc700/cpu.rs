@@ -206,6 +206,7 @@ where
             InstructionType::AND => self.op_and(instr),
             InstructionType::MOV => self.op_mov(instr, true),
             InstructionType::MOVNoFlags => self.op_mov(instr, false),
+            InstructionType::ADC => self.op_adc(instr),
             _ => todo!(),
         }
     }
@@ -452,6 +453,38 @@ where
             self.regs
                 .write_flags(&[(Flag::Z, val == 0), (Flag::N, val & 0x80 != 0)]);
         }
+
+        Ok(())
+    }
+
+    /// ADC
+    fn op_adc(&mut self, instr: &Instruction) -> Result<()> {
+        let (src_idx, a, odest_addr) = self.resolve_value(instr, 0, 0)?;
+        let (_, b, _) = self.resolve_value(instr, 1, src_idx)?;
+
+        let c = if self.regs.test_flag(Flag::C) { 1 } else { 0 };
+        let result = a as u16 + b as u16 + c as u16;
+        let result_h = (((a & 0x0F) + (b & 0x0F) + c) & 0x10) == 0x10;
+        let result_v = !(a ^ b) & (a ^ result as u8) & 0x80 != 0;
+
+        match instr.def.operands[0] {
+            Operand::Register(r) => self.regs.write(r, result & 0xFF),
+            _ => {
+                if let Some(dest_addr) = odest_addr {
+                    self.write_tick(dest_addr, result as u8)
+                } else {
+                    unreachable!()
+                }
+            }
+        }
+
+        self.regs.write_flags(&[
+            (Flag::Z, (result & 0xFF) == 0),
+            (Flag::N, result & 0x80 != 0),
+            (Flag::C, result > u8::MAX.into()),
+            (Flag::H, result_h),
+            (Flag::V, result_v),
+        ]);
 
         Ok(())
     }
