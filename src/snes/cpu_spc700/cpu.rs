@@ -174,6 +174,31 @@ where
                 self.regs.write_flags(&[(Flag::I, false)]);
                 self.tick_bus(2)
             }
+            InstructionType::NOTC => {
+                let c = self.regs.test_flag(Flag::C);
+                self.regs.write_flags(&[(Flag::C, !c)]);
+                self.tick_bus(2)
+            }
+            InstructionType::SETC => {
+                self.regs.write_flags(&[(Flag::C, true)]);
+                self.tick_bus(1)
+            }
+            InstructionType::SETP => {
+                self.regs.write_flags(&[(Flag::P, true)]);
+                self.tick_bus(1)
+            }
+            InstructionType::CLRP => {
+                self.regs.write_flags(&[(Flag::P, false)]);
+                self.tick_bus(1)
+            }
+            InstructionType::CLRC => {
+                self.regs.write_flags(&[(Flag::C, false)]);
+                self.tick_bus(1)
+            }
+            InstructionType::CLRV => {
+                self.regs.write_flags(&[(Flag::V, false), (Flag::H, false)]);
+                self.tick_bus(1)
+            }
             InstructionType::SET1 => self.op_setclr1(instr, true),
             InstructionType::CLR1 => self.op_setclr1(instr, false),
             InstructionType::OR => self.op_or(instr),
