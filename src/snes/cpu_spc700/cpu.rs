@@ -177,6 +177,7 @@ where
             InstructionType::SET1 => self.op_setclr1(instr, true),
             InstructionType::CLR1 => self.op_setclr1(instr, false),
             InstructionType::OR => self.op_or(instr),
+            InstructionType::EOR => self.op_eor(instr),
             _ => todo!(),
         }
     }
@@ -321,6 +322,29 @@ where
         let (_, val2, _) = self.resolve_value(instr, 1, src_idx)?;
 
         let result = val1 | val2;
+        match instr.def.operands[0] {
+            Operand::Register(r) => self.regs.write(r, result as u16),
+            _ => {
+                if let Some(dest_addr) = odest_addr {
+                    self.write_tick(dest_addr, result)
+                } else {
+                    unreachable!()
+                }
+            }
+        }
+
+        self.regs
+            .write_flags(&[(Flag::Z, result == 0), (Flag::N, result & 0x80 != 0)]);
+
+        Ok(())
+    }
+
+    /// EOR
+    fn op_eor(&mut self, instr: &Instruction) -> Result<()> {
+        let (src_idx, val1, odest_addr) = self.resolve_value(instr, 0, 0)?;
+        let (_, val2, _) = self.resolve_value(instr, 1, src_idx)?;
+
+        let result = val1 ^ val2;
         match instr.def.operands[0] {
             Operand::Register(r) => self.regs.write(r, result as u16),
             _ => {
