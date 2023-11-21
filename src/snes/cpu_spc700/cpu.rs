@@ -163,7 +163,34 @@ where
                 self.regs.write_flags(&[(Flag::I, false)]);
                 self.tick_bus(2)
             }
+            InstructionType::SET1 => self.op_setclr1(instr, true),
+            InstructionType::CLR1 => self.op_setclr1(instr, false),
             _ => todo!(),
         }
+    }
+
+    fn as_directpage<T: Into<SpcAddress>>(&self, addr: T) -> SpcAddress {
+        if !self.regs.test_flag(Flag::P) {
+            addr.into()
+        } else {
+            0x0100 | addr.into()
+        }
+    }
+
+    /// SET1/CLR1
+    fn op_setclr1(&mut self, instr: &Instruction, set: bool) -> Result<()> {
+        let Operand::DirectPageBit(bit) = instr.def.operands[0] else {
+            unreachable!()
+        };
+        let addr = self.as_directpage(instr.immediate[0]);
+        let val = self.read_tick(addr);
+
+        if set {
+            self.write_tick(addr, val | (1 << bit));
+        } else {
+            self.write_tick(addr, val & !(1 << bit));
+        }
+
+        Ok(())
     }
 }
