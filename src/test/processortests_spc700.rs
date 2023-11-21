@@ -208,12 +208,14 @@ cpu_test_no_trace!(instr_19, 0x19);
 //cpu_test!(instr_21, 0x21);
 cpu_test!(instr_22, 0x22);
 //cpu_test!(instr_23, 0x23);
-//cpu_test!(instr_24, 0x24);
-//cpu_test!(instr_25, 0x25);
-//cpu_test!(instr_26, 0x26);
-//cpu_test!(instr_27, 0x27);
-//cpu_test!(instr_28, 0x28);
-//cpu_test!(instr_29, 0x29);
+cpu_test!(instr_24, 0x24);
+cpu_test!(instr_25, 0x25);
+cpu_test!(instr_26, 0x26);
+cpu_test!(instr_27, 0x27);
+cpu_test!(instr_28, 0x28);
+// Decoder reads immediate values first but real CPU follows the
+// first indirection first.
+cpu_test_no_trace!(instr_29, 0x29);
 //cpu_test!(instr_2a, 0x2a);
 //cpu_test!(instr_2b, 0x2b);
 //cpu_test!(instr_2c, 0x2c);
@@ -224,12 +226,14 @@ cpu_test!(instr_22, 0x22);
 //cpu_test!(instr_31, 0x31);
 cpu_test!(instr_32, 0x32);
 //cpu_test!(instr_33, 0x33);
-//cpu_test!(instr_34, 0x34);
-//cpu_test!(instr_35, 0x35);
-//cpu_test!(instr_36, 0x36);
-//cpu_test!(instr_37, 0x37);
-//cpu_test!(instr_38, 0x38);
-//cpu_test!(instr_39, 0x39);
+cpu_test!(instr_34, 0x34);
+cpu_test!(instr_35, 0x35);
+cpu_test!(instr_36, 0x36);
+cpu_test!(instr_37, 0x37);
+cpu_test!(instr_38, 0x38);
+// Decoder reads immediate values first but real CPU follows the
+// first indirection first.
+cpu_test_no_trace!(instr_39, 0x39);
 //cpu_test!(instr_3a, 0x3a);
 //cpu_test!(instr_3b, 0x3b);
 //cpu_test!(instr_3c, 0x3c);
