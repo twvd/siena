@@ -48,13 +48,15 @@ where
     pub fn fetch_next_instr(&mut self) -> Result<Instruction> {
         let mut fetched: Vec<u8> = vec![];
 
-        loop {
+        for i in 0.. {
             let pc = self.regs.pc as SpcAddress;
             match Instruction::decode(&mut fetched.clone().into_iter()) {
-                Err(_) => fetched.push(self.read_tick(pc)),
-                Ok(i) => break Ok(i),
+                Err(_) => fetched.push(self.read_tick(pc.wrapping_add(i))),
+                Ok(i) => return Ok(i),
             }
         }
+
+        unreachable!()
     }
 
     /// Executes one CPU step (one instruction).
