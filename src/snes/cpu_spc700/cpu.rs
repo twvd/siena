@@ -209,6 +209,8 @@ where
             InstructionType::ADC => self.op_adc(instr),
             InstructionType::SBC => self.op_sbc(instr),
             InstructionType::CMP => self.op_cmp(instr),
+            InstructionType::DEC => self.op_dec(instr),
+            InstructionType::INC => self.op_inc(instr),
             _ => todo!(),
         }
     }
@@ -542,6 +544,64 @@ where
             (Flag::Z, (result & 0xFF) == 0),
             (Flag::N, result & 0x80 != 0),
             (Flag::C, result >= 0),
+        ]);
+
+        Ok(())
+    }
+
+    /// DEC
+    fn op_dec(&mut self, instr: &Instruction) -> Result<()> {
+        let (src_idx, a, odest_addr) = self.resolve_value(instr, 0, 0)?;
+
+        let result = a.wrapping_sub(1);
+
+        match instr.def.operands[0] {
+            Operand::Register(r) => {
+                // Internal cycle
+                self.tick_bus(1)?;
+                self.regs.write(r, (result & 0xFF) as u16)
+            }
+            _ => {
+                if let Some(dest_addr) = odest_addr {
+                    self.write_tick(dest_addr, result as u8)
+                } else {
+                    unreachable!()
+                }
+            }
+        }
+
+        self.regs.write_flags(&[
+            (Flag::Z, (result & 0xFF) == 0),
+            (Flag::N, result & 0x80 != 0),
+        ]);
+
+        Ok(())
+    }
+
+    /// INC
+    fn op_inc(&mut self, instr: &Instruction) -> Result<()> {
+        let (src_idx, a, odest_addr) = self.resolve_value(instr, 0, 0)?;
+
+        let result = a.wrapping_add(1);
+
+        match instr.def.operands[0] {
+            Operand::Register(r) => {
+                // Internal cycle
+                self.tick_bus(1)?;
+                self.regs.write(r, (result & 0xFF) as u16)
+            }
+            _ => {
+                if let Some(dest_addr) = odest_addr {
+                    self.write_tick(dest_addr, result as u8)
+                } else {
+                    unreachable!()
+                }
+            }
+        }
+
+        self.regs.write_flags(&[
+            (Flag::Z, (result & 0xFF) == 0),
+            (Flag::N, result & 0x80 != 0),
         ]);
 
         Ok(())
