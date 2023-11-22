@@ -211,6 +211,7 @@ where
             InstructionType::CMP => self.op_cmp(instr),
             InstructionType::DEC => self.op_dec(instr),
             InstructionType::INC => self.op_inc(instr),
+            InstructionType::XCN => self.op_xcn(instr),
             _ => todo!(),
         }
     }
@@ -527,7 +528,7 @@ where
 
     /// CMP
     fn op_cmp(&mut self, instr: &Instruction) -> Result<()> {
-        let (src_idx, a, odest_addr) = self.resolve_value(instr, 0, 0)?;
+        let (src_idx, a, _) = self.resolve_value(instr, 0, 0)?;
         let (_, b, _) = self.resolve_value(instr, 1, src_idx)?;
 
         let result = (a as i16) - (b as i16);
@@ -551,7 +552,7 @@ where
 
     /// DEC
     fn op_dec(&mut self, instr: &Instruction) -> Result<()> {
-        let (src_idx, a, odest_addr) = self.resolve_value(instr, 0, 0)?;
+        let (_, a, odest_addr) = self.resolve_value(instr, 0, 0)?;
 
         let result = a.wrapping_sub(1);
 
@@ -580,7 +581,7 @@ where
 
     /// INC
     fn op_inc(&mut self, instr: &Instruction) -> Result<()> {
-        let (src_idx, a, odest_addr) = self.resolve_value(instr, 0, 0)?;
+        let (_, a, odest_addr) = self.resolve_value(instr, 0, 0)?;
 
         let result = a.wrapping_add(1);
 
@@ -598,6 +599,24 @@ where
                 }
             }
         }
+
+        self.regs.write_flags(&[
+            (Flag::Z, (result & 0xFF) == 0),
+            (Flag::N, result & 0x80 != 0),
+        ]);
+
+        Ok(())
+    }
+
+    /// XCN
+    fn op_xcn(&mut self, instr: &Instruction) -> Result<()> {
+        let (_, a, _) = self.resolve_value(instr, 0, 0)?;
+
+        // Internal cycles
+        self.tick_bus(4)?;
+
+        let result = (a >> 4) | (a << 4);
+        self.regs.write(Register::A, result.into());
 
         self.regs.write_flags(&[
             (Flag::Z, (result & 0xFF) == 0),
