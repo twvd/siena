@@ -208,6 +208,7 @@ where
             InstructionType::MOVNoFlags => self.op_mov(instr, false),
             InstructionType::ADC => self.op_adc(instr),
             InstructionType::SBC => self.op_sbc(instr),
+            InstructionType::CMP => self.op_cmp(instr),
             _ => todo!(),
         }
     }
@@ -433,9 +434,9 @@ where
         let (_, val, _) = self.resolve_value(instr, 1, src_idx)?;
 
         // Extra wait cycles
-        match (instr.def.operands[0], instr.def.operands[1]) {
-            (Operand::Register(_), Operand::Register(_))
-            | (Operand::Register(_), Operand::IndirectXAutoInc) => self.tick_bus(1)?,
+        match instr.def.operands {
+            [Operand::Register(_), Operand::Register(_)]
+            | [Operand::Register(_), Operand::IndirectXAutoInc] => self.tick_bus(1)?,
             _ => (),
         }
 
@@ -517,6 +518,30 @@ where
             (Flag::C, result > u8::MAX.into()),
             (Flag::H, result_h),
             (Flag::V, result_v),
+        ]);
+
+        Ok(())
+    }
+
+    /// CMP
+    fn op_cmp(&mut self, instr: &Instruction) -> Result<()> {
+        let (src_idx, a, odest_addr) = self.resolve_value(instr, 0, 0)?;
+        let (_, b, _) = self.resolve_value(instr, 1, src_idx)?;
+
+        let result = (a as i16) - (b as i16);
+
+        // Extra internal cycles
+        match instr.def.operands {
+            [Operand::DirectPage, Operand::DirectPage]
+            | [Operand::DirectPage, Operand::Immediate]
+            | [Operand::IndirectX, Operand::IndirectY] => self.tick_bus(1)?,
+            _ => (),
+        }
+
+        self.regs.write_flags(&[
+            (Flag::Z, (result & 0xFF) == 0),
+            (Flag::N, result & 0x80 != 0),
+            (Flag::C, result >= 0),
         ]);
 
         Ok(())
