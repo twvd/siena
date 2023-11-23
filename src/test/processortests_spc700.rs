@@ -140,13 +140,20 @@ fn run_testcase(testcase: &Value, check_trace: bool, multi_steps: bool) {
 
     for trace in &bus_trace {
         let expected = &testcase_cycles[trace.cycle];
-        let exp_addr: SpcAddress = expected[0].as_u64().unwrap().try_into().unwrap();
 
         let exp_access = match expected[2].as_str().unwrap() {
             "read" => Access::Read,
             "write" => Access::Write,
+            "wait" => {
+                dbg!(&testcase);
+                dbg_hex!(&bus_trace);
+                dbg!(&trace);
+                dbg!(&expected);
+                panic!("Invalid trace");
+            }
             _ => unreachable!(),
         };
+        let exp_addr: SpcAddress = expected[0].as_u64().unwrap().try_into().unwrap();
 
         if trace.addr != exp_addr || trace.access != exp_access {
             dbg!(&testcase);
@@ -373,7 +380,7 @@ cpu_test!(instr_b7, 0xb7);
 cpu_test!(instr_b8, 0xb8);
 // Read indirection during fetch
 cpu_test_no_trace!(instr_b9, 0xb9);
-//cpu_test!(instr_ba, 0xba);
+cpu_test!(instr_ba, 0xba);
 cpu_test!(instr_bb, 0xbb);
 cpu_test!(instr_bc, 0xbc);
 cpu_test!(instr_bd, 0xbd);
@@ -406,7 +413,7 @@ cpu_test!(instr_d6, 0xd6);
 cpu_test_no_trace!(instr_d7, 0xd7);
 cpu_test!(instr_d8, 0xd8);
 cpu_test!(instr_d9, 0xd9);
-//cpu_test!(instr_da, 0xda);
+cpu_test!(instr_da, 0xda);
 cpu_test!(instr_db, 0xdb);
 cpu_test!(instr_dc, 0xdc);
 cpu_test!(instr_dd, 0xdd);

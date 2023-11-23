@@ -1516,7 +1516,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "MOVW  YA, @",
         InstructionType::MOVW,
         2,
-        [Operand::None, Operand::DirectPage]
+        [Operand::Register(Register::YA), Operand::DirectPage]
     ),
     // 0xBB - INC   d+X
     // N.....Z., 2 bytes, 5 cycles
@@ -1775,7 +1775,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "MOVW  @, YA",
         InstructionType::MOVW,
         2,
-        [Operand::DirectPage, Operand::None]
+        [Operand::DirectPage, Operand::Register(Register::YA)]
     ),
     // 0xDB - MOV   d+X, Y
     // ........, 2 bytes, 5 cycles

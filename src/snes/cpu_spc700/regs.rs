@@ -51,13 +51,15 @@ pub enum Register {
     X,
     /// Y-index
     Y,
+    /// YA (16-bit)
+    YA,
 }
 
 impl Register {
     /// Width of the register.
     pub const fn width(&self) -> RegisterWidth {
         match self {
-            Register::PC => RegisterWidth::SixteenBit,
+            Register::PC | Register::YA => RegisterWidth::SixteenBit,
             _ => RegisterWidth::EightBit,
         }
     }
@@ -122,6 +124,11 @@ impl RegisterFile {
 
             // 16-bit registers
             Register::PC => self.pc = reg16(),
+            Register::YA => {
+                let val = reg16();
+                self.y = (val >> 8) as u8;
+                self.a = val as u8;
+            }
         }
     }
 
@@ -144,6 +151,7 @@ impl RegisterFile {
 
             // 16-bit registers
             Register::PC => self.pc,
+            Register::YA => ((self.y as u16) << 8) | self.a as u16,
         }
     }
 

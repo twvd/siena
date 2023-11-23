@@ -109,6 +109,18 @@ where
         v
     }
 
+    /// Reads 16-bits from a memory location while ticking
+    /// peripherals for the access time.
+    /// Address wraps at 8-bits, extra delay between reads.
+    fn read16_tick_a8_delay(&mut self, addr: SpcAddress) -> u16 {
+        let mut v = self.bus.read(addr) as u16;
+        self.tick_bus(2).unwrap();
+        let hi_addr = addr & 0xFF00 | SpcAddress::from((addr as u8).wrapping_add(1));
+        v |= (self.bus.read(hi_addr) as u16) << 8;
+        self.tick_bus(1).unwrap();
+        v
+    }
+
     /// Writes a memory location while ticking peripherals
     /// for the access time.
     fn write_tick(&mut self, addr: SpcAddress, val: u8) {
@@ -122,6 +134,17 @@ where
         self.bus.write(addr, (val & 0xFF) as u8);
         self.tick_bus(1).unwrap();
         let hi_addr = addr.wrapping_add(1);
+        self.bus.write(hi_addr, (val >> 8) as u8);
+        self.tick_bus(1).unwrap();
+    }
+
+    /// Writes 16-bit (LE) to a memory location while ticking
+    /// peripherals for the access time.
+    /// 8-bit address wrap.
+    fn write16_tick_a8(&mut self, addr: SpcAddress, val: u16) {
+        self.bus.write(addr, (val & 0xFF) as u8);
+        self.tick_bus(1).unwrap();
+        let hi_addr = addr & 0xFF00 | SpcAddress::from((addr as u8).wrapping_add(1));
         self.bus.write(hi_addr, (val >> 8) as u8);
         self.tick_bus(1).unwrap();
     }
@@ -206,6 +229,7 @@ where
             InstructionType::AND => self.op_and(instr),
             InstructionType::MOV => self.op_mov(instr, true),
             InstructionType::MOVNoFlags => self.op_mov(instr, false),
+            InstructionType::MOVW => self.op_movw(instr),
             InstructionType::ADC => self.op_adc(instr),
             InstructionType::SBC => self.op_sbc(instr),
             InstructionType::CMP => self.op_cmp(instr),
@@ -458,6 +482,34 @@ where
             self.regs
                 .write_flags(&[(Flag::Z, val == 0), (Flag::N, val & 0x80 != 0)]);
         }
+
+        Ok(())
+    }
+
+    /// MOVW
+    fn op_movw(&mut self, instr: &Instruction) -> Result<()> {
+        let val = match instr.def.operands[1] {
+            Operand::Register(r) => self.regs.read(r),
+            Operand::DirectPage => self.read16_tick_a8_delay(self.map_pageflag(instr.imm8(0))),
+            _ => unreachable!(),
+        };
+
+        match instr.def.operands[0] {
+            Operand::Register(r) => {
+                self.regs.write(r, val);
+                self.regs
+                    .write_flags(&[(Flag::Z, val == 0), (Flag::N, val & 0x8000 != 0)]);
+            }
+            Operand::DirectPage => {
+                let addr = self.map_pageflag(instr.imm8(0));
+
+                // Reads LSB of destination, doesn't use it.
+                self.read_tick(addr);
+
+                self.write16_tick_a8(addr, val);
+            }
+            _ => unreachable!(),
+        };
 
         Ok(())
     }
