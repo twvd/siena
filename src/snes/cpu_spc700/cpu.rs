@@ -185,6 +185,12 @@ where
         lo | hi << 8
     }
 
+    /// Call to an address
+    fn call(&mut self, addr: SpcAddress) {
+        self.push16(self.regs.read(Register::PC));
+        self.regs.write(Register::PC, addr);
+    }
+
     /// Executes an instruction.
     fn execute_instruction(&mut self, instr: &Instruction) -> Result<()> {
         match instr.def.instr_type {
@@ -240,6 +246,12 @@ where
             InstructionType::LSR => self.op_lsr(instr),
             InstructionType::PUSH => self.op_push(instr),
             InstructionType::POP => self.op_pop(instr),
+            InstructionType::CALL => {
+                self.tick_bus(1)?;
+                self.call(instr.imm16());
+                self.tick_bus(2)
+            }
+            InstructionType::TCALL => self.op_tcall(instr),
             _ => todo!(),
         }
     }
@@ -770,6 +782,42 @@ where
 
         let val = self.pop8();
         self.regs.write(reg, val.into());
+        Ok(())
+    }
+
+    /// TCALL
+    fn op_tcall(&mut self, instr: &Instruction) -> Result<()> {
+        let iaddr = match instr.def.operands[0] {
+            Operand::ImpliedNum(0) => 0xFFDE,
+            Operand::ImpliedNum(1) => 0xFFDC,
+            Operand::ImpliedNum(2) => 0xFFDA,
+            Operand::ImpliedNum(3) => 0xFFD8,
+            Operand::ImpliedNum(4) => 0xFFD6,
+            Operand::ImpliedNum(5) => 0xFFD4,
+            Operand::ImpliedNum(6) => 0xFFD2,
+            Operand::ImpliedNum(7) => 0xFFD0,
+            Operand::ImpliedNum(8) => 0xFFCE,
+            Operand::ImpliedNum(9) => 0xFFCC,
+            Operand::ImpliedNum(10) => 0xFFCA,
+            Operand::ImpliedNum(11) => 0xFFC8,
+            Operand::ImpliedNum(12) => 0xFFC6,
+            Operand::ImpliedNum(13) => 0xFFC4,
+            Operand::ImpliedNum(14) => 0xFFC2,
+            Operand::ImpliedNum(15) => 0xFFC0,
+            _ => unreachable!(),
+        };
+
+        // Discarded read
+        self.read_tick(self.regs.read(Register::PC));
+        self.tick_bus(1)?;
+
+        // Stack push happens before following the
+        // address indirection.
+        self.push16(self.regs.read(Register::PC));
+        self.tick_bus(1)?;
+
+        let addr = self.read16_tick(iaddr);
+        self.regs.write(Register::PC, addr);
         Ok(())
     }
 }
