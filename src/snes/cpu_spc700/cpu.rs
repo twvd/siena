@@ -252,6 +252,8 @@ where
                 self.tick_bus(2)
             }
             InstructionType::TCALL => self.op_tcall(instr),
+            InstructionType::BBC => self.op_bbx(instr, false),
+            InstructionType::BBS => self.op_bbx(instr, true),
             _ => todo!(),
         }
     }
@@ -818,6 +820,34 @@ where
 
         let addr = self.read16_tick(iaddr);
         self.regs.write(Register::PC, addr);
+        Ok(())
+    }
+
+    /// BBC/BBS
+    fn op_bbx(&mut self, instr: &Instruction, setclr: bool) -> Result<()> {
+        // NOTE: Immediate values for these instructions are SWAPPED
+        let (_, val, _) = self.resolve_value(instr, 0, 1)?;
+        let Operand::DirectPageBit(bit) = instr.def.operands[0] else {
+            unreachable!()
+        };
+
+        // Internal cycle
+        self.tick_bus(1)?;
+
+        if (val & (1 << bit) != 0) != setclr {
+            // Branch not taken
+            return Ok(());
+        }
+
+        // Branch taken
+        let newpc = self
+            .regs
+            .read(Register::PC)
+            .wrapping_add_signed(instr.imm8(0) as i8 as i16);
+        self.regs.write(Register::PC, newpc);
+
+        // Internal cycles
+        self.tick_bus(2)?;
         Ok(())
     }
 }
