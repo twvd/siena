@@ -236,6 +236,8 @@ where
             InstructionType::DEC => self.op_dec(instr),
             InstructionType::INC => self.op_inc(instr),
             InstructionType::XCN => self.op_xcn(instr),
+            InstructionType::ASL => self.op_asl(instr),
+            InstructionType::LSR => self.op_lsr(instr),
             _ => todo!(),
         }
     }
@@ -673,6 +675,68 @@ where
         self.regs.write_flags(&[
             (Flag::Z, (result & 0xFF) == 0),
             (Flag::N, result & 0x80 != 0),
+        ]);
+
+        Ok(())
+    }
+
+    /// ASL
+    fn op_asl(&mut self, instr: &Instruction) -> Result<()> {
+        let (_, val, odest_addr) = self.resolve_value(instr, 0, 0)?;
+
+        let result = val << 1;
+
+        match instr.def.operands[0] {
+            Operand::Register(r) => {
+                // Internal delay
+                self.tick_bus(1)?;
+
+                self.regs.write(r, result as u16)
+            }
+            _ => {
+                if let Some(dest_addr) = odest_addr {
+                    self.write_tick(dest_addr, result)
+                } else {
+                    unreachable!()
+                }
+            }
+        }
+
+        self.regs.write_flags(&[
+            (Flag::Z, result == 0),
+            (Flag::N, result & 0x80 != 0),
+            (Flag::C, val & 0x80 != 0),
+        ]);
+
+        Ok(())
+    }
+
+    /// LSR
+    fn op_lsr(&mut self, instr: &Instruction) -> Result<()> {
+        let (_, val, odest_addr) = self.resolve_value(instr, 0, 0)?;
+
+        let result = val >> 1;
+
+        match instr.def.operands[0] {
+            Operand::Register(r) => {
+                // Internal delay
+                self.tick_bus(1)?;
+
+                self.regs.write(r, result as u16)
+            }
+            _ => {
+                if let Some(dest_addr) = odest_addr {
+                    self.write_tick(dest_addr, result)
+                } else {
+                    unreachable!()
+                }
+            }
+        }
+
+        self.regs.write_flags(&[
+            (Flag::Z, result == 0),
+            (Flag::N, result & 0x80 != 0),
+            (Flag::C, val & 0x01 != 0),
         ]);
 
         Ok(())

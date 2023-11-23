@@ -188,8 +188,8 @@ cpu_test!(instr_08, 0x08);
 // first indirection first.
 cpu_test_no_trace!(instr_09, 0x09);
 //cpu_test!(instr_0a, 0x0a);
-//cpu_test!(instr_0b, 0x0b);
-//cpu_test!(instr_0c, 0x0c);
+cpu_test!(instr_0b, 0x0b);
+cpu_test!(instr_0c, 0x0c);
 //cpu_test!(instr_0d, 0x0d);
 //cpu_test!(instr_0e, 0x0e);
 //cpu_test!(instr_0f, 0x0f);
@@ -206,8 +206,8 @@ cpu_test!(instr_18, 0x18);
 // first indirection first.
 cpu_test_no_trace!(instr_19, 0x19);
 //cpu_test!(instr_1a, 0x1a);
-//cpu_test!(instr_1b, 0x1b);
-//cpu_test!(instr_1c, 0x1c);
+cpu_test!(instr_1b, 0x1b);
+cpu_test!(instr_1c, 0x1c);
 cpu_test!(instr_1d, 0x1d);
 cpu_test!(instr_1e, 0x1e);
 //cpu_test!(instr_1f, 0x1f);
@@ -260,8 +260,8 @@ cpu_test!(instr_48, 0x48);
 // first indirection first.
 cpu_test_no_trace!(instr_49, 0x49);
 //cpu_test!(instr_4a, 0x4a);
-//cpu_test!(instr_4b, 0x4b);
-//cpu_test!(instr_4c, 0x4c);
+cpu_test!(instr_4b, 0x4b);
+cpu_test!(instr_4c, 0x4c);
 //cpu_test!(instr_4d, 0x4d);
 //cpu_test!(instr_4e, 0x4e);
 //cpu_test!(instr_4f, 0x4f);
@@ -278,8 +278,8 @@ cpu_test!(instr_58, 0x58);
 // first indirection first.
 cpu_test_no_trace!(instr_59, 0x59);
 //cpu_test!(instr_5a, 0x5a);
-//cpu_test!(instr_5b, 0x5b);
-//cpu_test!(instr_5c, 0x5c);
+cpu_test!(instr_5b, 0x5b);
+cpu_test!(instr_5c, 0x5c);
 cpu_test!(instr_5d, 0x5d);
 cpu_test!(instr_5e, 0x5e);
 //cpu_test!(instr_5f, 0x5f);
