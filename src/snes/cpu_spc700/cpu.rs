@@ -254,6 +254,15 @@ where
             InstructionType::TCALL => self.op_tcall(instr),
             InstructionType::BBC => self.op_bbx(instr, false),
             InstructionType::BBS => self.op_bbx(instr, true),
+            InstructionType::BCC => self.op_branch(instr, !self.regs.test_flag(Flag::C)),
+            InstructionType::BCS => self.op_branch(instr, self.regs.test_flag(Flag::C)),
+            InstructionType::BNE => self.op_branch(instr, !self.regs.test_flag(Flag::Z)),
+            InstructionType::BEQ => self.op_branch(instr, self.regs.test_flag(Flag::Z)),
+            InstructionType::BPL => self.op_branch(instr, !self.regs.test_flag(Flag::N)),
+            InstructionType::BMI => self.op_branch(instr, self.regs.test_flag(Flag::N)),
+            InstructionType::BVC => self.op_branch(instr, !self.regs.test_flag(Flag::V)),
+            InstructionType::BVS => self.op_branch(instr, self.regs.test_flag(Flag::V)),
+            InstructionType::BRA => self.op_branch(instr, true),
             _ => todo!(),
         }
     }
@@ -835,6 +844,25 @@ where
         self.tick_bus(1)?;
 
         if (val & (1 << bit) != 0) != setclr {
+            // Branch not taken
+            return Ok(());
+        }
+
+        // Branch taken
+        let newpc = self
+            .regs
+            .read(Register::PC)
+            .wrapping_add_signed(instr.imm8(0) as i8 as i16);
+        self.regs.write(Register::PC, newpc);
+
+        // Internal cycles
+        self.tick_bus(2)?;
+        Ok(())
+    }
+
+    /// (Conditional) branch instructions, except BBS/BBC
+    fn op_branch(&mut self, instr: &Instruction, take: bool) -> Result<()> {
+        if !take {
             // Branch not taken
             return Ok(());
         }
