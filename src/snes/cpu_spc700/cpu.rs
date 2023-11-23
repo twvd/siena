@@ -162,13 +162,13 @@ where
 
     /// Pushes 8-bits onto the stack
     fn push8(&mut self, val: u8) {
-        let addr = SpcAddress::from(self.regs.read_dec(Register::SP));
+        let addr = SpcAddress::from(self.regs.read_dec(Register::SP) | 0x0100);
         self.write_tick(addr, val);
     }
 
-    /// Pulls 8-bits from the stack
-    fn pull8(&mut self) -> u8 {
-        let addr = SpcAddress::from(self.regs.read_inc(Register::SP).wrapping_add(1));
+    /// Pops 8-bits from the stack
+    fn pop8(&mut self) -> u8 {
+        let addr = SpcAddress::from(self.regs.read_inc(Register::SP).wrapping_add(1) | 0x0100);
         self.read_tick(addr)
     }
 
@@ -178,10 +178,10 @@ where
         self.push8(val as u8);
     }
 
-    /// Pulls 16-bits from the stack
-    fn pull16(&mut self) -> u16 {
-        let lo = self.pull8() as u16;
-        let hi = self.pull8() as u16;
+    /// Pops 16-bits from the stack
+    fn pop16(&mut self) -> u16 {
+        let lo = self.pop8() as u16;
+        let hi = self.pop8() as u16;
         lo | hi << 8
     }
 
@@ -238,6 +238,8 @@ where
             InstructionType::XCN => self.op_xcn(instr),
             InstructionType::ASL => self.op_asl(instr),
             InstructionType::LSR => self.op_lsr(instr),
+            InstructionType::PUSH => self.op_push(instr),
+            InstructionType::POP => self.op_pop(instr),
             _ => todo!(),
         }
     }
@@ -739,6 +741,35 @@ where
             (Flag::C, val & 0x01 != 0),
         ]);
 
+        Ok(())
+    }
+
+    /// PUSH
+    fn op_push(&mut self, instr: &Instruction) -> Result<()> {
+        let (_, val, _) = self.resolve_value(instr, 0, 0)?;
+
+        // Internal delay
+        self.tick_bus(1)?;
+
+        self.push8(val);
+
+        // Internal delay
+        self.tick_bus(1)?;
+
+        Ok(())
+    }
+
+    /// POP
+    fn op_pop(&mut self, instr: &Instruction) -> Result<()> {
+        let Operand::Register(reg) = instr.def.operands[0] else {
+            unreachable!()
+        };
+
+        // Internal delays
+        self.tick_bus(2)?;
+
+        let val = self.pop8();
+        self.regs.write(reg, val.into());
         Ok(())
     }
 }
