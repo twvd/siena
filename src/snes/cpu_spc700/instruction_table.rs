@@ -998,7 +998,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "ADDW  YA, @",
         InstructionType::ADDW,
         2,
-        [Operand::None, Operand::DirectPage]
+        [Operand::Register(Register::YA), Operand::DirectPage]
     ),
     // 0x7B - ROR   d+X
     // N.....ZC, 2 bytes, 5 cycles
