@@ -192,7 +192,7 @@ cpu_test!(instr_0b, 0x0b);
 cpu_test!(instr_0c, 0x0c);
 cpu_test!(instr_0d, 0x0d);
 //cpu_test!(instr_0e, 0x0e);
-//cpu_test!(instr_0f, 0x0f);
+cpu_test!(instr_0f, 0x0f);
 cpu_test!(instr_10, 0x10);
 cpu_test!(instr_11, 0x11);
 cpu_test!(instr_12, 0x12);

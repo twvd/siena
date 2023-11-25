@@ -269,6 +269,7 @@ where
             InstructionType::OR1 => self.op_or1(instr),
             InstructionType::MOV1 => self.op_mov1(instr),
             InstructionType::NOT1 => self.op_not1(instr),
+            InstructionType::BRK => self.op_brk(),
             _ => todo!(),
         }
     }
@@ -997,6 +998,24 @@ where
         let (addr, bit) = self.resolve_address_mb(instr);
         let val = self.read_tick(addr);
         self.write_tick(addr, val ^ (1 << bit));
+
+        Ok(())
+    }
+
+    /// BRK
+    fn op_brk(&mut self) -> Result<()> {
+        // No-op read cycle
+        self.read_tick(self.regs.read(Register::PC));
+
+        self.push16(self.regs.read(Register::PC));
+        self.push8(self.regs.read8(Register::PSW));
+
+        // Internal cycle
+        self.tick_bus(1)?;
+
+        let addr = self.read16_tick(0xFFDE);
+        self.regs.write(Register::PC, addr);
+        self.regs.write_flags(&[(Flag::I, false), (Flag::B, true)]);
 
         Ok(())
     }
