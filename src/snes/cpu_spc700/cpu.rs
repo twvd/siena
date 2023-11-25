@@ -264,6 +264,11 @@ where
             InstructionType::BVS => self.op_branch(instr, self.regs.test_flag(Flag::V)),
             InstructionType::BRA => self.op_branch(instr, true),
             InstructionType::ADDW => self.op_addw(instr),
+            InstructionType::AND1 => self.op_and1(instr),
+            InstructionType::EOR1 => self.op_eor1(instr),
+            InstructionType::OR1 => self.op_or1(instr),
+            InstructionType::MOV1 => self.op_mov1(instr),
+            InstructionType::NOT1 => self.op_not1(instr),
             _ => todo!(),
         }
     }
@@ -382,7 +387,28 @@ where
                     .wrapping_add(self.regs.read(Register::Y));
                 Ok((imm_idx + 1, self.read_tick(addr), Some(addr)))
             }
+            Operand::AbsoluteBooleanBit | Operand::AbsoluteNotBooleanBit => unreachable!(),
+
             _ => todo!(),
+        }
+    }
+
+    /// Resolve an address for the m.b addressing modes
+    fn resolve_address_mb(&mut self, instr: &Instruction) -> (SpcAddress, u8) {
+        let i = instr.imm16();
+        let bit = (i >> 13) as u8;
+        (i & 0x1FFF, bit)
+    }
+
+    /// Resolve bit for the m.b addressing modes
+    fn resolve_value_mb(&mut self, instr: &Instruction, opidx: usize) -> bool {
+        let (addr, bit) = self.resolve_address_mb(instr);
+        let val = self.read_tick(addr);
+
+        match instr.def.operands[opidx] {
+            Operand::AbsoluteBooleanBit => (val & (1 << bit)) != 0,
+            Operand::AbsoluteNotBooleanBit => (val & (1 << bit)) == 0,
+            _ => unreachable!(),
         }
     }
 
@@ -900,6 +926,77 @@ where
             (Flag::N, (result & 0x8000) != 0),
             (Flag::Z, result == 0),
         ]);
+
+        Ok(())
+    }
+
+    /// AND1
+    fn op_and1(&mut self, instr: &Instruction) -> Result<()> {
+        let val = self.resolve_value_mb(instr, 1);
+        let result = self.regs.test_flag(Flag::C) & val;
+        self.regs.write_flags(&[(Flag::C, result)]);
+
+        Ok(())
+    }
+
+    /// EOR1
+    fn op_eor1(&mut self, instr: &Instruction) -> Result<()> {
+        let val = self.resolve_value_mb(instr, 1);
+        let result = self.regs.test_flag(Flag::C) ^ val;
+        self.regs.write_flags(&[(Flag::C, result)]);
+
+        // Internal cycle
+        self.tick_bus(1)?;
+
+        Ok(())
+    }
+
+    /// OR1
+    fn op_or1(&mut self, instr: &Instruction) -> Result<()> {
+        let val = self.resolve_value_mb(instr, 1);
+        let result = self.regs.test_flag(Flag::C) | val;
+        self.regs.write_flags(&[(Flag::C, result)]);
+
+        // Internal cycle
+        self.tick_bus(1)?;
+
+        Ok(())
+    }
+
+    /// MOV1
+    fn op_mov1(&mut self, instr: &Instruction) -> Result<()> {
+        match instr.def.operands[0] {
+            Operand::AbsoluteBooleanBit => {
+                // MOV1 m.b, C
+                let (addr, bit) = self.resolve_address_mb(instr);
+                let val = self.read_tick(addr);
+                let result = if self.regs.test_flag(Flag::C) {
+                    val | (1 << bit)
+                } else {
+                    val & !(1 << bit)
+                };
+
+                // Internal cycle
+                self.tick_bus(1)?;
+
+                self.write_tick(addr, result);
+            }
+            Operand::None => {
+                // MOV1 C, m.b
+                let result = self.resolve_value_mb(instr, 1);
+                self.regs.write_flags(&[(Flag::C, result)]);
+            }
+            _ => unreachable!(),
+        }
+
+        Ok(())
+    }
+
+    /// NOT1
+    fn op_not1(&mut self, instr: &Instruction) -> Result<()> {
+        let (addr, bit) = self.resolve_address_mb(instr);
+        let val = self.read_tick(addr);
+        self.write_tick(addr, val ^ (1 << bit));
 
         Ok(())
     }

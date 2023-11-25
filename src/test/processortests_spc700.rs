@@ -121,8 +121,8 @@ fn run_testcase(testcase: &Value, check_trace: bool, multi_steps: bool) {
             dbg!(testcase);
             dbg_hex!(bus_trace);
             panic!(
-                "Addr {:06X} - expected {:02X}, saw {:02X}",
-                addr, exp_val, val
+                "Addr {:06X} - expected {:02X}, saw {:02X} - registers: {}",
+                addr, exp_val, val, cpu.regs
             );
         }
     }
@@ -259,7 +259,7 @@ cpu_test!(instr_48, 0x48);
 // Decoder reads immediate values first but real CPU follows the
 // first indirection first.
 cpu_test_no_trace!(instr_49, 0x49);
-//cpu_test!(instr_4a, 0x4a);
+cpu_test!(instr_4a, 0x4a);
 cpu_test!(instr_4b, 0x4b);
 cpu_test!(instr_4c, 0x4c);
 cpu_test!(instr_4d, 0x4d);
@@ -294,7 +294,7 @@ cpu_test!(instr_67, 0x67);
 cpu_test!(instr_68, 0x68);
 // Read indirection during fetch
 cpu_test_no_trace!(instr_69, 0x69);
-//cpu_test!(instr_6a, 0x6a);
+cpu_test!(instr_6a, 0x6a);
 //cpu_test!(instr_6b, 0x6b);
 //cpu_test!(instr_6c, 0x6c);
 cpu_test!(instr_6d, 0x6d);
@@ -328,7 +328,7 @@ cpu_test!(instr_87, 0x87);
 cpu_test!(instr_88, 0x88);
 // Read indirection during fetch
 cpu_test_no_trace!(instr_89, 0x89);
-//cpu_test!(instr_8a, 0x8a);
+cpu_test!(instr_8a, 0x8a);
 cpu_test!(instr_8b, 0x8b);
 cpu_test!(instr_8c, 0x8c);
 cpu_test!(instr_8d, 0x8d);
@@ -362,7 +362,7 @@ cpu_test!(instr_a7, 0xa7);
 cpu_test!(instr_a8, 0xa8);
 // Read indirection during fetch
 cpu_test_no_trace!(instr_a9, 0xa9);
-//cpu_test!(instr_aa, 0xaa);
+cpu_test!(instr_aa, 0xaa);
 cpu_test!(instr_ab, 0xab);
 cpu_test!(instr_ac, 0xac);
 cpu_test!(instr_ad, 0xad);
@@ -396,7 +396,7 @@ cpu_test!(instr_c6, 0xc6);
 cpu_test!(instr_c7, 0xc7);
 //cpu_test!(instr_c8, 0xc8);
 cpu_test!(instr_c9, 0xc9);
-//cpu_test!(instr_ca, 0xca);
+cpu_test!(instr_ca, 0xca);
 cpu_test!(instr_cb, 0xcb);
 cpu_test!(instr_cc, 0xcc);
 cpu_test!(instr_cd, 0xcd);
@@ -429,7 +429,7 @@ cpu_test!(instr_e6, 0xe6);
 cpu_test!(instr_e7, 0xe7);
 cpu_test!(instr_e8, 0xe8);
 cpu_test!(instr_e9, 0xe9);
-//cpu_test!(instr_ea, 0xea);
+cpu_test!(instr_ea, 0xea);
 cpu_test!(instr_eb, 0xeb);
 cpu_test!(instr_ec, 0xec);
 cpu_test!(instr_ed, 0xed);
