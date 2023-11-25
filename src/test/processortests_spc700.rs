@@ -205,7 +205,8 @@ cpu_test!(instr_18, 0x18);
 // Decoder reads immediate values first but real CPU follows the
 // first indirection first.
 cpu_test_no_trace!(instr_19, 0x19);
-//cpu_test!(instr_1a, 0x1a);
+// Read/writes are interleaved for every 8-bit
+cpu_test_no_trace!(instr_1a, 0x1a);
 cpu_test!(instr_1b, 0x1b);
 cpu_test!(instr_1c, 0x1c);
 cpu_test!(instr_1d, 0x1d);
@@ -242,7 +243,8 @@ cpu_test!(instr_38, 0x38);
 // Decoder reads immediate values first but real CPU follows the
 // first indirection first.
 cpu_test_no_trace!(instr_39, 0x39);
-//cpu_test!(instr_3a, 0x3a);
+// Read/writes are interleaved for every 8-bit
+cpu_test_no_trace!(instr_3a, 0x3a);
 //cpu_test!(instr_3b, 0x3b);
 //cpu_test!(instr_3c, 0x3c);
 cpu_test!(instr_3d, 0x3d);

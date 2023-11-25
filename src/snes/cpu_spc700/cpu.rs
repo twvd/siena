@@ -241,7 +241,9 @@ where
             InstructionType::CMP => self.op_cmp(instr),
             InstructionType::CMPW => self.op_cmpw(instr),
             InstructionType::DEC => self.op_dec(instr),
+            InstructionType::DECW => self.op_decw(instr),
             InstructionType::INC => self.op_inc(instr),
+            InstructionType::INCW => self.op_incw(instr),
             InstructionType::XCN => self.op_xcn(instr),
             InstructionType::ASL => self.op_asl(instr),
             InstructionType::LSR => self.op_lsr(instr),
@@ -691,6 +693,17 @@ where
         Ok(())
     }
 
+    /// DECW
+    fn op_decw(&mut self, instr: &Instruction) -> Result<()> {
+        let addr = self.map_pageflag(instr.imm8(0));
+        let result = self.read16_tick_a8(addr).wrapping_sub(1);
+        self.write16_tick_a8(addr, result);
+        self.regs
+            .write_flags(&[(Flag::Z, result == 0), (Flag::N, result & 0x8000 != 0)]);
+
+        Ok(())
+    }
+
     /// INC
     fn op_inc(&mut self, instr: &Instruction) -> Result<()> {
         let (_, a, odest_addr) = self.resolve_value(instr, 0, 0)?;
@@ -716,6 +729,17 @@ where
             (Flag::Z, (result & 0xFF) == 0),
             (Flag::N, result & 0x80 != 0),
         ]);
+
+        Ok(())
+    }
+
+    /// INCW
+    fn op_incw(&mut self, instr: &Instruction) -> Result<()> {
+        let addr = self.map_pageflag(instr.imm8(0));
+        let result = self.read16_tick_a8(addr).wrapping_add(1);
+        self.write16_tick_a8(addr, result);
+        self.regs
+            .write_flags(&[(Flag::Z, result == 0), (Flag::N, result & 0x8000 != 0)]);
 
         Ok(())
     }
