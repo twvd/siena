@@ -278,7 +278,7 @@ cpu_test!(instr_58, 0x58);
 // Decoder reads immediate values first but real CPU follows the
 // first indirection first.
 cpu_test_no_trace!(instr_59, 0x59);
-//cpu_test!(instr_5a, 0x5a);
+cpu_test!(instr_5a, 0x5a);
 cpu_test!(instr_5b, 0x5b);
 cpu_test!(instr_5c, 0x5c);
 cpu_test!(instr_5d, 0x5d);

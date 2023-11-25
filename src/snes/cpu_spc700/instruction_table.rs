@@ -739,7 +739,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
         "CMPW  YA, @",
         InstructionType::CMPW,
         2,
-        [Operand::None, Operand::DirectPage]
+        [Operand::Register(Register::YA), Operand::DirectPage]
     ),
     // 0x5B - LSR   d+X
     // N.....ZC, 2 bytes, 5 cycles

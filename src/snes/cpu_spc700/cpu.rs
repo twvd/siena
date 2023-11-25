@@ -239,6 +239,7 @@ where
             InstructionType::ADC => self.op_adc(instr),
             InstructionType::SBC => self.op_sbc(instr),
             InstructionType::CMP => self.op_cmp(instr),
+            InstructionType::CMPW => self.op_cmpw(instr),
             InstructionType::DEC => self.op_dec(instr),
             InstructionType::INC => self.op_inc(instr),
             InstructionType::XCN => self.op_xcn(instr),
@@ -1033,5 +1034,20 @@ where
         // are reversed so it is compatible with the other
         // branch instructions.
         self.op_branch(instr, self.regs.read8(Register::A) != val)
+    }
+
+    /// CMPW
+    fn op_cmpw(&mut self, instr: &Instruction) -> Result<()> {
+        let a = self.regs.read(Register::YA);
+        let b = self.read16_tick_a8(self.map_pageflag(instr.imm8(0)));
+
+        let (result, result_c) = a.overflowing_add(!b);
+        self.regs.write_flags(&[
+            (Flag::Z, result == 0),
+            (Flag::N, result & 0x8000 != 0),
+            (Flag::C, result_c),
+        ]);
+
+        Ok(())
     }
 }
