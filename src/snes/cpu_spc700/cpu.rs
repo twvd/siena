@@ -277,6 +277,7 @@ where
             InstructionType::DBNZ => self.op_dbnz(instr),
             InstructionType::DAA => self.op_daa(),
             InstructionType::DAS => self.op_das(),
+            InstructionType::JMP => self.op_jmp(instr),
             _ => todo!(),
         }
     }
@@ -1143,6 +1144,25 @@ where
         self.regs.write_flags(&[(Flag::Z, a == 0)]);
         self.regs.write_flags(&[(Flag::N, (a & 0x80) != 0)]);
         self.regs.write(Register::A, a.into());
+
+        Ok(())
+    }
+
+    /// JMP
+    fn op_jmp(&mut self, instr: &Instruction) -> Result<()> {
+        let pc = match instr.def.operands[0] {
+            Operand::Absolute => instr.imm16(),
+            Operand::AbsoluteXIndexIndirect => {
+                // Internal cycle
+                self.tick_bus(1)?;
+
+                let addr = instr.imm16().wrapping_add(self.regs.read(Register::X));
+                self.read16_tick(addr)
+            }
+            _ => unreachable!(),
+        };
+
+        self.regs.write(Register::PC, pc);
 
         Ok(())
     }
