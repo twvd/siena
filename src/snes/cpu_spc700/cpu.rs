@@ -270,6 +270,7 @@ where
             InstructionType::MOV1 => self.op_mov1(instr),
             InstructionType::NOT1 => self.op_not1(instr),
             InstructionType::BRK => self.op_brk(),
+            InstructionType::CBNE => self.op_cbne(instr),
             _ => todo!(),
         }
     }
@@ -1018,5 +1019,19 @@ where
         self.regs.write_flags(&[(Flag::I, false), (Flag::B, true)]);
 
         Ok(())
+    }
+
+    /// CBNE
+    fn op_cbne(&mut self, instr: &Instruction) -> Result<()> {
+        // NOTE: Immediate values for these instructions are SWAPPED
+        let (_, val, _) = self.resolve_value(&instr, 0, 1)?;
+
+        // Internal cycle
+        self.tick_bus(1)?;
+
+        // Conveniently, the immediate values for CBNE
+        // are reversed so it is compatible with the other
+        // branch instructions.
+        self.op_branch(instr, self.regs.read8(Register::A) != val)
     }
 }
