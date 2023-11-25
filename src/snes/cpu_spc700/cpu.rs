@@ -254,6 +254,11 @@ where
                 self.call(instr.imm16());
                 self.tick_bus(2)
             }
+            InstructionType::PCALL => {
+                self.tick_bus(1)?;
+                self.call(0xFF00 | SpcAddress::from(instr.imm8(0)));
+                self.tick_bus(1)
+            }
             InstructionType::TCALL => self.op_tcall(instr),
             InstructionType::BBC => self.op_bbx(instr, false),
             InstructionType::BBS => self.op_bbx(instr, true),
