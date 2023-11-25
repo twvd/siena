@@ -283,6 +283,28 @@ where
             InstructionType::DAA => self.op_daa(),
             InstructionType::DAS => self.op_das(),
             InstructionType::JMP => self.op_jmp(instr),
+            InstructionType::RET => {
+                // Discarded read + internal cycle
+                self.read_tick(self.regs.read(Register::PC));
+                self.tick_bus(1)?;
+
+                let pc = self.pop16();
+                self.regs.write(Register::PC, pc);
+
+                Ok(())
+            }
+            InstructionType::RET1 => {
+                // Discarded read + internal cycle
+                self.read_tick(self.regs.read(Register::PC));
+                self.tick_bus(1)?;
+
+                let flags = self.pop8();
+                self.regs.write(Register::PSW, flags.into());
+                let pc = self.pop16();
+                self.regs.write(Register::PC, pc);
+
+                Ok(())
+            }
             _ => todo!(),
         }
     }
