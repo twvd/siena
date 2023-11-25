@@ -385,7 +385,7 @@ cpu_test!(instr_ba, 0xba);
 cpu_test!(instr_bb, 0xbb);
 cpu_test!(instr_bc, 0xbc);
 cpu_test!(instr_bd, 0xbd);
-//cpu_test!(instr_be, 0xbe);
+cpu_test!(instr_be, 0xbe);
 cpu_test!(instr_bf, 0xbf);
 cpu_test!(instr_c0, 0xc0);
 cpu_test!(instr_c1, 0xc1);
@@ -420,7 +420,7 @@ cpu_test!(instr_dc, 0xdc);
 cpu_test!(instr_dd, 0xdd);
 // Read indirection during fetch
 cpu_test_no_trace!(instr_de, 0xde);
-//cpu_test!(instr_df, 0xdf);
+cpu_test!(instr_df, 0xdf);
 cpu_test!(instr_e0, 0xe0);
 cpu_test!(instr_e1, 0xe1);
 cpu_test!(instr_e2, 0xe2);

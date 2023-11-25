@@ -272,6 +272,8 @@ where
             InstructionType::NOT1 => self.op_not1(instr),
             InstructionType::BRK => self.op_brk(),
             InstructionType::CBNE => self.op_cbne(instr),
+            InstructionType::DAA => self.op_daa(),
+            InstructionType::DAS => self.op_das(),
             _ => todo!(),
         }
     }
@@ -1047,6 +1049,50 @@ where
             (Flag::N, result & 0x8000 != 0),
             (Flag::C, result_c),
         ]);
+
+        Ok(())
+    }
+
+    /// DAA
+    fn op_daa(&mut self) -> Result<()> {
+        // No-op read + internal cycle
+        self.read_tick(self.regs.read(Register::PC));
+        self.tick_bus(1)?;
+
+        let mut a = self.regs.read8(Register::A);
+        if a > 0x99 || self.regs.test_flag(Flag::C) {
+            a = a.wrapping_add(0x60);
+            self.regs.write_flags(&[(Flag::C, true)]);
+        }
+        if (a & 0x0F) > 9 || self.regs.test_flag(Flag::H) {
+            a = a.wrapping_add(0x06);
+        }
+
+        self.regs.write_flags(&[(Flag::Z, a == 0)]);
+        self.regs.write_flags(&[(Flag::N, (a & 0x80) != 0)]);
+        self.regs.write(Register::A, a.into());
+
+        Ok(())
+    }
+
+    /// DAS
+    fn op_das(&mut self) -> Result<()> {
+        // No-op read + internal cycle
+        self.read_tick(self.regs.read(Register::PC));
+        self.tick_bus(1)?;
+
+        let mut a = self.regs.read8(Register::A);
+        if a > 0x99 || !self.regs.test_flag(Flag::C) {
+            a = a.wrapping_sub(0x60);
+            self.regs.write_flags(&[(Flag::C, false)]);
+        }
+        if (a & 0x0F) > 9 || !self.regs.test_flag(Flag::H) {
+            a = a.wrapping_sub(0x06);
+        }
+
+        self.regs.write_flags(&[(Flag::Z, a == 0)]);
+        self.regs.write_flags(&[(Flag::N, (a & 0x80) != 0)]);
+        self.regs.write(Register::A, a.into());
 
         Ok(())
     }
