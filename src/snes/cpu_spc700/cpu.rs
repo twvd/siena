@@ -272,6 +272,7 @@ where
             InstructionType::NOT1 => self.op_not1(instr),
             InstructionType::BRK => self.op_brk(),
             InstructionType::CBNE => self.op_cbne(instr),
+            InstructionType::DBNZ => self.op_dbnz(instr),
             InstructionType::DAA => self.op_daa(),
             InstructionType::DAS => self.op_das(),
             _ => todo!(),
@@ -1036,6 +1037,31 @@ where
         // are reversed so it is compatible with the other
         // branch instructions.
         self.op_branch(instr, self.regs.read8(Register::A) != val)
+    }
+
+    /// DBNZ
+    fn op_dbnz(&mut self, instr: &Instruction) -> Result<()> {
+        // NOTE: Immediate values for these instructions are SWAPPED
+        let val = match instr.def.operands[0] {
+            Operand::Register(r) => {
+                // Internal cycle
+                self.tick_bus(2)?;
+
+                self.regs.read8_dec(r).wrapping_sub(1)
+            }
+            Operand::DirectPage => {
+                let addr = self.map_pageflag(instr.imm8(1));
+                let val = self.read_tick(addr).wrapping_sub(1);
+                self.write_tick(addr, val);
+                val
+            }
+            _ => unreachable!(),
+        };
+
+        // Conveniently, the immediate values for CBNE
+        // are reversed so it is compatible with the other
+        // branch instructions.
+        self.op_branch(instr, val != 0)
     }
 
     /// CMPW
