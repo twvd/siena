@@ -3,6 +3,7 @@ use std::io::{stdin, Read};
 
 use anyhow::Result;
 use clap::Parser;
+use colored::*;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 
@@ -79,7 +80,7 @@ fn main() -> Result<()> {
     let eventpump = SDLEventPump::new();
     let cart = Cartridge::load(&f);
     println!("Cartridge: {}", &cart);
-    let bus = Mainbus::<SDLRenderer>::new(cart, args.bustrace, display, joypads);
+    let bus = Mainbus::<SDLRenderer>::new(cart, args.bustrace, display, joypads, args.verbose);
 
     let reset = bus.read16(0xFFFC);
     let mut cpu = Cpu65816::<Mainbus<SDLRenderer>>::new(bus, reset);
@@ -87,7 +88,7 @@ fn main() -> Result<()> {
     let mut eventpoll = 0;
     'mainloop: loop {
         if args.verbose {
-            println!("{}", cpu.dump_state());
+            println!("{}", cpu.dump_state().green());
         }
 
         if args.pause {

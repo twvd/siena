@@ -1,7 +1,9 @@
 pub mod apubus;
 
 use anyhow::Result;
+use colored::*;
 
+use crate::snes::bus::{Address, BusMember};
 use crate::snes::cpu_spc700::cpu::{CpuSpc700, SpcAddress};
 use crate::tickable::{Tickable, Ticks};
 
@@ -17,6 +19,9 @@ pub struct Apu {
 
     /// Master ticks received that we can spend.
     spc_master_credit: Ticks,
+
+    /// Print instructions
+    verbose: bool,
 }
 
 impl Apu {
@@ -34,11 +39,12 @@ impl Apu {
         0x00, 0x00, 0xC0, 0xFF,
     ];
 
-    pub fn new() -> Self {
+    pub fn new(verbose: bool) -> Self {
         Self {
             cpu: CpuSpc700::<Apubus>::new(Apubus::new(&Self::IPL_BIN), Self::IPL_ENTRYPOINT),
             spc_cycles_taken: 0,
             spc_master_credit: 0,
+            verbose,
         }
     }
 }
@@ -52,6 +58,9 @@ impl Tickable for Apu {
 
         while self.spc_master_credit >= Self::SPC_MASTER_FACTOR {
             if self.spc_cycles_taken == 0 {
+                if self.verbose {
+                    println!("{}", self.cpu.dump_state().red());
+                }
                 self.spc_cycles_taken += self.cpu.step()?;
             }
             self.spc_cycles_taken -= 1;
@@ -59,5 +68,15 @@ impl Tickable for Apu {
         }
 
         Ok(())
+    }
+}
+
+impl BusMember<Address> for Apu {
+    fn read(&self, fulladdr: Address) -> Option<u8> {
+        None
+    }
+
+    fn write(&mut self, fulladdr: Address, val: u8) -> Option<()> {
+        None
     }
 }

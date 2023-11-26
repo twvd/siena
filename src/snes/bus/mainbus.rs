@@ -4,6 +4,7 @@ use anyhow::Result;
 use dbg_hex::dbg_hex;
 
 use crate::frontend::Renderer;
+use crate::snes::apu::Apu;
 use crate::snes::bus::{Address, Bus, BusMember, ADDRESS_MASK};
 use crate::snes::cartridge::Cartridge;
 use crate::snes::joypad::{Joypad, JOYPAD_COUNT};
@@ -35,6 +36,8 @@ where
 
     /// Controllers
     joypads: [Joypad; JOYPAD_COUNT],
+
+    pub apu: Apu,
 
     /// Picture Processing Unit
     pub ppu: PPU<TRenderer>,
@@ -225,6 +228,7 @@ where
         trace: BusTrace,
         renderer: TRenderer,
         joypads: [Joypad; JOYPAD_COUNT],
+        apu_verbose: bool,
     ) -> Self {
         Self {
             cartridge,
@@ -235,6 +239,7 @@ where
             joypads,
 
             ppu: PPU::<TRenderer>::new(renderer),
+            apu: Apu::new(apu_verbose),
 
             memsel: 0,
             wmadd: Cell::new(0),
@@ -749,6 +754,8 @@ where
     TRenderer: Renderer,
 {
     fn tick(&mut self, ticks: Ticks) -> Result<()> {
+        self.apu.tick(ticks)?;
+
         // This ratio is not based on anything that makes sense yet
         for _ in 0..(ticks * 8) {
             self.ppu.tick(1)?;
