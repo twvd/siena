@@ -279,6 +279,8 @@ where
             InstructionType::ROR => self.op_ror(instr),
             InstructionType::MUL => self.op_mul(),
             InstructionType::DIV => self.op_div(),
+            InstructionType::TSET1 => self.op_tsetclr1(instr, true),
+            InstructionType::TCLR1 => self.op_tsetclr1(instr, false),
 
             _ => todo!(),
         }
@@ -1326,6 +1328,28 @@ where
             (Flag::N, (a & 0x80) != 0),
             (Flag::V, v),
             (Flag::H, h),
+        ]);
+
+        Ok(())
+    }
+
+    /// TSET1/TCLR1
+    fn op_tsetclr1(&mut self, instr: &Instruction, set: bool) -> Result<()> {
+        let (_, val, Some(addr)) = self.resolve_value(&instr, 0, 0)? else {
+            unreachable!()
+        };
+        let a = self.regs.read8(Register::A);
+
+        // Discarded read
+        self.read_tick(addr);
+
+        let result = if set { val | a } else { val & !a };
+        let result_nz = a.wrapping_sub(val);
+
+        self.write_tick(addr, result);
+        self.regs.write_flags(&[
+            (Flag::N, (result_nz & 0x80) != 0),
+            (Flag::Z, result_nz == 0),
         ]);
 
         Ok(())

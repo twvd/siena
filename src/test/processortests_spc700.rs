@@ -187,11 +187,11 @@ cpu_test!(instr_08, 0x08);
 // Decoder reads immediate values first but real CPU follows the
 // first indirection first.
 cpu_test_no_trace!(instr_09, 0x09);
-//cpu_test!(instr_0a, 0x0a);
+cpu_test!(instr_0a, 0x0a);
 cpu_test!(instr_0b, 0x0b);
 cpu_test!(instr_0c, 0x0c);
 cpu_test!(instr_0d, 0x0d);
-//cpu_test!(instr_0e, 0x0e);
+cpu_test!(instr_0e, 0x0e);
 cpu_test!(instr_0f, 0x0f);
 cpu_test!(instr_10, 0x10);
 cpu_test!(instr_11, 0x11);
@@ -224,7 +224,7 @@ cpu_test!(instr_28, 0x28);
 // Decoder reads immediate values first but real CPU follows the
 // first indirection first.
 cpu_test_no_trace!(instr_29, 0x29);
-//cpu_test!(instr_2a, 0x2a);
+cpu_test!(instr_2a, 0x2a);
 cpu_test!(instr_2b, 0x2b);
 cpu_test!(instr_2c, 0x2c);
 cpu_test!(instr_2d, 0x2d);
@@ -266,7 +266,7 @@ cpu_test!(instr_4a, 0x4a);
 cpu_test!(instr_4b, 0x4b);
 cpu_test!(instr_4c, 0x4c);
 cpu_test!(instr_4d, 0x4d);
-//cpu_test!(instr_4e, 0x4e);
+cpu_test!(instr_4e, 0x4e);
 cpu_test!(instr_4f, 0x4f);
 cpu_test!(instr_50, 0x50);
 cpu_test!(instr_51, 0x51);
@@ -398,7 +398,7 @@ cpu_test!(instr_c4, 0xc4);
 cpu_test!(instr_c5, 0xc5);
 cpu_test!(instr_c6, 0xc6);
 cpu_test!(instr_c7, 0xc7);
-//cpu_test!(instr_c8, 0xc8);
+cpu_test!(instr_c8, 0xc8);
 cpu_test!(instr_c9, 0xc9);
 cpu_test!(instr_ca, 0xca);
 cpu_test!(instr_cb, 0xcb);
