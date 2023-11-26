@@ -59,13 +59,14 @@ where
     }
 
     /// Executes one CPU step (one instruction).
-    pub fn step(&mut self) -> Result<()> {
+    pub fn step(&mut self) -> Result<Ticks> {
+        let start_cycles = self.cycles;
         let instr = self.fetch_next_instr()?;
 
         self.regs.pc = self.regs.pc.wrapping_add(instr.len as u16);
-        let _cycles = self.execute_instruction(&instr)?;
+        self.execute_instruction(&instr)?;
 
-        Ok(())
+        Ok(self.cycles - start_cycles)
     }
 
     /// Tick peripherals
