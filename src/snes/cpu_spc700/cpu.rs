@@ -130,6 +130,7 @@ where
 
     /// Writes 16-bit (LE) to a memory location while ticking
     /// peripherals for the access time.
+    #[allow(dead_code)]
     fn write16_tick(&mut self, addr: SpcAddress, val: u16) {
         self.bus.write(addr, (val & 0xFF) as u8);
         self.tick_bus(1).unwrap();
@@ -146,17 +147,6 @@ where
         self.tick_bus(1).unwrap();
         let hi_addr = addr & 0xFF00 | SpcAddress::from((addr as u8).wrapping_add(1));
         self.bus.write(hi_addr, (val >> 8) as u8);
-        self.tick_bus(1).unwrap();
-    }
-
-    /// Writes 16-bit (LE) to a memory location while ticking
-    /// peripherals for the access time.
-    /// Descending temporal order.
-    fn write16_tick_desc(&mut self, addr: SpcAddress, val: u16) {
-        let hi_addr = addr.wrapping_add(1);
-        self.bus.write(hi_addr, (val >> 8) as u8);
-        self.tick_bus(1).unwrap();
-        self.bus.write(addr, (val & 0xFF) as u8);
         self.tick_bus(1).unwrap();
     }
 
@@ -283,28 +273,9 @@ where
             InstructionType::DAA => self.op_daa(),
             InstructionType::DAS => self.op_das(),
             InstructionType::JMP => self.op_jmp(instr),
-            InstructionType::RET => {
-                // Discarded read + internal cycle
-                self.read_tick(self.regs.read(Register::PC));
-                self.tick_bus(1)?;
+            InstructionType::RET => self.op_ret(false),
+            InstructionType::RET1 => self.op_ret(true),
 
-                let pc = self.pop16();
-                self.regs.write(Register::PC, pc);
-
-                Ok(())
-            }
-            InstructionType::RET1 => {
-                // Discarded read + internal cycle
-                self.read_tick(self.regs.read(Register::PC));
-                self.tick_bus(1)?;
-
-                let flags = self.pop8();
-                self.regs.write(Register::PSW, flags.into());
-                let pc = self.pop16();
-                self.regs.write(Register::PC, pc);
-
-                Ok(())
-            }
             _ => todo!(),
         }
     }
@@ -423,9 +394,17 @@ where
                     .wrapping_add(self.regs.read(Register::Y));
                 Ok((imm_idx + 1, self.read_tick(addr), Some(addr)))
             }
-            Operand::AbsoluteBooleanBit | Operand::AbsoluteNotBooleanBit => unreachable!(),
 
-            _ => todo!(),
+            // Handled by instruction implementation
+            Operand::None
+            | Operand::Implied
+            | Operand::ImpliedNum(_)
+            | Operand::Relative
+            | Operand::AbsoluteXIndexIndirect
+            | Operand::YIndexIndirect
+            // Use resolve_value_mb()
+            | Operand::AbsoluteBooleanBit
+            | Operand::AbsoluteNotBooleanBit => unreachable!(),
         }
     }
 
@@ -1189,6 +1168,23 @@ where
             _ => unreachable!(),
         };
 
+        self.regs.write(Register::PC, pc);
+
+        Ok(())
+    }
+
+    /// RET/RET1
+    fn op_ret(&mut self, pop_flags: bool) -> Result<()> {
+        // Discarded read + internal cycle
+        self.read_tick(self.regs.read(Register::PC));
+        self.tick_bus(1)?;
+
+        if pop_flags {
+            let flags = self.pop8();
+            self.regs.write(Register::PSW, flags.into());
+        }
+
+        let pc = self.pop16();
         self.regs.write(Register::PC, pc);
 
         Ok(())
