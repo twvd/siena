@@ -277,6 +277,8 @@ where
             InstructionType::RET1 => self.op_ret(true),
             InstructionType::ROL => self.op_rol(instr),
             InstructionType::ROR => self.op_ror(instr),
+            InstructionType::MUL => self.op_mul(),
+            InstructionType::DIV => self.op_div(),
 
             _ => todo!(),
         }
@@ -1255,6 +1257,75 @@ where
             (Flag::Z, result == 0),
             (Flag::N, result & 0x80 != 0),
             (Flag::C, val & 0x01 != 0),
+        ]);
+
+        Ok(())
+    }
+
+    /// MUL
+    fn op_mul(&mut self) -> Result<()> {
+        let a = self.regs.read8(Register::A) as u16;
+        let y = self.regs.read8(Register::Y) as u16;
+
+        // Discarded read + internal cycles
+        self.read_tick(self.regs.read(Register::PC));
+        self.tick_bus(7)?;
+
+        let result = y.wrapping_mul(a);
+
+        self.regs.write(Register::A, result & 0xFF);
+        self.regs.write(Register::Y, result >> 8);
+        self.regs.write_flags(&[
+            (Flag::Z, (result & 0xFF00) == 0),
+            (Flag::N, (result & 0x8000) != 0),
+        ]);
+
+        Ok(())
+    }
+
+    /// DIV
+    fn op_div(&mut self) -> Result<()> {
+        // https://helmet.kafuka.org/bboard/thread.php?id=228
+
+        let rotleft_c = |n: &mut u8, carry| {
+            let c_out = (*n >> 7) != 0;
+            let c = if carry { 1 } else { 0 };
+            *n = (*n << 1) | c;
+            c_out
+        };
+        let divstep = |y: &mut u8, y8, x| {
+            if (*y < x) ^ y8 {
+                false
+            } else {
+                *y = y.wrapping_sub(x);
+                true
+            }
+        };
+
+        let mut a = self.regs.read8(Register::A);
+        let mut y = self.regs.read8(Register::Y);
+        let x = self.regs.read8(Register::X);
+        let v = y >= x;
+        let h = y & 0x0F >= x & 0x0F;
+
+        // Discarded read + internal cycles
+        self.read_tick(self.regs.read(Register::PC));
+        self.tick_bus(10)?;
+
+        let mut y8 = false;
+        for _ in 0..8 {
+            let b_step = divstep(&mut y, y8, x);
+            y8 = rotleft_c(&mut y, rotleft_c(&mut a, b_step));
+        }
+        rotleft_c(&mut a, divstep(&mut y, y8, x));
+
+        self.regs.write(Register::A, a.into());
+        self.regs.write(Register::Y, y.into());
+        self.regs.write_flags(&[
+            (Flag::Z, a == 0),
+            (Flag::N, (a & 0x80) != 0),
+            (Flag::V, v),
+            (Flag::H, h),
         ]);
 
         Ok(())
