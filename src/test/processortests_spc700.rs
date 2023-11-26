@@ -439,6 +439,7 @@ cpu_test!(instr_eb, 0xeb);
 cpu_test!(instr_ec, 0xec);
 cpu_test!(instr_ed, 0xed);
 cpu_test!(instr_ee, 0xee);
+// HALT
 //cpu_test!(instr_ef, 0xef);
 cpu_test!(instr_f0, 0xf0);
 cpu_test!(instr_f1, 0xf1);
@@ -456,4 +457,5 @@ cpu_test!(instr_fb, 0xfb);
 cpu_test!(instr_fc, 0xfc);
 cpu_test!(instr_fd, 0xfd);
 cpu_test!(instr_fe, 0xfe);
+// STOP
 //cpu_test!(instr_ff, 0xff);

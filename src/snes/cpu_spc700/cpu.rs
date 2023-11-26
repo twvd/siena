@@ -283,7 +283,7 @@ where
             InstructionType::TSET1 => self.op_tsetclr1(instr, true),
             InstructionType::TCLR1 => self.op_tsetclr1(instr, false),
 
-            _ => todo!(),
+            InstructionType::SLEEP | InstructionType::STOP => panic!("SPC700 halted!"),
         }
     }
 
