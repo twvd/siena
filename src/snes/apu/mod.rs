@@ -1,13 +1,26 @@
 pub mod apubus;
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use anyhow::Result;
 use colored::*;
 
 use crate::snes::bus::{Address, BusMember};
 use crate::snes::cpu_spc700::cpu::{CpuSpc700, SpcAddress};
+use crate::snes::cpu_spc700::regs::Register;
 use crate::tickable::{Tickable, Ticks};
 
 use apubus::Apubus;
+
+/// Type for the CPU <-> APU communication ports
+pub struct ApuPorts {
+    /// APU -> CPU
+    pub cpu: [u8; 4],
+
+    /// CPU -> APU
+    pub apu: [u8; 4],
+}
 
 /// The SNES Audio Processing Unit
 pub struct Apu {
@@ -22,11 +35,14 @@ pub struct Apu {
 
     /// Print instructions
     verbose: bool,
+
+    /// Main CPU communication ports
+    ports: Rc<RefCell<ApuPorts>>,
 }
 
 impl Apu {
     /// One SPC cycle = 25 master cycles
-    const SPC_MASTER_FACTOR: Ticks = 25;
+    const SPC_MASTER_FACTOR: Ticks = 1;
 
     const IPL_ENTRYPOINT: SpcAddress = 0xFFC0;
     const IPL_SIZE: usize = 64;
@@ -40,12 +56,25 @@ impl Apu {
     ];
 
     pub fn new(verbose: bool) -> Self {
+        let ports = Rc::new(RefCell::new(ApuPorts {
+            cpu: [0; 4],
+            apu: [0; 4],
+        }));
         Self {
-            cpu: CpuSpc700::<Apubus>::new(Apubus::new(&Self::IPL_BIN), Self::IPL_ENTRYPOINT),
+            cpu: CpuSpc700::<Apubus>::new(
+                Apubus::new(&Self::IPL_BIN, Rc::clone(&ports)),
+                Self::IPL_ENTRYPOINT,
+            ),
             spc_cycles_taken: 0,
             spc_master_credit: 0,
             verbose,
+            ports,
         }
+    }
+
+    /// Get a (reference counted) copy of the communication ports
+    pub fn get_ports(&self) -> Rc<RefCell<ApuPorts>> {
+        Rc::clone(&self.ports)
     }
 }
 
@@ -57,8 +86,8 @@ impl Tickable for Apu {
         self.spc_master_credit += ticks;
 
         while self.spc_master_credit >= Self::SPC_MASTER_FACTOR {
-            if self.spc_cycles_taken == 0 {
-                if self.verbose {
+            if true || self.spc_cycles_taken == 0 {
+                if self.verbose && self.cpu.regs.read(Register::PC) < Self::IPL_ENTRYPOINT {
                     println!("{}", self.cpu.dump_state().red());
                 }
                 self.spc_cycles_taken += self.cpu.step()?;

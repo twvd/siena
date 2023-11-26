@@ -18,7 +18,7 @@ fn test_display(rom: &[u8], pass_hash: &[u8], time_limit: u128, stable: bool) {
     let (display, dispstatus) = TestRenderer::new_test(SCREEN_WIDTH, SCREEN_HEIGHT);
     let (joypads, _) = Joypad::new_channel_all();
     let cart = Cartridge::load_nohdr(rom, false);
-    let bus = Mainbus::<TestRenderer>::new(cart, BusTrace::None, display, joypads);
+    let bus = Mainbus::<TestRenderer>::new(cart, BusTrace::None, display, joypads, false);
     let reset = bus.read16(0xFFFC);
     let mut cpu = Cpu65816::<Mainbus<TestRenderer>>::new(bus, reset);
 
