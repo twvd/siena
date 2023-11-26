@@ -225,8 +225,8 @@ cpu_test!(instr_28, 0x28);
 // first indirection first.
 cpu_test_no_trace!(instr_29, 0x29);
 //cpu_test!(instr_2a, 0x2a);
-//cpu_test!(instr_2b, 0x2b);
-//cpu_test!(instr_2c, 0x2c);
+cpu_test!(instr_2b, 0x2b);
+cpu_test!(instr_2c, 0x2c);
 cpu_test!(instr_2d, 0x2d);
 // Read indirection during fetch
 cpu_test_no_trace!(instr_2e, 0x2e);
@@ -245,8 +245,8 @@ cpu_test!(instr_38, 0x38);
 cpu_test_no_trace!(instr_39, 0x39);
 // Read/writes are interleaved for every 8-bit
 cpu_test_no_trace!(instr_3a, 0x3a);
-//cpu_test!(instr_3b, 0x3b);
-//cpu_test!(instr_3c, 0x3c);
+cpu_test!(instr_3b, 0x3b);
+cpu_test!(instr_3c, 0x3c);
 cpu_test!(instr_3d, 0x3d);
 cpu_test!(instr_3e, 0x3e);
 cpu_test!(instr_3f, 0x3f);
@@ -298,8 +298,8 @@ cpu_test!(instr_68, 0x68);
 // Read indirection during fetch
 cpu_test_no_trace!(instr_69, 0x69);
 cpu_test!(instr_6a, 0x6a);
-//cpu_test!(instr_6b, 0x6b);
-//cpu_test!(instr_6c, 0x6c);
+cpu_test!(instr_6b, 0x6b);
+cpu_test!(instr_6c, 0x6c);
 cpu_test!(instr_6d, 0x6d);
 // Read indirection during fetch
 cpu_test_no_trace!(instr_6e, 0x6e);
@@ -316,8 +316,8 @@ cpu_test!(instr_78, 0x78);
 // Read indirection during fetch
 cpu_test_no_trace!(instr_79, 0x79);
 cpu_test!(instr_7a, 0x7a);
-//cpu_test!(instr_7b, 0x7b);
-//cpu_test!(instr_7c, 0x7c);
+cpu_test!(instr_7b, 0x7b);
+cpu_test!(instr_7c, 0x7c);
 cpu_test!(instr_7d, 0x7d);
 cpu_test!(instr_7e, 0x7e);
 cpu_test!(instr_7f, 0x7f);

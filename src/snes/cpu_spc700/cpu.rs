@@ -275,6 +275,8 @@ where
             InstructionType::JMP => self.op_jmp(instr),
             InstructionType::RET => self.op_ret(false),
             InstructionType::RET1 => self.op_ret(true),
+            InstructionType::ROL => self.op_rol(instr),
+            InstructionType::ROR => self.op_ror(instr),
 
             _ => todo!(),
         }
@@ -1186,6 +1188,74 @@ where
 
         let pc = self.pop16();
         self.regs.write(Register::PC, pc);
+
+        Ok(())
+    }
+
+    /// ROL
+    fn op_rol(&mut self, instr: &Instruction) -> Result<()> {
+        let (_, val, odest_addr) = self.resolve_value(instr, 0, 0)?;
+
+        let mut result = val << 1;
+        if self.regs.test_flag(Flag::C) {
+            result |= 0x01;
+        }
+
+        match instr.def.operands[0] {
+            Operand::Register(r) => {
+                // Internal delay
+                self.tick_bus(1)?;
+
+                self.regs.write(r, result as u16)
+            }
+            _ => {
+                if let Some(dest_addr) = odest_addr {
+                    self.write_tick(dest_addr, result)
+                } else {
+                    unreachable!()
+                }
+            }
+        }
+
+        self.regs.write_flags(&[
+            (Flag::Z, result == 0),
+            (Flag::N, result & 0x80 != 0),
+            (Flag::C, val & 0x80 != 0),
+        ]);
+
+        Ok(())
+    }
+
+    /// ROR
+    fn op_ror(&mut self, instr: &Instruction) -> Result<()> {
+        let (_, val, odest_addr) = self.resolve_value(instr, 0, 0)?;
+
+        let mut result = val >> 1;
+        if self.regs.test_flag(Flag::C) {
+            result |= 0x80;
+        }
+
+        match instr.def.operands[0] {
+            Operand::Register(r) => {
+                // Internal delay
+                self.tick_bus(1)?;
+
+                self.regs.write(r, result as u16)
+            }
+            _ => {
+                if let Some(dest_addr) = odest_addr {
+                    self.write_tick(dest_addr, result)
+                } else {
+                    unreachable!()
+                }
+            }
+        }
+
+        self.regs.write_flags(&[
+            (Flag::Z, result == 0),
+            (Flag::N, result & 0x80 != 0),
+            (Flag::C, val & 0x01 != 0),
+        ]);
 
         Ok(())
     }
