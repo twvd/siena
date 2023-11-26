@@ -262,6 +262,7 @@ where
             InstructionType::BVS => self.op_branch(instr, self.regs.test_flag(Flag::V)),
             InstructionType::BRA => self.op_branch(instr, true),
             InstructionType::ADDW => self.op_addw(instr),
+            InstructionType::SUBW => self.op_subw(instr),
             InstructionType::AND1 => self.op_and1(instr),
             InstructionType::EOR1 => self.op_eor1(instr),
             InstructionType::OR1 => self.op_or1(instr),
@@ -960,6 +961,30 @@ where
         // Half-carry on high byte
         let result_h = (a ^ b ^ result) & 0x1000 != 0;
         let result_v = !(a ^ b) & (a ^ result) & 0x8000 != 0;
+
+        self.regs.write(Register::YA, result);
+        self.regs.write_flags(&[
+            (Flag::C, result_c),
+            (Flag::H, result_h),
+            (Flag::V, result_v),
+            (Flag::N, (result & 0x8000) != 0),
+            (Flag::Z, result == 0),
+        ]);
+
+        Ok(())
+    }
+
+    /// SUBW
+    fn op_subw(&mut self, instr: &Instruction) -> Result<()> {
+        let a = self.regs.read(Register::YA);
+        // Only direct page mode
+        let b = self.read16_tick_a8_delay(self.map_pageflag(instr.imm8(0)));
+
+        let (result, result_c) = a.overflowing_add((!b).wrapping_add(1));
+
+        // Half-carry on high byte
+        let result_h = (a ^ !b ^ result) & 0x1000 != 0;
+        let result_v = !(a ^ !b) & (a ^ result) & 0x8000 != 0;
 
         self.regs.write(Register::YA, result);
         self.regs.write_flags(&[
