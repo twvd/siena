@@ -279,7 +279,7 @@ where
                 let a_addr = match self.dma[ch].step() {
                     DMAStep::Increment => self.dma[ch].a_addr() + i,
                     DMAStep::Fixed => self.dma[ch].a_addr(),
-                    _ => todo!(),
+                    DMAStep::Decrement => self.dma[ch].a_addr() - i,
                 };
 
                 self.dma_transfer_step(ch, a_addr, b_addr, i);
