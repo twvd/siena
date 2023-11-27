@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use anyhow::Result;
 
-use crate::snes::bus::{Bus, BusMember};
+use crate::snes::bus::Bus;
 use crate::snes::cpu_spc700::cpu::{SpcAddress, SPC_ADDRESS_MASK};
 use crate::tickable::{Tickable, Ticks};
 
@@ -69,8 +69,6 @@ impl Bus<SpcAddress> for Apubus {
     fn write(&mut self, addr: SpcAddress, val: u8) {
         match addr {
             0x00F1 => {
-                println!("APU control: {:02X}", val);
-
                 for t in 0..APU_TIMERS {
                     if (self.timers_enabled & val) & (1 << t) == 0 {
                         self.timers[t].reset();
@@ -123,7 +121,7 @@ impl Bus<SpcAddress> for Apubus {
 impl Tickable for Apubus {
     fn tick(&mut self, ticks: Ticks) -> Result<()> {
         // This ticks at the speed of the APU CPU,
-        // not the master clock!
+        // not the CPU clock!
 
         for t in 0..APU_TIMERS {
             if self.timers_enabled & (1 << t) != 0 {

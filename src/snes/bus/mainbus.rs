@@ -1,11 +1,10 @@
-use std::cell::{Cell, RefCell};
-use std::rc::Rc;
+use std::cell::Cell;
 
 use anyhow::Result;
 use dbg_hex::dbg_hex;
 
 use crate::frontend::Renderer;
-use crate::snes::apu::{Apu, ApuPorts};
+use crate::snes::apu::Apu;
 use crate::snes::bus::{Address, Bus, BusMember, ADDRESS_MASK};
 use crate::snes::cartridge::Cartridge;
 use crate::snes::joypad::{Joypad, JOYPAD_COUNT};
@@ -40,9 +39,6 @@ where
 
     /// Audio Processing Unit
     pub apu: Apu,
-
-    /// APU communication ports
-    apu_ports: Rc<RefCell<ApuPorts>>,
 
     /// Picture Processing Unit
     pub ppu: PPU<TRenderer>,
@@ -233,9 +229,6 @@ where
         joypads: [Joypad; JOYPAD_COUNT],
         apu_verbose: bool,
     ) -> Self {
-        let apu = Apu::new(apu_verbose);
-        let apu_ports = apu.get_ports();
-
         Self {
             cartridge,
             wram: vec![0; WRAM_SIZE],
@@ -245,8 +238,7 @@ where
             joypads,
 
             ppu: PPU::<TRenderer>::new(renderer),
-            apu,
-            apu_ports,
+            apu: Apu::new(apu_verbose),
 
             memsel: 0,
             wmadd: Cell::new(0),
@@ -442,12 +434,7 @@ where
                 // Picture Processing Unit
                 0x2100..=0x213F => self.ppu.read(fulladdr),
                 // APU comms
-                0x2140..=0x217F => {
-                    let ch = (addr - 0x2140) % 4;
-
-                    let ports = self.apu_ports.borrow();
-                    Some(ports.cpu[ch])
-                }
+                0x2140..=0x217F => self.apu.read(fulladdr),
                 // WMDATA - WRAM Data Read/Write (R/W)
                 0x2180 => {
                     let addr = self.wmadd.get();
@@ -584,12 +571,7 @@ where
                 // Picture Processing Unit
                 0x2100..=0x213F => self.ppu.write(fulladdr, val),
                 // APU comms
-                0x2140..=0x217F => {
-                    let ch = (addr - 0x2140) % 4;
-                    let mut ports = self.apu_ports.borrow_mut();
-                    ports.apu[ch] = val;
-                    Some(())
-                }
+                0x2140..=0x217F => self.apu.write(fulladdr, val),
                 // WMDATA - WRAM Data Read/Write
                 0x2180 => {
                     let addr = self.wmadd.get();
