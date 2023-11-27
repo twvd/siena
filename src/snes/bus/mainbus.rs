@@ -311,43 +311,33 @@ where
         //
         // This is due to the fact A-address increment behaves
         // differently for HDMA.
-        match self.dma[ch].mode() {
-            0 => {
-                match self.dma[ch].direction() {
-                    DMADirection::CPUToIO => {
-                        let v = self.read(a_addr);
-                        self.write(b_addr, v);
-                    }
-                    DMADirection::IOToCPU => {
-                        let v = self.read(b_addr);
-                        self.write(a_addr, v);
-                    }
-                }
-                0
-            }
-            1 => {
-                let b_addr = b_addr + (unit_offset % 2);
-                match self.dma[ch].direction() {
-                    DMADirection::CPUToIO => {
-                        let v = self.read(a_addr);
-                        self.write(b_addr, v);
-                    }
-                    _ => todo!(),
-                }
-                1 - (unit_offset % 2)
-            }
-            2 => {
-                match self.dma[ch].direction() {
-                    DMADirection::CPUToIO => {
-                        let v = self.read(a_addr);
-                        self.write(b_addr, v);
-                    }
-                    _ => todo!(),
-                }
-                1 - (unit_offset % 2)
-            }
+
+        // Map b_addr and bytes remaining depending on DMA mode
+        let (b_addr, remaining) = match self.dma[ch].mode() {
+            // Transfer 1 byte    xx
+            0 => (b_addr, 0),
+            // Transfer 2 bytes   xx, xx+1
+            1 => (b_addr.wrapping_add(unit_offset % 2), 1 - (unit_offset % 2)),
+            // Transfer 2 bytes   xx, xx
+            2 | 6 => (b_addr, 1 - (unit_offset % 2)),
+            // Transfer 4 bytes   xx, xx,   xx+1, xx+1
+            3 | 7 => (b_addr.wrapping_add(unit_offset / 2), 3 - (unit_offset % 4)),
             _ => panic!("Unimplemented DMA mode {}", self.dma[ch].mode()),
+        };
+
+        // Transfer the byte in whichever direction
+        match self.dma[ch].direction() {
+            DMADirection::CPUToIO => {
+                let v = self.read(a_addr);
+                self.write(b_addr, v);
+            }
+            DMADirection::IOToCPU => {
+                let v = self.read(b_addr);
+                self.write(a_addr, v);
+            }
         }
+
+        remaining
     }
 
     fn hdma_reset(&mut self) {
