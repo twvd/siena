@@ -13,6 +13,7 @@ pub struct Cpu65816<TBus: Bus<Address>> {
     pub bus: TBus,
     pub regs: RegisterFile,
     pub cycles: Ticks,
+    pub wait_for_int: bool,
 }
 
 impl<TBus> Cpu65816<TBus>
@@ -29,6 +30,7 @@ where
             bus,
             regs: RegisterFile::new(),
             cycles: 0,
+            wait_for_int: false,
         };
         cpu.regs.pc = reset_addr;
         cpu.regs.p = (1 << Flag::M.to_u8().unwrap()) | (1 << Flag::X.to_u8().unwrap());
@@ -78,9 +80,14 @@ where
     /// Executes one CPU step (one instruction).
     pub fn step(&mut self) -> Result<()> {
         if self.bus.get_clr_nmi() {
+            self.wait_for_int = false;
             self.dispatch_interrupt(Self::INTVEC_NMI)?;
         } else if self.bus.get_clr_int() && !self.regs.test_flag(Flag::I) {
+            self.wait_for_int = false;
             self.dispatch_interrupt(Self::INTVEC_INT)?;
+        } else if self.wait_for_int {
+            self.tick_bus(1)?;
+            return Ok(());
         }
 
         let instr = self.fetch_next_instr()?;
@@ -368,7 +375,10 @@ where
             InstructionType::COP => self.op_swint(instr, Self::INTVEC_COP),
             InstructionType::RTI => self.op_rti(),
             InstructionType::STP => panic!("STP encountered"),
-            InstructionType::WAI => todo!(),
+            InstructionType::WAI => {
+                self.wait_for_int = true;
+                Ok(())
+            }
             InstructionType::PEI => self.op_push(instr),
             InstructionType::PEA => self.op_push_imm(instr),
             InstructionType::PER => self.op_push_addr(instr),
