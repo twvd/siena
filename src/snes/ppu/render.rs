@@ -43,13 +43,9 @@ struct WindowState {
     sprites: WindowLine,
 }
 
-#[derive(FromPrimitive, Eq, PartialEq, Copy, Clone, Debug)]
-enum WindowArea {
-    Disable = 0,
-    // TODO 1 = also disabled
-    Inner = 2,
-    Outer = 3,
-}
+const WINAREA_OUTER: u8 = 1 << 0;
+const WINAREA_ENABLE: u8 = 1 << 1;
+const WINAREA_MASK: u8 = 0x03;
 
 #[derive(FromPrimitive, Eq, PartialEq, Copy, Clone, Debug)]
 enum WindowMask {
@@ -358,26 +354,21 @@ where
         pixel
     }
 
-    fn render_window(
-        &self,
-        w1area: WindowArea,
-        w2area: WindowArea,
-        mask: WindowMask,
-    ) -> WindowLine {
+    fn render_window(&self, w1area: u8, w2area: u8, mask: WindowMask) -> WindowLine {
         let in_window = |area, range: &std::ops::RangeInclusive<u8>, x| {
-            (area == WindowArea::Inner && range.contains(&x))
-                || (area == WindowArea::Outer && !range.contains(&x))
+            let is_outer = (area & WINAREA_OUTER) != 0;
+            (!is_outer && range.contains(&x)) || (is_outer && !range.contains(&x))
         };
 
         let w1 = self.w1_left..=self.w1_right;
         let w2 = self.w2_left..=self.w2_right;
         let mut ret = [false; SCREEN_WIDTH];
 
-        if w1area == WindowArea::Disable && w2area == WindowArea::Disable {
+        if (w1area | w2area) & WINAREA_ENABLE == 0 {
             return ret;
         }
 
-        let use_masking = w1area != WindowArea::Disable && w2area != WindowArea::Disable;
+        let use_masking = w1area & w2area & WINAREA_ENABLE != 0;
 
         for x in 0..=u8::MAX {
             let in_w1 = in_window(w1area, &w1, x);
@@ -410,9 +401,9 @@ where
         // 5-4  BG3   -     Window 1/2 Mask Logic
         // 3-2  BG2   MATH  Window 1/2 Mask Logic
         // 1-0  BG1   OBJ   Window 1/2 Mask Logic
-        let w12a = |sh| WindowArea::from_u8((self.w12sel >> sh) & 0x03_u8).unwrap();
-        let w34a = |sh| WindowArea::from_u8((self.w34sel >> sh) & 0x03_u8).unwrap();
-        let wobja = |sh| WindowArea::from_u8((self.wobjsel >> sh) & 0x03_u8).unwrap();
+        let w12a = |sh| (self.w12sel >> sh) & WINAREA_MASK;
+        let w34a = |sh| (self.w34sel >> sh) & WINAREA_MASK;
+        let wobja = |sh| (self.wobjsel >> sh) & WINAREA_MASK;
         let wbgm = |sh| WindowMask::from_u8((self.wbglog >> sh) & 0x03_u8).unwrap();
         let wobjm = |sh| WindowMask::from_u8((self.wobjlog >> sh) & 0x03_u8).unwrap();
 
