@@ -754,46 +754,47 @@ where
     TRenderer: Renderer,
 {
     fn tick(&mut self, ticks: Ticks) -> Result<()> {
+        // APU deals with its own stuff
         self.apu.tick(ticks)?;
 
-        // This ratio is not based on anything that makes sense yet
-        for _ in 0..(ticks * 8) {
-            self.ppu.tick(1)?;
+        // The PPU is supposed to run at 5.3/5.6 MHz dot clock
+        // for a 3.5 MHz CPU.
+        // TODO this is not right
+        self.ppu.tick(8)?;
 
-            let entered_vblank = self.ppu.get_clr_intreq_vblank();
-            let entered_hblank = self.ppu.get_clr_intreq_hblank();
+        let entered_vblank = self.ppu.get_clr_intreq_vblank();
+        let entered_hblank = self.ppu.get_clr_intreq_hblank();
 
-            if entered_hblank && !self.ppu.in_vblank() {
-                if self.ppu.get_current_scanline() == 0 {
-                    self.hdma_reset();
-                }
-
-                self.hdma_run();
+        if entered_hblank && !self.ppu.in_vblank() {
+            if self.ppu.get_current_scanline() == 0 {
+                self.hdma_reset();
             }
 
-            if entered_vblank && self.nmitimen & (1 << 7) != 0 {
-                self.intreq_nmi = true;
-            }
+            self.hdma_run();
+        }
 
-            // H/V interrupt
-            // TODO stop at EXACT H rather than at 0
-            let hvint = match (self.nmitimen >> 4) & 0x03 {
-                // Disabled
-                0 => false,
-                // H=H + V=*
-                1 => self.ppu.get_current_scanline() != self.last_scanline,
-                // H=0, V=V (2) + H=H, V=V (3)
-                2 | 3 => {
-                    self.ppu.get_current_scanline() != self.last_scanline
-                        && self.ppu.get_current_scanline() == usize::from(self.vtime)
-                }
-                _ => unreachable!(),
-            };
-            self.last_scanline = self.ppu.get_current_scanline();
-            if hvint {
-                self.intreq_int = true;
-                self.timeup.set(true);
+        if entered_vblank && self.nmitimen & (1 << 7) != 0 {
+            self.intreq_nmi = true;
+        }
+
+        // H/V interrupt
+        // TODO stop at EXACT H rather than at 0
+        let hvint = match (self.nmitimen >> 4) & 0x03 {
+            // Disabled
+            0 => false,
+            // H=H + V=*
+            1 => self.ppu.get_current_scanline() != self.last_scanline,
+            // H=0, V=V (2) + H=H, V=V (3)
+            2 | 3 => {
+                self.ppu.get_current_scanline() != self.last_scanline
+                    && self.ppu.get_current_scanline() == usize::from(self.vtime)
             }
+            _ => unreachable!(),
+        };
+        self.last_scanline = self.ppu.get_current_scanline();
+        if hvint {
+            self.intreq_int = true;
+            self.timeup.set(true);
         }
 
         Ok(())
