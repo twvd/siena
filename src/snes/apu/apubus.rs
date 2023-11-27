@@ -25,6 +25,9 @@ pub struct Apubus {
     /// Bitmask of enabled timers
     /// (also 0x00F1, bit 0-2)
     timers_enabled: u8,
+
+    /// If true, ROM is mapped to FFC0-FFFF
+    rom_mapped: bool,
 }
 
 impl Apubus {
@@ -32,6 +35,7 @@ impl Apubus {
         Self {
             ram: [0; APU_RAM_SIZE],
             rom: rom.try_into().unwrap(),
+            rom_mapped: true,
             ports,
 
             timers: [
@@ -60,8 +64,7 @@ impl Bus<SpcAddress> for Apubus {
             0x00FF => self.timers[2].get_cnt(),
 
             // ROM (IPL)
-            // TODO mask setting!
-            0xFFC0..=0xFFFF => self.rom[addr as usize - 0xFFC0],
+            0xFFC0..=0xFFFF if self.rom_mapped => self.rom[addr as usize - 0xFFC0],
             _ => self.ram[addr as usize],
         }
     }
@@ -86,6 +89,11 @@ impl Bus<SpcAddress> for Apubus {
                     let mut ports = self.ports.borrow_mut();
                     ports.apu[2] = 0;
                     ports.apu[3] = 0;
+                }
+
+                if (val & (1 << 7) != 0) != self.rom_mapped {
+                    self.rom_mapped = (val & (1 << 7)) != 0;
+                    println!("SPC700 ROM mapped: {}", self.rom_mapped);
                 }
             }
             // Ports
