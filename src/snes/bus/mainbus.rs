@@ -587,7 +587,6 @@ where
                 0x2140..=0x217F => {
                     let ch = (addr - 0x2140) % 4;
                     let mut ports = self.apu_ports.borrow_mut();
-                    println!("CPU APU port {} to {:02X}", ch, val);
                     ports.apu[ch] = val;
                     Some(())
                 }

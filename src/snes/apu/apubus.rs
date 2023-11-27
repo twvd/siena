@@ -7,6 +7,7 @@ use crate::snes::bus::{Bus, BusMember};
 use crate::snes::cpu_spc700::cpu::{SpcAddress, SPC_ADDRESS_MASK};
 use crate::tickable::{Tickable, Ticks};
 
+use super::timers::{Timer, APU_TIMERS};
 use super::ApuPorts;
 
 const APU_RAM_SIZE: usize = 64 * 1024;
@@ -17,6 +18,13 @@ pub struct Apubus {
     ram: [u8; APU_RAM_SIZE],
     rom: [u8; APU_ROM_SIZE],
     ports: Rc<RefCell<ApuPorts>>,
+
+    /// Timers
+    timers: [Timer; APU_TIMERS],
+
+    /// Bitmask of enabled timers
+    /// (also 0x00F1, bit 0-2)
+    timers_enabled: u8,
 }
 
 impl Apubus {
@@ -25,6 +33,16 @@ impl Apubus {
             ram: [0; APU_RAM_SIZE],
             rom: rom.try_into().unwrap(),
             ports,
+
+            timers: [
+                // Timer 0, 8KHz (div = 128)
+                Timer::new(1_024_000 / 8_000),
+                // Timer 1, 8KHz (div = 128)
+                Timer::new(1_024_000 / 8_000),
+                // Timer 2, 64KHz (div = 16)
+                Timer::new(1_024_000 / 64_000),
+            ],
+            timers_enabled: 0,
         }
     }
 }
@@ -37,6 +55,9 @@ impl Bus<SpcAddress> for Apubus {
                 let ports = self.ports.borrow();
                 ports.apu[addr as usize - 0x00F4]
             }
+            0x00FD => self.timers[0].get_cnt(),
+            0x00FE => self.timers[1].get_cnt(),
+            0x00FF => self.timers[2].get_cnt(),
 
             // ROM (IPL)
             // TODO mask setting!
@@ -50,15 +71,21 @@ impl Bus<SpcAddress> for Apubus {
             0x00F1 => {
                 println!("APU control: {:02X}", val);
 
+                for t in 0..APU_TIMERS {
+                    if (self.timers_enabled & val) & (1 << t) == 0 {
+                        self.timers[t].reset();
+                    }
+                }
+
+                self.timers_enabled = val & 0x03;
+
                 if val & (1 << 4) != 0 {
                     let mut ports = self.ports.borrow_mut();
-                    println!("Clear input 0, 1");
                     ports.apu[0] = 0;
                     ports.apu[1] = 0;
                 }
                 if val & (1 << 5) != 0 {
                     let mut ports = self.ports.borrow_mut();
-                    println!("Clear input 2, 3");
                     ports.apu[2] = 0;
                     ports.apu[3] = 0;
                 }
@@ -66,9 +93,11 @@ impl Bus<SpcAddress> for Apubus {
             // Ports
             0x00F4..=0x00F7 => {
                 let mut ports = self.ports.borrow_mut();
-                println!("APU port {:04X} to {:02X}", addr, val);
                 ports.cpu[addr as usize - 0x00F4] = val;
             }
+            0x00FA => self.timers[0].set_top(val),
+            0x00FB => self.timers[1].set_top(val),
+            0x00FC => self.timers[2].set_top(val),
             _ => (),
         }
 
@@ -92,9 +121,15 @@ impl Bus<SpcAddress> for Apubus {
 }
 
 impl Tickable for Apubus {
-    fn tick(&mut self, _ticks: Ticks) -> Result<()> {
+    fn tick(&mut self, ticks: Ticks) -> Result<()> {
         // This ticks at the speed of the APU CPU,
         // not the master clock!
+
+        for t in 0..APU_TIMERS {
+            if self.timers_enabled & (1 << t) != 0 {
+                self.timers[t].tick(ticks);
+            }
+        }
         Ok(())
     }
 }
