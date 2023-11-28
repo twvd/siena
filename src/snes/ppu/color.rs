@@ -14,14 +14,30 @@ impl SnesColor {
         Self(c)
     }
 
+    pub fn from_rgb5(r: u8, g: u8, b: u8) -> SnesColor {
+        Self((r as u16 & 0x1F) | (g as u16 & 0x1F) << 5 | (b as u16 & 0x1F) << 10)
+    }
+
     /// Convert to a (host)-native color (RGB888)
     pub fn to_native(&self) -> Color {
         // TODO better put this in the frontend? I'm not sure..
         (
-            (((self.0 >> 0) & 0x1F) as u8) << 3,  // Red, 5-bit
-            (((self.0 >> 5) & 0x1F) as u8) << 3,  // Green, 5-bit
-            (((self.0 >> 10) & 0x1F) as u8) << 3, // Blue, 5-bit
+            self.r() << 3, // Red, 5-bit
+            self.g() << 3, // Green, 5-bit
+            self.b() << 3, // Blue, 5-bit
         )
+    }
+
+    pub fn r(&self) -> u8 {
+        (self.0 & 0x1F) as u8
+    }
+
+    pub fn g(&self) -> u8 {
+        ((self.0 >> 5) & 0x1F) as u8
+    }
+
+    pub fn b(&self) -> u8 {
+        ((self.0 >> 10) & 0x1F) as u8
     }
 
     /// Replaces the red intensity
@@ -58,44 +74,23 @@ impl SnesColor {
         )
     }
 
-    /// Divide by two
-    pub fn div_2(&self) -> Self {
-        Self((self.0 >> 2) & !0x210)
-    }
-}
-
-impl std::ops::Add for SnesColor {
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        Self(
-            ((self.0 & 0x1F) + (other.0 & 0x1F)) & 0x1F
-                | ((self.0 & 0x3E0) + (other.0 & 0x3E0)) & 0x3E0
-                | ((self.0 & 0x7C00).saturating_add(other.0 & 0x7C00)) & 0x7C00,
+    /// Color math add
+    pub fn cm_add(&self, other: &SnesColor, div2: bool) -> SnesColor {
+        let div = if div2 { 2 } else { 1 };
+        Self::from_rgb5(
+            (self.r() + other.r()) / div,
+            (self.g() + other.g()) / div,
+            (self.b() + other.b()) / div,
         )
     }
-}
 
-impl std::ops::Sub for SnesColor {
-    type Output = Self;
-
-    fn sub(self, other: Self) -> Self {
-        Self(
-            ((self.0 & 0x1F).saturating_sub(other.0 & 0x1F)) & 0x1F
-                | ((self.0 & 0x3E0).saturating_sub(other.0 & 0x3E0)) & 0x3E0
-                | ((self.0 & 0x7C00).saturating_sub(other.0 & 0x7C00)) & 0x7C00,
+    /// Color math subtract
+    pub fn cm_sub(&self, other: &SnesColor, div2: bool) -> SnesColor {
+        let div = if div2 { 2 } else { 1 };
+        Self::from_rgb5(
+            (self.r().saturating_sub(other.r())) / div,
+            (self.g().saturating_sub(other.g())) / div,
+            (self.b().saturating_sub(other.b())) / div,
         )
-    }
-}
-
-impl std::ops::AddAssign for SnesColor {
-    fn add_assign(&mut self, other: Self) {
-        *self = *self + other;
-    }
-}
-
-impl std::ops::SubAssign for SnesColor {
-    fn sub_assign(&mut self, other: Self) {
-        *self = *self - other;
     }
 }

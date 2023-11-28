@@ -268,7 +268,13 @@ where
         );
         let subscreen = self.render_scanline_screen(
             scanline,
-            self.ts & !self.dbg_layermask,
+            if self.cgwsel & (1 << 1) != 0 {
+                // Enable backdrop + bg + obj
+                self.ts & !self.dbg_layermask
+            } else {
+                // Backdrop only
+                0
+            },
             self.coldata,
             windows.clone(),
             self.tsw,
@@ -303,7 +309,7 @@ where
         mainclr: SnesColor,
         subclr: SnesColor,
         mainlayer: u8,
-        _sublayer: u8,
+        sublayer: u8,
         in_window: bool,
     ) -> SnesColor {
         // 5-4  Color Math Enable
@@ -339,16 +345,13 @@ where
             return pixel;
         }
 
+        let div2 = self.cgadsub & (1 << 6) != 0 && sublayer != LAYER_BACKDROP;
         if self.cgadsub & (1 << 7) == 0 {
             // Add mode
-            pixel += subclr;
+            pixel = pixel.cm_add(&subclr, div2);
         } else {
             // Subtract mode
-            pixel -= subclr;
-        }
-        if self.cgadsub & (1 << 6) != 0 {
-            // Division by 2
-            pixel = pixel.div_2();
+            pixel = pixel.cm_sub(&subclr, div2);
         }
 
         pixel
