@@ -370,7 +370,9 @@ where
             return pixel;
         }
 
-        let div2 = self.cgadsub & (1 << 6) != 0 && sublayer != LAYER_BACKDROP;
+        let div2 = self.cgadsub & (1 << 6) != 0
+            && sublayer != LAYER_BACKDROP
+            && mainlayer != LAYER_BACKDROP;
         if self.cgadsub & (1 << 7) == 0 {
             // Add mode
             pixel = pixel.cm_add(&subclr, div2);

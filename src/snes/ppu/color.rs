@@ -1,3 +1,5 @@
+use std::cmp::min;
+
 use num_traits::int::PrimInt;
 use num_traits::AsPrimitive;
 
@@ -16,6 +18,14 @@ impl SnesColor {
 
     pub fn from_rgb5(r: u8, g: u8, b: u8) -> SnesColor {
         Self((r as u16 & 0x1F) | (g as u16 & 0x1F) << 5 | (b as u16 & 0x1F) << 10)
+    }
+
+    pub fn from_rgb5_clip(r: u8, g: u8, b: u8) -> SnesColor {
+        Self(
+            (min(r, 0x1F) as u16 & 0x1F)
+                | (min(g, 0x1F) as u16 & 0x1F) << 5
+                | (min(b, 0x1F) as u16 & 0x1F) << 10,
+        )
     }
 
     /// Convert to a (host)-native color (RGB888)
@@ -77,7 +87,7 @@ impl SnesColor {
     /// Color math add
     pub fn cm_add(&self, other: &SnesColor, div2: bool) -> SnesColor {
         let div = if div2 { 2 } else { 1 };
-        Self::from_rgb5(
+        Self::from_rgb5_clip(
             (self.r() + other.r()) / div,
             (self.g() + other.g()) / div,
             (self.b() + other.b()) / div,
@@ -87,7 +97,7 @@ impl SnesColor {
     /// Color math subtract
     pub fn cm_sub(&self, other: &SnesColor, div2: bool) -> SnesColor {
         let div = if div2 { 2 } else { 1 };
-        Self::from_rgb5(
+        Self::from_rgb5_clip(
             (self.r().saturating_sub(other.r())) / div,
             (self.g().saturating_sub(other.g())) / div,
             (self.b().saturating_sub(other.b())) / div,
