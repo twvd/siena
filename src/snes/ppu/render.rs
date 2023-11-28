@@ -7,12 +7,27 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
 const LAYER_BACKDROP: u8 = 255;
+const LAYER_SPRITES: u8 = 4;
 struct RenderState {
+    /// Color index from tile data
     idx: [u8; SCREEN_WIDTH],
+
+    /// Palette from OAM (sprites only!)
+    palette: [u8; SCREEN_WIDTH],
+
+    /// Paletted color
     paletted: [SnesColor; SCREEN_WIDTH],
+
+    /// Layer that produced the pixel
     layer: [u8; SCREEN_WIDTH],
+
+    /// Layer mask for the window
     windowlayermask: u8,
+
+    /// Layer mask
     layermask: u8,
+
+    /// State/settings of the window
     window: WindowState,
 }
 
@@ -25,6 +40,7 @@ impl RenderState {
     ) -> Self {
         Self {
             idx: [0; SCREEN_WIDTH],
+            palette: [0; SCREEN_WIDTH],
             paletted: [backdrop; SCREEN_WIDTH],
             layer: [LAYER_BACKDROP; SCREEN_WIDTH],
             layermask,
@@ -124,7 +140,7 @@ where
     }
 
     fn render_scanline_sprites(&mut self, scanline: usize, state: &mut RenderState, priority: u8) {
-        if state.layermask & (1 << 4) == 0 {
+        if state.layermask & (1 << LAYER_SPRITES) == 0 {
             return;
         }
 
@@ -141,7 +157,8 @@ where
                         // Outside of visible area.
                         break;
                     }
-                    if state.window.sprites[x] && state.windowlayermask & (1 << 4) != 0 {
+                    if state.window.sprites[x] && state.windowlayermask & (1 << LAYER_SPRITES) != 0
+                    {
                         // Masked by window.
                         continue;
                     }
@@ -156,8 +173,9 @@ where
                         continue;
                     }
                     state.idx[x] = coloridx;
+                    state.palette[x] = sprite.oam.palette();
                     state.paletted[x] = self.sprite_cindex_to_color(&sprite, coloridx);
-                    state.layer[x] = 4;
+                    state.layer[x] = LAYER_SPRITES;
                 }
             }
         }
@@ -296,6 +314,7 @@ where
                 mainscreen.layer[x],
                 subscreen.layer[x],
                 mainscreen.window.math[x],
+                mainscreen.palette[x],
             );
 
             // Apply master brightness and output
@@ -311,6 +330,7 @@ where
         mainlayer: u8,
         sublayer: u8,
         in_window: bool,
+        mainpalette: u8,
     ) -> SnesColor {
         // 5-4  Color Math Enable
         // (0=Always, 1=MathWindow, 2=NotMathWin, 3=Never)
@@ -337,6 +357,11 @@ where
                 });
         if !apply || cm_enable == 3 {
             // Disabled always or disabled for layer
+            return pixel;
+        }
+
+        if mainlayer == LAYER_SPRITES && (0..4).contains(&mainpalette) {
+            // Sprite palette 0-3 are unaffected by color math
             return pixel;
         }
 
