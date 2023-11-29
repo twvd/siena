@@ -275,14 +275,17 @@ where
             }
 
             for i in 0..self.dma[ch].len() {
+                let a_addr = self.dma[ch].a_addr();
                 let b_addr = self.dma[ch].b_addr();
-                let a_addr = match self.dma[ch].step() {
-                    DMAStep::Increment => self.dma[ch].a_addr() + i,
-                    DMAStep::Fixed => self.dma[ch].a_addr(),
-                    DMAStep::Decrement => self.dma[ch].a_addr() - i,
-                };
 
                 self.dma_transfer_step(ch, a_addr, b_addr, i);
+
+                // Progress the A-address
+                match self.dma[ch].step() {
+                    DMAStep::Increment => self.dma[ch].a1t = self.dma[ch].a1t.wrapping_add(1),
+                    DMAStep::Decrement => self.dma[ch].a1t = self.dma[ch].a1t.wrapping_sub(1),
+                    DMAStep::Fixed => (),
+                };
             }
         }
     }
