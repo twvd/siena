@@ -22,6 +22,9 @@ use tile::{Tile, TILE_HEIGHT, TILE_WIDTH};
 pub const SCREEN_WIDTH: usize = 8 * 32;
 pub const SCREEN_HEIGHT: usize = 8 * 28;
 
+// The entire screen should be shifted up by 1 scanline
+const SCANLINE_OUTPUT_OFFSET: isize = -1;
+
 type VramWord = u16;
 const VRAM_WORDS: usize = 32 * 1024;
 const VRAM_WORDSIZE: usize = 2;
@@ -467,8 +470,11 @@ where
                 }
             } else {
                 self.vblank = false;
-                if self.last_scanline < SCREEN_HEIGHT {
-                    self.render_scanline(self.last_scanline);
+                if (self.last_scanline as isize)
+                    < ((SCREEN_HEIGHT as isize) - SCANLINE_OUTPUT_OFFSET)
+                    && (self.last_scanline as isize) + SCANLINE_OUTPUT_OFFSET >= 0
+                {
+                    self.render_scanline(self.last_scanline, SCANLINE_OUTPUT_OFFSET);
                 }
             }
         }

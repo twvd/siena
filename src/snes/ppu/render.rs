@@ -275,7 +275,7 @@ where
         state
     }
 
-    pub fn render_scanline(&mut self, scanline: usize) {
+    pub fn render_scanline(&mut self, scanline: usize, output_offset: isize) {
         let windows = self.render_windows();
         let mainscreen = self.render_scanline_screen(
             scanline,
@@ -299,12 +299,13 @@ where
         );
 
         // Send line to screen buffer
+        let output_line = usize::try_from((scanline as isize) + output_offset).unwrap();
         let brightness = (self.inidisp & 0x0F) as usize;
         for x in 0..mainscreen.paletted.len() {
             if brightness == 0 || self.inidisp & 0x80 != 0 {
                 // Force blank or no brightness
                 self.renderer
-                    .set_pixel(x, scanline, SnesColor::BLACK.to_native());
+                    .set_pixel(x, output_line, SnesColor::BLACK.to_native());
                 continue;
             }
 
@@ -318,8 +319,11 @@ where
             );
 
             // Apply master brightness and output
-            self.renderer
-                .set_pixel(x, scanline, pixel.apply_brightness(brightness).to_native());
+            self.renderer.set_pixel(
+                x,
+                output_line,
+                pixel.apply_brightness(brightness).to_native(),
+            );
         }
     }
 
