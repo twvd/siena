@@ -36,6 +36,12 @@ fn test_display(rom: &[u8], pass_hash: &[u8], time_limit: u128, stable: bool) {
         }
         if stable && newstatus.stable_frames >= 20 {
             if newstatus.hash != pass_hash {
+                println!(
+                    ":%s/{:02x}/{:02x}",
+                    pass_hash.iter().format(""),
+                    newstatus.hash.iter().format("")
+                );
+
                 panic!(
                     "Expected hash {:02x} but saw {:02x} (for {} frames)",
                     pass_hash.iter().format(""),
