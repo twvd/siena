@@ -2,6 +2,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use anyhow::Result;
+use serbia::serbia;
+use serde::{Deserialize, Serialize};
 
 use crate::snes::bus::Bus;
 use crate::snes::cpu_spc700::cpu::{SpcAddress, SPC_ADDRESS_MASK};
@@ -14,6 +16,8 @@ const APU_RAM_SIZE: usize = 64 * 1024;
 const APU_ROM_SIZE: usize = 64;
 
 /// APU peripherals as they face the SPC700 audio CPU
+#[serbia]
+#[derive(Serialize, Deserialize)]
 pub struct Apubus {
     ram: [u8; APU_RAM_SIZE],
     rom: [u8; APU_ROM_SIZE],

@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 use anyhow::Result;
 use colored::*;
+use serde::{Deserialize, Serialize};
 
 use crate::snes::bus::{Address, BusMember};
 use crate::snes::cpu_spc700::cpu::{CpuSpc700, SpcAddress};
@@ -15,6 +16,7 @@ use crate::tickable::{Tickable, Ticks};
 use apubus::Apubus;
 
 /// Type for the CPU <-> APU communication ports
+#[derive(Serialize, Deserialize)]
 pub struct ApuPorts {
     /// APU -> CPU
     pub cpu: [u8; 4],
@@ -24,6 +26,7 @@ pub struct ApuPorts {
 }
 
 /// The SNES Audio Processing Unit
+#[derive(Serialize, Deserialize)]
 pub struct Apu {
     /// SPC700 CPU core
     cpu: CpuSpc700<Apubus>,

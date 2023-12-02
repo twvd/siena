@@ -2,6 +2,7 @@ use std::cell::Cell;
 
 use anyhow::Result;
 use dbg_hex::dbg_hex;
+use serde::{Deserialize, Serialize};
 
 use crate::frontend::Renderer;
 use crate::snes::apu::Apu;
@@ -18,7 +19,7 @@ const WRAM_MASK: Address = (WRAM_SIZE - 1) as Address;
 
 const DMA_CHANNELS: usize = 8;
 
-#[derive(Eq, PartialEq, Copy, Clone, clap::ValueEnum)]
+#[derive(Eq, PartialEq, Copy, Clone, clap::ValueEnum, Serialize, Deserialize)]
 pub enum BusTrace {
     None,
     Open,
@@ -26,6 +27,8 @@ pub enum BusTrace {
 }
 
 /// All peripherals as they face the main CPU
+#[derive(Serialize, Deserialize)]
+#[serde(bound = "TRenderer:")]
 pub struct Mainbus<TRenderer>
 where
     TRenderer: Renderer,
@@ -35,7 +38,8 @@ where
     pub trace: BusTrace,
 
     /// Controllers
-    joypads: [Joypad; JOYPAD_COUNT],
+    #[serde(skip)]
+    joypads: Option<[Joypad; JOYPAD_COUNT]>,
 
     /// Audio Processing Unit
     pub apu: Apu,
@@ -92,7 +96,7 @@ enum DMAStep {
 }
 
 /// All parameters for a single DMA channel
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 struct DMAChannel {
     /// Channel parameters
     dmap: u8,
@@ -235,7 +239,7 @@ where
             trace,
             dma: [DMAChannel::new(); DMA_CHANNELS],
             hdmaen: 0,
-            joypads,
+            joypads: Some(joypads),
 
             ppu: PPU::<TRenderer>::new(renderer),
             apu: Apu::new(apu_verbose),
@@ -436,9 +440,15 @@ where
                     Some(val)
                 }
                 // JOYA - Joypad Input Register A (R)
-                0x4016 => Some(self.joypads[0].read() | self.joypads[2].read() << 1),
+                0x4016 => {
+                    let joypads = self.joypads.as_ref().unwrap();
+                    Some(joypads[0].read() | joypads[2].read() << 1)
+                }
                 // JOYB - Joypad Input Register B (R)
-                0x4017 => Some(self.joypads[1].read() | self.joypads[3].read() << 1 | 0x0C),
+                0x4017 => {
+                    let joypads = self.joypads.as_ref().unwrap();
+                    Some(joypads[1].read() | joypads[3].read() << 1 | 0x0C)
+                }
                 // MDMAEN - Select General Purpose DMA Channel(s) and Start Transfer
                 0x420B => Some(0xFF),
                 // MEMSEL - Memory-2 Waitstate Control
@@ -483,17 +493,41 @@ where
                 // RDMPYH - Unsigned Division Remainder / Multiply Product (up.8bit) (R)
                 0x4217 => Some((self.rdmpy >> 8) as u8),
                 // JOY1L/JOY1H - Joypad 1 (gameport 1, pin 4) (R)
-                0x4218 => Some(self.joypads[0].read_auto_low()),
-                0x4219 => Some(self.joypads[0].read_auto_high()),
+                0x4218 => {
+                    let joypads = self.joypads.as_ref().unwrap();
+                    Some(joypads[0].read_auto_low())
+                }
+                0x4219 => {
+                    let joypads = self.joypads.as_ref().unwrap();
+                    Some(joypads[0].read_auto_high())
+                }
                 // JOY2L/JOY2H - Joypad 2 (gameport 2, pin 4) (R)
-                0x421A => Some(self.joypads[1].read_auto_low()),
-                0x421B => Some(self.joypads[1].read_auto_high()),
+                0x421A => {
+                    let joypads = self.joypads.as_ref().unwrap();
+                    Some(joypads[1].read_auto_low())
+                }
+                0x421B => {
+                    let joypads = self.joypads.as_ref().unwrap();
+                    Some(joypads[1].read_auto_high())
+                }
                 // JOY3L/JOY3H - Joypad 3 (gameport 1, pin 5) (R)
-                0x421C => Some(self.joypads[2].read_auto_low()),
-                0x421D => Some(self.joypads[2].read_auto_high()),
+                0x421C => {
+                    let joypads = self.joypads.as_ref().unwrap();
+                    Some(joypads[2].read_auto_low())
+                }
+                0x421D => {
+                    let joypads = self.joypads.as_ref().unwrap();
+                    Some(joypads[2].read_auto_high())
+                }
                 // JOY4L/JOY4H - Joypad 4 (gameport 2, pin 5) (R)
-                0x421E => Some(self.joypads[3].read_auto_low()),
-                0x421F => Some(self.joypads[3].read_auto_high()),
+                0x421E => {
+                    let joypads = self.joypads.as_ref().unwrap();
+                    Some(joypads[3].read_auto_low())
+                }
+                0x421F => {
+                    let joypads = self.joypads.as_ref().unwrap();
+                    Some(joypads[3].read_auto_high())
+                }
                 // DMA parameter area
                 0x4300..=0x43FF => {
                     let ch = (addr >> 4) & 0x07;
@@ -597,7 +631,10 @@ where
                 0x4209 => Some(self.vtime = ((self.vtime & 0xFF00) | val as u16) & 0x1FF),
                 0x420A => Some(self.vtime = ((self.vtime & 0x00FF) | (val as u16) << 8) & 0x1FF),
                 // JOYWR - Joypad Output (W)
-                0x4016 => Some(self.joypads.iter_mut().for_each(|j| j.strobe())),
+                0x4016 => {
+                    let joypads = self.joypads.as_mut().unwrap();
+                    Some(joypads.iter_mut().for_each(|j| j.strobe()))
+                }
                 // NMITIMEN - Interrupt Enable and Joypad Request (W)
                 0x4200 => {
                     // TODO joypad

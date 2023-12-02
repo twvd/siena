@@ -1,8 +1,11 @@
 use crate::tickable::Ticks;
 
+use serde::{Deserialize, Serialize};
+
 pub const APU_TIMERS: usize = 3;
 
 /// One APU timer
+#[derive(Serialize, Deserialize)]
 pub struct Timer {
     /// The top register
     top: usize,

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 
 use crate::snes::bus::{Bus, BusIterator};
 use crate::tickable::Ticks;
@@ -10,6 +11,7 @@ pub type SpcAddress = u16;
 pub const SPC_ADDRESS_MASK: SpcAddress = 0xFFFF;
 
 /// SNES audio CPU (SPC700)
+#[derive(Serialize, Deserialize)]
 pub struct CpuSpc700<TBus: Bus<SpcAddress>> {
     pub bus: TBus,
     pub regs: RegisterFile,

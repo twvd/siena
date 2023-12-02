@@ -2,6 +2,7 @@ use std::fmt;
 
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
+use serde::{Deserialize, Serialize};
 
 use crate::snes::bus::{Address, BusMember};
 
@@ -34,6 +35,7 @@ pub enum MapMode {
 }
 
 /// A mounted SNES cartridge
+#[derive(Serialize, Deserialize)]
 pub struct Cartridge {
     rom: Vec<u8>,
     ram: Vec<u8>,

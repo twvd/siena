@@ -1,5 +1,6 @@
 use std::fs;
 use std::io::{stdin, Read};
+use std::time::SystemTime;
 
 use anyhow::Result;
 use clap::Parser;
@@ -149,6 +150,23 @@ fn main() -> Result<()> {
                         keycode: Some(Keycode::Num5),
                         ..
                     } => cpu.bus.ppu.dbg_layermask ^= 1 << 4,
+
+                    // Dump state
+                    Event::KeyDown {
+                        keycode: Some(Keycode::D),
+                        ..
+                    } => {
+                        let filename = format!(
+                            "state_{}.json",
+                            SystemTime::now()
+                                .duration_since(SystemTime::UNIX_EPOCH)
+                                .expect("Timetravel detected")
+                                .as_secs()
+                        );
+                        let file = fs::File::create(&filename)?;
+                        serde_json::to_writer(file, &cpu)?;
+                        println!("State dumped to {}", filename);
+                    }
 
                     // Controller input
                     Event::KeyDown {

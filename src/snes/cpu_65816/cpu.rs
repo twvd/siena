@@ -1,5 +1,6 @@
 use anyhow::Result;
 use num_traits::ToPrimitive;
+use serde::{Deserialize, Serialize};
 
 use crate::snes::bus::{Address, Bus, BusIterator, ADDRESS_MASK};
 use crate::tickable::Ticks;
@@ -9,6 +10,7 @@ use super::instruction::{AddressingMode, Instruction, InstructionType};
 use super::regs::{Flag, Register, RegisterFile, RegisterWidth};
 
 /// Main SNES CPU (65816)
+#[derive(Serialize, Deserialize)]
 pub struct Cpu65816<TBus: Bus<Address>> {
     pub bus: TBus,
     pub regs: RegisterFile,

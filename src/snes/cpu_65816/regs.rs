@@ -2,6 +2,7 @@ use std::fmt;
 
 use num_derive::ToPrimitive;
 use num_traits::ToPrimitive;
+use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, IntoEnumIterator};
 
 /// Bit positions of the flags in the P register.
@@ -112,7 +113,7 @@ impl Register {
 }
 
 /// Complete CPU register file
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct RegisterFile {
     pub c: u16,
     pub dbr: u8,

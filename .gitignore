@@ -2,4 +2,4 @@
 /rom
 .*.swp
 .*.swt
-
+state_*.json

@@ -2,11 +2,12 @@ use std::cmp::min;
 
 use num_traits::int::PrimInt;
 use num_traits::AsPrimitive;
+use serde::{Deserialize, Serialize};
 
 use crate::frontend::Color;
 
 /// RGB555 SNES-native color
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Serialize, Deserialize)]
 pub struct SnesColor(u16);
 
 impl SnesColor {

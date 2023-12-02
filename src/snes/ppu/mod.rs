@@ -12,6 +12,8 @@ use std::cell::Cell;
 use anyhow::Result;
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
+use serbia::serbia;
+use serde::{Deserialize, Serialize};
 
 use crate::frontend::Renderer;
 use crate::tickable::{Tickable, Ticks};
@@ -94,11 +96,19 @@ impl BPP {
     }
 }
 
+fn _default_none<T>() -> Option<T> {
+    None
+}
+
+#[serbia]
+#[derive(Serialize, Deserialize)]
 pub struct PPU<TRenderer: Renderer> {
     // Debug toggles to mask certain bg/obj layers
     pub dbg_layermask: u8,
 
-    renderer: TRenderer,
+    #[serde(skip, default = "_default_none")]
+    renderer: Option<TRenderer>,
+
     cycles: usize,
     last_scanline: usize,
     intreq_vblank: bool,
@@ -201,7 +211,7 @@ where
         Self {
             dbg_layermask: 0,
 
-            renderer,
+            renderer: Some(renderer),
             cycles: 0,
             last_scanline: 0,
             intreq_vblank: false,
@@ -466,7 +476,9 @@ where
                     // Entered VBlank
                     self.vblank = true;
                     self.intreq_vblank = true;
-                    self.renderer.update()?;
+
+                    let renderer = self.renderer.as_mut().unwrap();
+                    renderer.update()?;
                 }
             } else {
                 self.vblank = false;
