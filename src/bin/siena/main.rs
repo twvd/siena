@@ -7,6 +7,8 @@ use clap::Parser;
 use colored::*;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
+use serde::Deserialize;
+use serde_json::Deserializer;
 
 use siena::frontend::sdl::{SDLEventPump, SDLRenderer};
 use siena::frontend::Renderer;
@@ -66,6 +68,10 @@ struct Args {
         value_enum
     )]
     bustrace: BusTrace,
+
+    /// Load state file
+    #[arg(long)]
+    state: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -85,6 +91,25 @@ fn main() -> Result<()> {
 
     let reset = bus.read16(0xFFFC);
     let mut cpu = Cpu65816::<Mainbus<SDLRenderer>>::new(bus, reset);
+
+    if let Some(state_filename) = args.state {
+        // Load and deserialize state file
+        println!("Restoring state from {}", state_filename);
+        let json = fs::read_to_string(state_filename)?;
+        let mut deserializer = Deserializer::from_str(&json);
+
+        // TODO Pending https://github.com/serde-rs/serde/issues/2512
+        //Deserialize::deserialize_in_place(&mut deserializer, &mut cpu)?;
+
+        // Until then..
+        let mut new_cpu: Cpu65816<Mainbus<SDLRenderer>> =
+            Deserialize::deserialize(&mut deserializer)?;
+        // ..and move all the non-serializable stuff over.
+        new_cpu.bus.ppu.renderer = std::mem::replace(&mut cpu.bus.ppu.renderer, None);
+        new_cpu.bus.joypads = std::mem::replace(&mut cpu.bus.joypads, None);
+
+        cpu = new_cpu;
+    }
 
     let mut eventpoll = 0;
     'mainloop: loop {

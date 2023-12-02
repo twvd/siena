@@ -39,7 +39,7 @@ where
 
     /// Controllers
     #[serde(skip)]
-    joypads: Option<[Joypad; JOYPAD_COUNT]>,
+    pub joypads: Option<[Joypad; JOYPAD_COUNT]>,
 
     /// Audio Processing Unit
     pub apu: Apu,

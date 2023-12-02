@@ -107,7 +107,7 @@ pub struct PPU<TRenderer: Renderer> {
     pub dbg_layermask: u8,
 
     #[serde(skip, default = "_default_none")]
-    renderer: Option<TRenderer>,
+    pub renderer: Option<TRenderer>,
 
     cycles: usize,
     last_scanline: usize,
