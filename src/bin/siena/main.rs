@@ -90,6 +90,7 @@ fn main() -> Result<()> {
     let bus = Mainbus::<SDLRenderer>::new(cart, args.bustrace, display, joypads, args.verbose);
 
     let reset = bus.read16(0xFFFC);
+    println!("Reset at PC {:06X}", reset);
     let mut cpu = Cpu65816::<Mainbus<SDLRenderer>>::new(bus, reset);
 
     if let Some(state_filename) = args.state {

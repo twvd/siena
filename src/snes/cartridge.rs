@@ -170,6 +170,10 @@ impl BusMember<Address> for Cartridge {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
         match (bank, addr) {
+            // HiROM (mirrors in LoROM banks)
+            (0x00..=0x3F | 0x80..=0xBF, 0x8000..=0xFFFF) if self.hirom => {
+                Some(self.rom[addr - 0x0000 + (bank & !0x80) * 0x10000])
+            }
             // LoROM
             (0x00..=0x3F | 0x80..=0xBF, 0x8000..=0xFFFF) => {
                 Some(self.rom[addr - 0x8000 + (bank & !0x80) * 0x8000])

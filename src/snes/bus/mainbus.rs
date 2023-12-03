@@ -565,7 +565,8 @@ where
 
                 _ => None,
             },
-            0x40..=0x7D => self.cartridge.read(fulladdr),
+            // Cartridge (HiROM)
+            0x40..=0x7D | 0xC0..=0xFF => self.cartridge.read(fulladdr),
             // Full WRAM area
             0x7E..=0x7F => Some(self.wram[((bank - 0x7E) * WRAM_BANK_SIZE) + addr]),
             _ => None,
@@ -731,7 +732,8 @@ where
 
                 _ => None,
             },
-            0x70..=0x7D => self.cartridge.write(fulladdr, val),
+            // Cartridge (HiROM)
+            0x70..=0x7D | 0xC0..=0xFF => self.cartridge.write(fulladdr, val),
             // Full WRAM area
             0x7E..=0x7F => Some(self.wram[((bank - 0x7E) * WRAM_BANK_SIZE) + addr] = val),
 
