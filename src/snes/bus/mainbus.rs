@@ -329,7 +329,12 @@ where
             2 | 6 => (b_addr, 1 - (unit_offset % 2)),
             // Transfer 4 bytes   xx, xx,   xx+1, xx+1
             3 | 7 => (b_addr.wrapping_add(unit_offset / 2), 3 - (unit_offset % 4)),
-            _ => panic!("Unimplemented DMA mode {}", self.dma[ch].mode()),
+            // Transfer 4 bytes   xx, xx+1, xx+2, xx+3
+            4 => (b_addr.wrapping_add(unit_offset), 3 - (unit_offset % 4)),
+            // Transfer 4 bytes   xx, xx+1, xx,   xx+1
+            5 => (b_addr.wrapping_add(unit_offset % 2), 3 - (unit_offset % 4)),
+
+            _ => unreachable!(),
         };
 
         // Transfer the byte in whichever direction
