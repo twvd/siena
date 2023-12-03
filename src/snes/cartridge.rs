@@ -15,6 +15,7 @@ const HDR_RAMSIZE_OFFSET: usize = 0x18;
 const HDR_CHECKSUM_OFFSET: usize = 0x1C;
 const HDR_ICHECKSUM_OFFSET: usize = 0x1E;
 const HDR_LEN: usize = 0x1F;
+const RAM_SIZE: usize = 32 * 1024;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, FromPrimitive)]
 pub enum Chipset {
@@ -43,6 +44,9 @@ pub struct Cartridge {
 
     /// True if HiROM. Cache this for performance reasons.
     hirom: bool,
+
+    /// RAM address mask, to properly emulate mirroring
+    ram_mask: usize,
 }
 
 impl Cartridge {
@@ -118,14 +122,18 @@ impl Cartridge {
 
         let mut c = Self {
             rom: Vec::from(rom),
-            ram: vec![0; 512 * 1024],
+            ram: vec![0; RAM_SIZE],
             hirom: false,
             header_offset: header_offset.expect("Could not locate header"),
+            ram_mask: 0,
         };
+
+        // TODO refactor header to its own struct
         c.hirom = match c.get_map() {
             MapMode::HiROM => true,
             _ => false,
         };
+        c.ram_mask = c.get_ram_size() - 1;
         c
     }
 
@@ -133,9 +141,10 @@ impl Cartridge {
     pub fn load_nohdr(rom: &[u8], hirom: bool) -> Self {
         Self {
             rom: Vec::from(rom),
-            ram: vec![0; 512 * 1024],
+            ram: vec![0; RAM_SIZE],
             hirom,
             header_offset: 0,
+            ram_mask: RAM_SIZE - 1,
         }
     }
 
@@ -144,9 +153,10 @@ impl Cartridge {
     pub fn new_empty() -> Self {
         Self {
             rom: vec![],
-            ram: vec![0; 512 * 1024],
+            ram: vec![0; RAM_SIZE],
             hirom: false,
             header_offset: 0,
+            ram_mask: RAM_SIZE - 1,
         }
     }
 }
@@ -180,8 +190,8 @@ impl BusMember<Address> for Cartridge {
             }
 
             // HiROM SRAM
-            (0x30..=0x3F, 0x6000..=0x6FFF) if self.hirom => {
-                Some(self.ram[(bank - 0x30) * 0x1000 + (addr - 0x6000)])
+            (0x30..=0x3F | 0x80..=0xBF, 0x6000..=0x6FFF) if self.hirom => {
+                Some(self.ram[(bank - 0x30) * 0x1000 + (addr - 0x6000) & self.ram_mask])
             }
 
             // HiROM
@@ -204,8 +214,8 @@ impl BusMember<Address> for Cartridge {
 
         match (bank, addr) {
             // HiROM SRAM
-            (0x30..=0x3F, 0x6000..=0x6FFF) if self.hirom => {
-                Some(self.ram[(bank - 0x30) * 0x1000 + (addr - 0x6000)] = val)
+            (0x30..=0x3F | 0x80..=0xBF, 0x6000..=0x6FFF) if self.hirom => {
+                Some(self.ram[(bank - 0x30) * 0x1000 + (addr - 0x6000) & self.ram_mask] = val)
             }
 
             // LoROM SRAM

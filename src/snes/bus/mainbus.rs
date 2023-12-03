@@ -565,8 +565,8 @@ where
                         _ => None,
                     }
                 }
-                // LoROM
-                0x8000..=0xFFFF => self.cartridge.read(fulladdr),
+                // HiROM SRAM, LoROM
+                0x6000..=0x6FFF | 0x8000..=0xFFFF => self.cartridge.read(fulladdr),
 
                 _ => None,
             },
@@ -734,6 +734,9 @@ where
                         _ => None,
                     }
                 }
+
+                // HiROM SRAM, LoROM
+                0x6000..=0x6FFF | 0x8000..=0xFFFF => self.cartridge.write(fulladdr, val),
 
                 _ => None,
             },
