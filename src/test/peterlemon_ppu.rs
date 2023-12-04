@@ -16,6 +16,7 @@ macro_rules! ppu_test {
         }
     };
 }
+#[allow(unused_macros)]
 macro_rules! ppu_test_ns {
     ($testname:ident, $testfn:expr, $hash:expr) => {
         #[allow(non_snake_case)]
@@ -67,4 +68,21 @@ ppu_test!(
     Rings,
     "Rings/Rings.sfc",
     "24ad228f589fccfa8882fcd9a594366a0a517972a7114f2d964b34025f0b355a"
+);
+
+// Color math tests
+ppu_test!(
+    HiColor1241DLair,
+    "Blend/HiColor/HiColor1241DLair/HiColor1241DLair.sfc",
+    "7342e56437c435e7236fe69c283b4e8e4ce17b2c6d5a0f6e85ac915dce16be02"
+);
+ppu_test!(
+    HiColor3840,
+    "Blend/HiColor/HiColor3840/HiColor3840.sfc",
+    "0759ec270966298ed871806502c6ffda3131213a87e67edbe4396ff2e49bc03d"
+);
+ppu_test!(
+    HiColor575Myst,
+    "Blend/HiColor/HiColor575Myst/HiColor575Myst.sfc",
+    "8f9117eaf0bc0e3efd2f2ba81f3cef7f02646f9586eaedd8dea3d01c3742ad8b"
 );
