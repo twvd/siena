@@ -72,6 +72,10 @@ struct Args {
     /// Load state file
     #[arg(long)]
     state: Option<String>,
+
+    /// Skip cartridge header detection, load as LoROM (mostly for test ROMs)
+    #[arg(long)]
+    no_header: bool,
 }
 
 fn main() -> Result<()> {
@@ -85,8 +89,13 @@ fn main() -> Result<()> {
     }
     let display = SDLRenderer::new(SCREEN_WIDTH, SCREEN_HEIGHT)?;
     let eventpump = SDLEventPump::new();
-    let cart = Cartridge::load(&f);
-    println!("Cartridge: {}", &cart);
+    let cart = if !args.no_header {
+        let c = Cartridge::load(&f);
+        println!("Cartridge: {}", &c);
+        c
+    } else {
+        Cartridge::load_nohdr(&f, false)
+    };
     let bus = Mainbus::<SDLRenderer>::new(cart, args.bustrace, display, joypads, args.verbose);
 
     let reset = bus.read16(0xFFFC);
