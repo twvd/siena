@@ -404,7 +404,7 @@ where
             tilenr += 16;
         }
 
-        let idx = (self.bgxnba[bg] as usize * 4096) + (tilenr * len);
+        let idx = ((self.bgxnba[bg] as usize * 4096) + (tilenr * len)) & VRAM_ADDRMASK;
         BgTile {
             data: &self.vram[idx..(idx + len)],
             bpp,
