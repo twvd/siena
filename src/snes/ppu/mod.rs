@@ -324,7 +324,7 @@ where
         let tilesize = self.get_bg_tile_size(bg);
 
         match self.get_screen_mode() {
-            0 | 1 | 3 => {
+            0 | 1 | 2 | 3 => {
                 // AA BB CC DD, size = 0x800 per sub-map
                 // 00  32x32   AA
                 //             AA
@@ -369,7 +369,12 @@ where
                 0 => BPP::Four,
                 1 => BPP::Four,
                 2 => BPP::Two,
-                _ => todo!(),
+                _ => unreachable!(),
+            },
+            2 => match bg {
+                0 => BPP::Four,
+                1 => BPP::Four,
+                _ => unreachable!(),
             },
             3 => match bg {
                 0 => BPP::Eight,

@@ -249,6 +249,26 @@ where
                 // BG3 tiles with priority 0
                 self.render_scanline_bglayer(scanline, 2, &mut state, false);
             }
+            2 => {
+                // 2 layers, bg1: 4bpp (16 colors), bg2: 4bpp (16 colors)
+                // bg3: Offset-per-tile
+                // Sprites with priority 3
+                self.render_scanline_sprites(scanline, &mut state, 3);
+                // BG1 tiles with priority 1
+                self.render_scanline_bglayer(scanline, 0, &mut state, true);
+                // Sprites with priority 2
+                self.render_scanline_sprites(scanline, &mut state, 2);
+                // BG2 tiles with priority 1
+                self.render_scanline_bglayer(scanline, 1, &mut state, true);
+                // Sprites with priority 1
+                self.render_scanline_sprites(scanline, &mut state, 1);
+                // BG1 tiles with priority 0
+                self.render_scanline_bglayer(scanline, 0, &mut state, false);
+                // Sprites with priority 0
+                self.render_scanline_sprites(scanline, &mut state, 0);
+                // BG2 tiles with priority 0
+                self.render_scanline_bglayer(scanline, 1, &mut state, false);
+            }
             3 => {
                 // 2 layers, bg1: 8bpp (256 colors)
                 // bg2: 4bpp (16 colors)
