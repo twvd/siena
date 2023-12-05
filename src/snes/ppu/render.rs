@@ -269,7 +269,11 @@ where
                 // BG2 tiles with priority 0
                 self.render_scanline_bglayer(scanline, 1, &mut state, false);
             }
-            _ => todo!(),
+            _ => println!(
+                "TODO unimplemented PPU mode {} at scanline {}",
+                self.get_screen_mode(),
+                scanline
+            ),
         }
 
         state

@@ -205,7 +205,7 @@ impl DMAChannel {
             self.das = addr as u16;
         } else {
             self.a1b = (addr >> 16) as u8;
-            self.a1t = addr as u16;
+            self.a2a = addr as u16;
         }
     }
 
