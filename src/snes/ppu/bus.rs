@@ -3,6 +3,13 @@ use super::*;
 use crate::frontend::Renderer;
 use crate::snes::bus::{Address, BusMember};
 
+macro_rules! write_m7x {
+    ($self:ident, $reg:ident, $val:expr) => {{
+        $self.$reg = (($val as u16) << 8 | $self.m7_old as u16) as i16;
+        $self.m7_old = $val
+    }};
+}
+
 impl<TRenderer> BusMember<Address> for PPU<TRenderer>
 where
     TRenderer: Renderer,
@@ -37,17 +44,17 @@ where
                 //}
                 // MPYL - Signed Multiply Result (lower 8bit) (R)
                 0x2134 => {
-                    let res = i32::from(self.m7a as i16) * i32::from(self.m7b as i8);
+                    let res = i32::from(self.m7a as i16) * i32::from(self.m7b_8b);
                     Some(res as u8)
                 }
                 // MPYM - Signed Multiply Result (middle 8bit) (R)
                 0x2135 => {
-                    let res = i32::from(self.m7a as i16) * i32::from(self.m7b as i8);
+                    let res = i32::from(self.m7a as i16) * i32::from(self.m7b_8b);
                     Some((res >> 8) as u8)
                 }
                 // MPYH - Signed Multiply Result (upper 8bit) (R)
                 0x2136 => {
-                    let res = i32::from(self.m7a as i16) * i32::from(self.m7b as i8);
+                    let res = i32::from(self.m7a as i16) * i32::from(self.m7b_8b);
                     Some((res >> 16) as u8)
                 }
                 // SLHV - Latch H/V-Counter by Software (R)
@@ -182,6 +189,11 @@ where
                     let new = val as u16;
                     self.bgxxofs_prev = val;
 
+                    if idx == 0 {
+                        // M7HOFS
+                        write_m7x!(self, m7hofs, val);
+                    }
+
                     Some(self.bgxhofs[idx] = (new << 8) | (prev & !7) | ((cur >> 8) & 7))
                 }
                 // BGxVOFS - BGx Vertical Scroll (Y) (write-twice)
@@ -190,6 +202,11 @@ where
                     let prev = self.bgxxofs_prev as u16;
                     let new = val as u16;
                     self.bgxxofs_prev = val;
+
+                    if idx == 0 {
+                        // M7VOFS
+                        write_m7x!(self, m7vofs, val);
+                    }
 
                     Some(self.bgxvofs[idx] = (new << 8) | prev)
                 }
@@ -224,10 +241,23 @@ where
                     self.vram_autoinc(true);
                     Some(self.vram[addr] = (cur & 0xFF) | (val as u16) << 8)
                 }
+                // M7SEL - Rotation/Scaling Mode Settings (W)
+                0x211A => Some(self.m7sel = val),
                 // M7A - Rotation/Scaling Parameter A (and Maths 16bit operand) (W)
-                0x211B => Some(self.m7a = self.m7a >> 8 | (val as u16) << 8),
+                0x211B => Some(write_m7x!(self, m7a, val)),
                 // M7B - Rotation/Scaling Parameter B (and Maths 8bit operand) (W)
-                0x211C => Some(self.m7b = val),
+                0x211C => {
+                    self.m7b_8b = val as i8;
+                    Some(write_m7x!(self, m7b, val))
+                }
+                // M7C - Rotation/Scaling Parameter C (W)
+                0x211D => Some(write_m7x!(self, m7c, val)),
+                // M7D - Rotation/Scaling Parameter D (W)
+                0x211E => Some(write_m7x!(self, m7d, val)),
+                // M7X - Rotation/Scaling Center Coordinate X (W)
+                0x211F => Some(write_m7x!(self, m7x, val)),
+                // M7Y - Rotation/Scaling Center Coordinate Y (W)
+                0x2120 => Some(write_m7x!(self, m7y, val)),
                 // CGADD - Palette CGRAM Address (Color Generator Memory)
                 0x2121 => {
                     self.cgadd.set(val);

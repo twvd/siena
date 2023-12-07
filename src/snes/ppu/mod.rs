@@ -168,8 +168,18 @@ pub struct PPU<TRenderer: Renderer> {
     hlatch: Cell<u8>,
     vlatch: Cell<u8>,
 
-    m7a: u16,
-    m7b: u8,
+    // Mode 7 registers
+    m7sel: u8,
+    m7a: i16,
+    m7b_8b: i8,
+    m7b: i16,
+    m7c: i16,
+    m7d: i16,
+    m7x: i16,
+    m7y: i16,
+    m7hofs: i16,
+    m7vofs: i16,
+    m7_old: u8,
 }
 
 pub struct BgTile<'a> {
@@ -262,8 +272,17 @@ where
             hlatch: Cell::new(0),
             vlatch: Cell::new(0),
 
+            m7sel: 0,
             m7a: 0,
             m7b: 0,
+            m7b_8b: 0,
+            m7c: 0,
+            m7d: 0,
+            m7hofs: 0,
+            m7vofs: 0,
+            m7x: 0,
+            m7y: 0,
+            m7_old: 0,
         }
     }
 
