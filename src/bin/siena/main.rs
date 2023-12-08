@@ -25,6 +25,8 @@ fn map_keycode(keycode: Keycode) -> Option<(usize, Button)> {
         Keycode::B => Some((0, Button::B)),
         Keycode::X => Some((0, Button::X)),
         Keycode::Y => Some((0, Button::Y)),
+        Keycode::L => Some((0, Button::L)),
+        Keycode::R => Some((0, Button::R)),
         Keycode::Space => Some((0, Button::Start)),
         Keycode::Period => Some((0, Button::Select)),
         Keycode::Up => Some((0, Button::Up)),
