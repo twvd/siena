@@ -8,27 +8,27 @@ use num_traits::FromPrimitive;
 
 const LAYER_BACKDROP: u8 = 255;
 const LAYER_SPRITES: u8 = 4;
-struct RenderState {
+pub struct RenderState {
     /// Color index from tile data
-    idx: [u8; SCREEN_WIDTH],
+    pub idx: [u8; SCREEN_WIDTH],
 
     /// Palette from OAM (sprites only!)
-    palette: [u8; SCREEN_WIDTH],
+    pub palette: [u8; SCREEN_WIDTH],
 
     /// Paletted color
-    paletted: [SnesColor; SCREEN_WIDTH],
+    pub paletted: [SnesColor; SCREEN_WIDTH],
 
     /// Layer that produced the pixel
-    layer: [u8; SCREEN_WIDTH],
+    pub layer: [u8; SCREEN_WIDTH],
 
     /// Layer mask for the window
-    windowlayermask: u8,
+    pub windowlayermask: u8,
 
     /// Layer mask
-    layermask: u8,
+    pub layermask: u8,
 
     /// State/settings of the window
-    window: WindowState,
+    pub window: WindowState,
 }
 
 impl RenderState {
@@ -53,7 +53,7 @@ impl RenderState {
 type WindowLine = [bool; SCREEN_WIDTH];
 
 #[derive(Clone)]
-struct WindowState {
+pub struct WindowState {
     bg: [WindowLine; 4],
     math: WindowLine,
     sprites: WindowLine,
@@ -75,7 +75,7 @@ impl<TRenderer> PPU<TRenderer>
 where
     TRenderer: Renderer,
 {
-    fn cgram_to_color(&self, addr: u8) -> SnesColor {
+    pub fn cgram_to_color(&self, addr: u8) -> SnesColor {
         SnesColor::from(self.cgram[addr as usize])
     }
 
@@ -288,6 +288,19 @@ where
                 self.render_scanline_sprites(scanline, &mut state, 0);
                 // BG2 tiles with priority 0
                 self.render_scanline_bglayer(scanline, 1, &mut state, false);
+            }
+            7 => {
+                // TODO extbg
+                // Sprites with priority 3
+                self.render_scanline_sprites(scanline, &mut state, 3);
+                // Sprites with priority 2
+                self.render_scanline_sprites(scanline, &mut state, 2);
+                // Sprites with priority 1
+                self.render_scanline_sprites(scanline, &mut state, 1);
+                // BG1
+                self.render_scanline_mode7(scanline, &mut state);
+                // Sprites with priority 0
+                self.render_scanline_sprites(scanline, &mut state, 0);
             }
             _ => println!(
                 "TODO unimplemented PPU mode {} at scanline {}",

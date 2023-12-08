@@ -133,7 +133,7 @@ where
             idx + ((self.obsel as usize >> 3) & 3) * 4096
         } else {
             idx
-        };
+        } & VRAM_ADDRMASK;
 
         SpriteTile {
             data: &self.vram[idx..(idx + len)],

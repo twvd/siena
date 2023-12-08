@@ -3,11 +3,30 @@ use super::*;
 use crate::frontend::Renderer;
 use crate::snes::bus::{Address, BusMember};
 
+use num::traits::{WrappingShl, WrappingShr};
+use num::Integer;
+use std::mem::size_of_val;
+
 macro_rules! write_m7x {
     ($self:ident, $reg:ident, $val:expr) => {{
         $self.$reg = (($val as u16) << 8 | $self.m7_old as u16) as i16;
         $self.m7_old = $val
     }};
+}
+
+macro_rules! write_m7x_13b {
+    ($self:ident, $reg:ident, $val:expr) => {{
+        $self.$reg = sign_extend(
+            ((($val as u16) & 0x1F) << 8 | $self.m7_old as u16) as i16,
+            13,
+        );
+        $self.m7_old = $val
+    }};
+}
+
+fn sign_extend<T: Integer + WrappingShl + WrappingShr>(val: T, nbits: u32) -> T {
+    let notherbits = size_of_val(&val) as u32 * 8 - nbits;
+    val.wrapping_shl(notherbits).wrapping_shr(notherbits)
 }
 
 impl<TRenderer> BusMember<Address> for PPU<TRenderer>
@@ -191,7 +210,7 @@ where
 
                     if idx == 0 {
                         // M7HOFS
-                        write_m7x!(self, m7hofs, val);
+                        write_m7x_13b!(self, m7hofs, val);
                     }
 
                     Some(self.bgxhofs[idx] = (new << 8) | (prev & !7) | ((cur >> 8) & 7))
@@ -205,7 +224,7 @@ where
 
                     if idx == 0 {
                         // M7VOFS
-                        write_m7x!(self, m7vofs, val);
+                        write_m7x_13b!(self, m7vofs, val);
                     }
 
                     Some(self.bgxvofs[idx] = (new << 8) | prev)
@@ -255,9 +274,9 @@ where
                 // M7D - Rotation/Scaling Parameter D (W)
                 0x211E => Some(write_m7x!(self, m7d, val)),
                 // M7X - Rotation/Scaling Center Coordinate X (W)
-                0x211F => Some(write_m7x!(self, m7x, val)),
+                0x211F => Some(write_m7x_13b!(self, m7x, val)),
                 // M7Y - Rotation/Scaling Center Coordinate Y (W)
-                0x2120 => Some(write_m7x!(self, m7y, val)),
+                0x2120 => Some(write_m7x_13b!(self, m7y, val)),
                 // CGADD - Palette CGRAM Address (Color Generator Memory)
                 0x2121 => {
                     self.cgadd.set(val);

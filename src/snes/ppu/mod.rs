@@ -1,6 +1,7 @@
 pub mod bus;
 pub mod color;
 pub mod render;
+pub mod render_m7;
 pub mod sprites;
 pub mod tile;
 
