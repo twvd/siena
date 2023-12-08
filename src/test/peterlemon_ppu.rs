@@ -86,3 +86,15 @@ ppu_test!(
     "Blend/HiColor/HiColor575Myst/HiColor575Myst.sfc",
     "8f9117eaf0bc0e3efd2f2ba81f3cef7f02646f9586eaedd8dea3d01c3742ad8b"
 );
+
+// Window/HDMA tests
+ppu_test!(
+    WindowHDMA,
+    "Window/WindowHDMA/WindowHDMA.sfc",
+    "7484ab6f1e88835267bcdbadc9e7ee0568f730d4849e6208ee3683e35ad3e175"
+);
+ppu_test!(
+    WindowMultiHDMA,
+    "Window/WindowMultiHDMA/WindowMultiHDMA.sfc",
+    "688de105142b1b28b1c0bb0473e518f1beada64623c9352e58f71341da1dbf19"
+);
