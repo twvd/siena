@@ -54,6 +54,26 @@ fn vram_write_inc_high() {
 }
 
 #[test]
+fn vram_write_inc_high_2() {
+    let mut p = ppu();
+    p.write(0x2116, 0x34); // VMADDH
+    p.write(0x2117, 0x12); // VMADDL
+    p.write(0x2115, 0x80); // VMAIN - high 1 word
+
+    p.vram[0x1234] = 0x1111;
+    p.vram[0x1235] = 0x2222;
+
+    assert_eq!(p.vmadd.get(), 0x1234);
+    p.write(0x2119, 0xAA); // VMDATAH
+    assert_eq!(p.vmadd.get(), 0x1235);
+    p.write(0x2119, 0xBB); // VMDATAH
+    assert_eq!(p.vmadd.get(), 0x1236);
+
+    assert_eq!(p.vram[0x1234], 0xAA11);
+    assert_eq!(p.vram[0x1235], 0xBB22);
+}
+
+#[test]
 fn vram_write_inc_thirtytwo() {
     let mut p = ppu();
     p.write(0x2116, 0x34); // VMADDH

@@ -113,7 +113,7 @@ struct DMAChannel {
     /// DMA byte-counter / Indirect HDMA address
     das: u16,
 
-    /// DMA byte-counter / Indirect HDMA address (bank)
+    /// Indirect HDMA address (bank)
     dasb: u8,
 
     /// HDMA Table Current Address
@@ -291,6 +291,7 @@ where
                     DMAStep::Fixed => (),
                 };
             }
+            self.dma[ch].das = 0;
         }
     }
 
