@@ -201,8 +201,8 @@ fn oam_write_seq() {
     assert_eq!(p.oam[0..5], [0xAA, 0xBB, 0xCC, 0xDD, 0]);
 
     // Test end of OAM towards the 32 byte extension table
-    p.write(0x2102, (510 & 0xFF) as u8);
-    p.write(0x2103, (510 >> 8) as u8);
+    p.write(0x2102, ((510 >> 1) & 0xFF) as u8);
+    p.write(0x2103, ((510 >> 1) >> 8) as u8);
     assert_eq!(p.oam[510..513], [0, 0, 0]);
     p.write(0x2104, 0xAA);
     assert_eq!(p.oam[510..513], [0, 0, 0]);
@@ -216,8 +216,8 @@ fn oam_write_seq() {
 fn oam_write_exttable() {
     let mut p = ppu();
     assert_eq!(p.oam[512], 0);
-    p.write(0x2102, (512 & 0xFF) as u8);
-    p.write(0x2103, (512 >> 8) as u8);
+    p.write(0x2102, ((512 >> 1) & 0xFF) as u8);
+    p.write(0x2103, ((512 >> 1) >> 8) as u8);
     p.write(0x2104, 0xAA);
     assert_eq!(p.oam[512], 0xAA);
 }
@@ -226,8 +226,8 @@ fn oam_write_exttable() {
 fn oam_write_exttable_mirror() {
     let mut p = ppu();
     assert_eq!(p.oam[512], 0);
-    p.write(0x2102, (0x220 & 0xFF) as u8);
-    p.write(0x2103, (0x220 >> 8) as u8);
+    p.write(0x2102, (0x120 & 0xFF) as u8);
+    p.write(0x2103, (0x120 >> 8) as u8);
     p.write(0x2104, 0xAA);
     assert_eq!(p.oam[512], 0xAA);
 }
@@ -250,8 +250,9 @@ fn oam_read() {
     p.oam[3] = 1;
     p.oam[4] = 2;
     p.oam[5] = 3;
-    p.write(0x2102, 3);
+    p.write(0x2102, 3 >> 1);
     p.write(0x2103, 0);
+    assert_eq!(p.read(0x2138), Some(0));
     assert_eq!(p.read(0x2138), Some(1));
     assert_eq!(p.read(0x2138), Some(2));
     assert_eq!(p.read(0x2138), Some(3));

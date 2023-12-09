@@ -141,18 +141,18 @@ where
                 0x2101 => Some(self.obsel = val),
                 // OAMADDL - OAM Address and Priority Rotation (W)
                 0x2102 => {
-                    let v = self.oamadd.get() & 0xFF00;
-                    Some(self.oamadd.set(v | val as u16))
+                    let v = (self.oamadd.get() >> 1) & 0xFF00;
+                    Some(self.oamadd.set((v | val as u16) << 1))
                 }
                 // OAMADDH - OAM Address and Priority Rotation (W)
                 0x2103 => {
-                    let v = self.oamadd.get() & 0x00FF;
+                    let v = (self.oamadd.get() >> 1) & 0x00FF;
                     let val = val & 0x83; // bit 10-14 unused
                     if val & 0x80 != 0 {
                         // Obj priority
                         // TODO
                     }
-                    Some(self.oamadd.set(v | (val as u16) << 8))
+                    Some(self.oamadd.set((v | (val as u16) << 8) << 1))
                 }
                 // OAMDATA - OAM Data Write (W)
                 0x2104 => {
