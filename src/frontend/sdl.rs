@@ -1,4 +1,6 @@
 use std::cell::RefCell;
+use std::thread::sleep;
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
 use sdl2::event::Event;
@@ -33,6 +35,11 @@ pub struct SDLRenderer {
     width: usize,
     #[allow(dead_code)]
     height: usize,
+    last_frame: Instant,
+    frametime: u64,
+
+    fps_count: u64,
+    fps_time: Instant,
 }
 
 impl SDLRenderer {
@@ -68,6 +75,10 @@ impl Renderer for SDLRenderer {
                 displaybuffer: vec![0; width * height * Self::BPP],
                 width,
                 height,
+                last_frame: Instant::now(),
+                frametime: 1000000 / 50,
+                fps_count: 0,
+                fps_time: Instant::now(),
             })
         })
     }
@@ -94,6 +105,24 @@ impl Renderer for SDLRenderer {
             .copy(&self.texture, None, None)
             .map_err(|e| anyhow!(e))?;
         self.canvas.present();
+
+        self.fps_count += 1;
+
+        if self.fps_time.elapsed().as_secs() >= 2 {
+            println!(
+                "Frame rate: {:0.2} frames/second",
+                self.fps_count as f32 / self.fps_time.elapsed().as_secs_f32()
+            );
+            self.fps_count = 0;
+            self.fps_time = Instant::now();
+        }
+
+        // Limit the framerate
+        let framelen = self.last_frame.elapsed().as_micros() as u64;
+        if framelen < self.frametime {
+            sleep(Duration::from_micros(self.frametime - framelen));
+        }
+        self.last_frame = Instant::now();
 
         Ok(())
     }
