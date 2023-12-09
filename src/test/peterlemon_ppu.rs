@@ -98,3 +98,16 @@ ppu_test!(
     "Window/WindowMultiHDMA/WindowMultiHDMA.sfc",
     "688de105142b1b28b1c0bb0473e518f1beada64623c9352e58f71341da1dbf19"
 );
+
+// Mode 7 tests
+ppu_test!(
+    Mode7RotZoom,
+    "Mode7/RotZoom/RotZoom.sfc",
+    "4235ddbbc79e0a5f3f2ebe075eb23e328a63a8ba0de6949d320747668790ab91"
+);
+ppu_test!(
+    // Tests screenover (transoarent)
+    Mode7Perspective,
+    "Mode7/Perspective/Perspective.sfc",
+    "48993ffece6707ea3c64ad4a9c3096ec81215fd5dda1f9a5aaff18ee31e6c616"
+);

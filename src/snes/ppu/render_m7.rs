@@ -7,8 +7,24 @@ where
     TRenderer: Renderer,
 {
     fn mode7_vram_to_color(&self, vram_x: i32, vram_y: i32) -> u8 {
-        let tile_x = ((vram_x as u32 >> 11) & 0x7f) as u16;
-        let tile_y = ((vram_y as u32 >> 11) & 0x7f) as u16;
+        let screenover = (self.m7sel >> 6) & 0x03;
+        let overflow = (vram_x >> 18) | (vram_y >> 18) != 0;
+
+        if overflow && (screenover == 2) {
+            // Overflow -> transparent
+            return 0;
+        }
+
+        let (tile_x, tile_y) = if overflow && (screenover == 3) {
+            // Overflow -> Tile 0
+            (0, 0)
+        } else {
+            // Overflow -> Wrap
+            (
+                ((vram_x as u32 >> 11) & 0x7f) as u16,
+                ((vram_y as u32 >> 11) & 0x7f) as u16,
+            )
+        };
         let pixel_x = ((vram_x >> 8) & 0x07) as u16;
         let pixel_y = ((vram_y >> 8) & 0x07) as u16;
 
