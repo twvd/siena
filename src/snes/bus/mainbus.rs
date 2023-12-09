@@ -82,6 +82,9 @@ where
     vtime: u16,
     htime: u16,
     timeup: Cell<bool>,
+
+    /// Clearable VBlank flag in RDNMI
+    rdnmi_vblank: Cell<bool>,
 }
 
 enum DMADirection {
@@ -261,6 +264,8 @@ where
             htime: 0,
             vtime: 0,
             timeup: Cell::new(false),
+
+            rdnmi_vblank: Cell::new(false),
         }
     }
 
@@ -461,7 +466,8 @@ where
                 0x420D => Some(self.memsel),
                 // RDNMI - V-Blank NMI Flag and CPU Version Number
                 0x4210 => {
-                    if self.ppu.in_vblank() {
+                    if self.rdnmi_vblank.get() {
+                        self.rdnmi_vblank.set(false);
                         Some(0x80 | 2 | (self.openbus.get() & 0x70))
                     } else {
                         Some(2 | (self.openbus.get() & 0x70))
@@ -796,8 +802,13 @@ where
             self.hdma_run();
         }
 
-        if entered_vblank && self.nmitimen & (1 << 7) != 0 {
-            self.intreq_nmi = true;
+        if entered_vblank {
+            if self.nmitimen & (1 << 7) != 0 {
+                self.intreq_nmi = true;
+            }
+            self.rdnmi_vblank.set(true);
+        } else if !self.ppu.in_vblank() {
+            self.rdnmi_vblank.set(false);
         }
 
         // H/V interrupt
