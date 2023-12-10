@@ -79,6 +79,10 @@ where
     }
 
     pub fn render_scanline_mode7(&mut self, scanline: usize, state: &mut RenderState) {
+        if state.layermask & (1 << 0) == 0 {
+            return;
+        }
+
         for x in 0..SCREEN_WIDTH {
             let c = self.mode7_get_pixel(x, scanline);
             if c == 0 || state.idx[x] != 0 {
