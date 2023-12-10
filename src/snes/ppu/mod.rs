@@ -120,6 +120,7 @@ pub struct PPU<TRenderer: Renderer> {
     vram: Vec<VramWord>,
     vmadd: Cell<u16>,
     vmain: u8,
+    vram_prefetch: Cell<u16>,
 
     /// Palette RAM (CGRAM)
     cgram: Vec<CgramWord>,
@@ -233,6 +234,7 @@ where
             vram: vec![0; VRAM_WORDS],
             vmadd: Cell::new(0),
             vmain: 0,
+            vram_prefetch: Cell::new(0),
 
             cgram: vec![0; CGRAM_WORDS],
             cgadd: Cell::new(0),
@@ -293,7 +295,9 @@ where
             return;
         }
 
-        // TODO prefetch BEFORE increment
+        // Prefetch glitch: prefetch is updated BEFORE the address
+        self.vram_update_prefetch();
+
         let inc = match self.vmain & VMAIN_INC_MASK {
             0 => 1,
             1 => 32,
@@ -301,6 +305,12 @@ where
             _ => unreachable!(),
         };
         self.vmadd.set(self.vmadd.get().wrapping_add(inc));
+    }
+
+    fn vram_update_prefetch(&self) {
+        let addr = self.vram_addr_translate(self.vmadd.get());
+        self.vram_prefetch
+            .set(self.vram[addr as usize & VRAM_ADDRMASK]);
     }
 
     fn vram_addr_translate(&self, addr: u16) -> u16 {

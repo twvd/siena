@@ -48,19 +48,17 @@ where
                 // VMADDH - VRAM Address (upper 8bit)
                 0x2117 => Some((self.vmadd.get() >> 8) as u8),
                 // RDVRAML - VRAM Data Read (lower 8bit)
-                // TODO prefetch glitch
-                //0x2139 => {
-                //    let v = Some(self.vram[self.vmadd.get() as usize & VRAM_ADDRMASK] as u8);
-                //    self.vram_autoinc(false);
-                //    v
-                //}
+                0x2139 => {
+                    let v = self.vram_prefetch.get() as u8;
+                    self.vram_autoinc(false);
+                    Some(v)
+                }
                 // RDVRAMH - VRAM Data Read (upper 8bit)
-                // TODO prefetch glitch
-                //0x213A => {
-                //    let v = Some((self.vram[self.vmadd.get() as usize & VRAM_ADDRMASK] >> 8) as u8);
-                //    self.vram_autoinc(true);
-                //    v
-                //}
+                0x213A => {
+                    let v = (self.vram_prefetch.get() >> 8) as u8;
+                    self.vram_autoinc(true);
+                    Some(v)
+                }
                 // MPYL - Signed Multiply Result (lower 8bit) (R)
                 0x2134 => {
                     let res = i32::from(self.m7a as i16) * i32::from(self.m7b_8b);
@@ -235,12 +233,16 @@ where
                 // VMADDL - VRAM Address (lower 8bit)
                 0x2116 => {
                     let v = self.vmadd.get() & 0xFF00;
-                    Some(self.vmadd.set(v | val as u16))
+                    self.vmadd.set(v | val as u16);
+                    self.vram_update_prefetch();
+                    Some(())
                 }
                 // VMADDH - VRAM Address (upper 8bit)
                 0x2117 => {
                     let v = self.vmadd.get() & 0x00FF;
-                    Some(self.vmadd.set(v | (val as u16) << 8))
+                    self.vmadd.set(v | (val as u16) << 8);
+                    self.vram_update_prefetch();
+                    Some(())
                 }
                 // VMDATAL - VRAM Data write (lower 8bit)
                 0x2118 => {
