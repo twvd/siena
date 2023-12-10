@@ -304,13 +304,15 @@ where
     }
 
     fn vram_addr_translate(&self, addr: u16) -> u16 {
-        // Translation  Bitmap Type              Port [2116h/17h]    VRAM Word-Address
-        //  8bit rotate  4-color; 1 word/plane    aaaaaaaaYYYxxxxx --> aaaaaaaaxxxxxYYY
-        //  9bit rotate  16-color; 2 words/plane  aaaaaaaYYYxxxxxP --> aaaaaaaxxxxxPYYY
+        // Translation  Bitmap Type              Port [2116h/17h]     VRAM Word-Address
+        //  8bit rotate  4-color; 1 word/plane   aaaaaaaaYYYxxxxx --> aaaaaaaaxxxxxYYY
+        //  9bit rotate  16-color; 2 words/plane aaaaaaaYYYxxxxxP --> aaaaaaaxxxxxPYYY
         // 10bit rotate 256-color; 4 words/plane aaaaaaYYYxxxxxPP --> aaaaaaxxxxxPPYYY
-        match (self.vmain & VMAIN_TRANSLATE_MASK) >> VMAIN_TRANSLATE_SHIFT {
+        match (self.vmain >> VMAIN_TRANSLATE_SHIFT) & VMAIN_TRANSLATE_MASK {
             0 => addr,
-            1..=3 => todo!(),
+            1 => (addr & 0xFF00) | ((addr << 3) & 0x00F8) | ((addr >> 5) & 0x07),
+            2 => (addr & 0xFE00) | ((addr << 3) & 0x01F8) | ((addr >> 6) & 0x07),
+            3 => (addr & 0xFC00) | ((addr << 3) & 0x03F8) | ((addr >> 7) & 0x07),
             _ => unreachable!(),
         }
     }

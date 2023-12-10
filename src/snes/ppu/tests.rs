@@ -257,3 +257,37 @@ fn oam_read() {
     assert_eq!(p.read(0x2138), Some(2));
     assert_eq!(p.read(0x2138), Some(3));
 }
+
+#[test]
+fn vram_addr_translate() {
+    let mut p = ppu();
+    // No translation
+    assert_eq!(p.vram_addr_translate(0b0000000011100000), 0b0011100000);
+    assert_eq!(p.vram_addr_translate(0b0000000111000001), 0b0111000001);
+    assert_eq!(p.vram_addr_translate(0b0000001110000011), 0b1110000011);
+    // Translation  Bitmap Type              Port [2116h/17h]     VRAM Word-Address
+    //  8bit rotate  4-color; 1 word/plane   aaaaaaaaYYYxxxxx --> aaaaaaaaxxxxxYYY
+    p.write(0x2115, 1 << 2);
+    assert_eq!(p.vram_addr_translate(0b0000000011100000), 0b111);
+    assert_eq!(p.vram_addr_translate(0b0000000000011111), 0b11111000);
+    assert_eq!(
+        p.vram_addr_translate(0b1111111100000000),
+        0b1111111100000000
+    );
+    //  9bit rotate  16-color; 2 words/plane aaaaaaaYYYxxxxxP --> aaaaaaaxxxxxPYYY
+    p.write(0x2115, 2 << 2);
+    assert_eq!(p.vram_addr_translate(0b0000000111000001), 0b1111);
+    assert_eq!(p.vram_addr_translate(0b0000000000111110), 0b111110000);
+    assert_eq!(
+        p.vram_addr_translate(0b1111111000000000),
+        0b1111111000000000
+    );
+    // 10bit rotate 256-color; 4 words/plane aaaaaaYYYxxxxxPP --> aaaaaaxxxxxPPYYY
+    p.write(0x2115, 3 << 2);
+    assert_eq!(p.vram_addr_translate(0b0000001110000011), 0b11111);
+    assert_eq!(p.vram_addr_translate(0b0000000001111100), 0b1111100000);
+    assert_eq!(
+        p.vram_addr_translate(0b1111110000000000),
+        0b1111110000000000
+    );
+}
