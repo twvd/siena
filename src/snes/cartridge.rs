@@ -199,7 +199,7 @@ impl BusMember<Address> for Cartridge {
 
             // LoROM SRAM
             (0x70..=0x7D, 0x0000..=0x7FFF) if !self.hirom => {
-                Some(self.ram[(bank - 0x70) * 0x8000 + addr])
+                Some(self.ram[(bank - 0x70) * 0x8000 + addr & self.ram_mask])
             }
 
             // HiROM
@@ -220,7 +220,7 @@ impl BusMember<Address> for Cartridge {
 
             // LoROM SRAM
             (0x70..=0x7D, 0x0000..=0x7FFF) if !self.hirom => {
-                Some(self.ram[(bank - 0x70) * 0x8000 + addr] = val)
+                Some(self.ram[(bank - 0x70) * 0x8000 + addr & self.ram_mask] = val)
             }
 
             _ => None,

@@ -286,7 +286,8 @@ where
             InstructionType::TSET1 => self.op_tsetclr1(instr, true),
             InstructionType::TCLR1 => self.op_tsetclr1(instr, false),
 
-            InstructionType::SLEEP | InstructionType::STOP => panic!("SPC700 halted!"),
+            InstructionType::SLEEP => panic!("SPC700 hit SLEEP!"),
+            InstructionType::STOP => panic!("SPC700 hit STOP!"),
         }
     }
 
