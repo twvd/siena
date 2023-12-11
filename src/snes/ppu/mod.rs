@@ -149,6 +149,7 @@ pub struct PPU<TRenderer: Renderer> {
     oam_priority: bool,
 
     inidisp: u8,
+    setini: u8,
 
     // Window settings
     w1_left: u8,
@@ -259,6 +260,7 @@ where
             oam_priority: false,
 
             inidisp: 0,
+            setini: 0,
 
             w1_left: 0,
             w1_right: 0,

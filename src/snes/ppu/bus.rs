@@ -348,6 +348,14 @@ where
                     Some(())
                 }
 
+                // SETINI - Display Control 2 (W)
+                0x2133 => {
+                    if self.setini != val {
+                        println!("setini = {:02X}", val);
+                    }
+                    Some(self.setini = val)
+                }
+
                 _ => None,
             },
 
