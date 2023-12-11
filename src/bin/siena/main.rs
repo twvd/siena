@@ -51,15 +51,19 @@ struct Args {
     #[arg(short, long)]
     pause: bool,
 
-    /// Print CPU state after each instruction
+    /// Print S-CPU state after each instruction
     #[arg(short, long)]
     verbose: bool,
+
+    /// Print SPC700 state after each instruction
+    #[arg(long)]
+    spc_verbose: bool,
 
     /// Sticky joypad controls
     #[arg(long)]
     sticky: bool,
 
-    /// Bus trace mode
+    /// S-CPU bus trace mode
     #[arg(
         long,
         require_equals = true,
@@ -69,7 +73,11 @@ struct Args {
         default_missing_value = "none",
         value_enum
     )]
-    bustrace: BusTrace,
+    trace_bus: BusTrace,
+
+    /// S-CPU <-> APU communication trace
+    #[arg(long)]
+    trace_apu_comm: bool,
 
     /// Load state file
     #[arg(long)]
@@ -98,7 +106,9 @@ fn main() -> Result<()> {
     } else {
         Cartridge::load_nohdr(&f, false)
     };
-    let bus = Mainbus::<SDLRenderer>::new(cart, args.bustrace, display, joypads, args.verbose);
+    let mut bus = Mainbus::<SDLRenderer>::new(cart, args.trace_bus, display, joypads, args.verbose);
+    bus.apu.verbose = args.spc_verbose;
+    bus.apu.ports.borrow_mut().trace = args.trace_apu_comm;
 
     let reset = bus.read16(0xFFFC);
     println!("Reset at PC {:06X}", reset);
@@ -151,9 +161,15 @@ fn main() -> Result<()> {
 
                     // Debug - toggle verbose (instruction trace)
                     Event::KeyDown {
-                        keycode: Some(Keycode::V),
+                        keycode: Some(Keycode::Num0),
                         ..
                     } => args.verbose = !args.verbose,
+
+                    // Debug - toggle SPC700 verbose (instruction trace)
+                    Event::KeyDown {
+                        keycode: Some(Keycode::Num9),
+                        ..
+                    } => cpu.bus.apu.verbose = !cpu.bus.apu.verbose,
 
                     // Debug - toggle open bus trace
                     Event::KeyDown {

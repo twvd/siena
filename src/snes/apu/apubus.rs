@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use anyhow::Result;
+use colored::*;
 use serbia::serbia;
 use serde::{Deserialize, Serialize};
 
@@ -103,6 +104,16 @@ impl Bus<SpcAddress> for Apubus {
             // Ports
             0x00F4..=0x00F7 => {
                 let mut ports = self.ports.borrow_mut();
+                if ports.trace {
+                    println!(
+                        "{} ({:04X}) to {} ({}): {:02X}",
+                        "APU".red(),
+                        addr,
+                        "CPU".green(),
+                        (addr - 0x00F4),
+                        val
+                    );
+                }
                 ports.cpu[addr as usize - 0x00F4] = val;
             }
             0x00FA => self.timers[0].set_top(val),

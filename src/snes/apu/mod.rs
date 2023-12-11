@@ -19,17 +19,20 @@ use apubus::Apubus;
 #[derive(Serialize, Deserialize)]
 pub struct ApuPorts {
     /// APU -> CPU
-    pub cpu: [u8; 4],
+    cpu: [u8; 4],
 
     /// CPU -> APU
-    pub apu: [u8; 4],
+    apu: [u8; 4],
+
+    /// Trace S-CPU <-> S-APU communication
+    pub trace: bool,
 }
 
 /// The SNES Audio Processing Unit
 #[derive(Serialize, Deserialize)]
 pub struct Apu {
     /// SPC700 CPU core
-    cpu: CpuSpc700<Apubus>,
+    pub cpu: CpuSpc700<Apubus>,
 
     /// SPC cycles taken last step that we need to wait out.
     spc_cycles_taken: Ticks,
@@ -38,10 +41,10 @@ pub struct Apu {
     spc_master_credit: Ticks,
 
     /// Print instructions
-    verbose: bool,
+    pub verbose: bool,
 
     /// Main CPU communication ports
-    ports: Rc<RefCell<ApuPorts>>,
+    pub ports: Rc<RefCell<ApuPorts>>,
 }
 
 impl Apu {
@@ -63,6 +66,7 @@ impl Apu {
         let ports = Rc::new(RefCell::new(ApuPorts {
             cpu: [0; 4],
             apu: [0; 4],
+            trace: false,
         }));
         Self {
             cpu: CpuSpc700::<Apubus>::new(
@@ -132,6 +136,16 @@ impl BusMember<Address> for Apu {
                 0x2140..=0x217F => {
                     let ch = (addr - 0x2140) % 4;
                     let mut ports = self.ports.borrow_mut();
+                    if ports.trace {
+                        println!(
+                            "{} ({:04X}) to {} ({}): {:02X}",
+                            "CPU".green(),
+                            addr,
+                            "APU".red(),
+                            ch,
+                            val
+                        );
+                    }
                     ports.apu[ch] = val;
                     Some(())
                 }
