@@ -88,7 +88,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x09 - OR    dd, ds
     // N.....Z., 3 bytes, 6 cycles
     instr!(
-        "OR    @@, @s",
+        "OR    @, @",
         InstructionType::OR,
         3,
         [Operand::DirectPage, Operand::DirectPage]
@@ -344,7 +344,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x29 - AND   dd, ds
     // N.....Z., 3 bytes, 6 cycles
     instr!(
-        "AND   @@, @s",
+        "AND   @, @",
         InstructionType::AND,
         3,
         [Operand::DirectPage, Operand::DirectPage]
@@ -600,7 +600,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x49 - EOR   dd, ds
     // N.....Z., 3 bytes, 6 cycles
     instr!(
-        "EOR   @@, @s",
+        "EOR   @, @",
         InstructionType::EOR,
         3,
         [Operand::DirectPage, Operand::DirectPage]
@@ -859,7 +859,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x69 - CMP   dd, ds
     // N.....ZC, 3 bytes, 6 cycles
     instr!(
-        "CMP   @@, @s",
+        "CMP   @, @",
         InstructionType::CMP,
         3,
         [Operand::DirectPage, Operand::DirectPage]
@@ -1118,7 +1118,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0x89 - ADC   dd, ds
     // NV..H.ZC, 3 bytes, 6 cycles
     instr!(
-        "ADC   @@, @s",
+        "ADC   @, @",
         InstructionType::ADC,
         3,
         [Operand::DirectPage, Operand::DirectPage]
@@ -1377,7 +1377,7 @@ pub const INSTRUCTION_TABLE: [InstructionDef; 256] = [
     // 0xA9 - SBC   dd, ds
     // NV..H.ZC, 3 bytes, 6 cycles
     instr!(
-        "SBC   @@, @s",
+        "SBC   @, @",
         InstructionType::SBC,
         3,
         [Operand::DirectPage, Operand::DirectPage]
