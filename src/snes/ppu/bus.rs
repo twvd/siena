@@ -84,7 +84,7 @@ where
                 }
                 // RDOAM - OAM Data Read (R)
                 0x2138 => {
-                    let oaddr = self.oamadd.get();
+                    let oaddr = self.oamadd_addr.get();
 
                     // Deal with the upper table mirrors
                     let addr = if oaddr >= 0x200 {
@@ -92,7 +92,7 @@ where
                     } else {
                         oaddr as usize
                     };
-                    self.oamadd.set((oaddr + 1) & 0x3FF);
+                    self.oamadd_addr.set((oaddr + 1) & 0x3FF);
                     Some(self.oam[addr])
                 }
                 // RDCGRAM - Palette CGRAM Data Read
@@ -139,20 +139,24 @@ where
                 0x2101 => Some(self.obsel = val),
                 // OAMADDL - OAM Address and Priority Rotation (W)
                 0x2102 => {
-                    let v = (self.oamadd.get() >> 1) & 0xFF00;
-                    Some(self.oamadd.set((v | val as u16) << 1))
+                    let v = (self.oamadd_reload.get() >> 1) & 0xFF00;
+                    self.oamadd_reload.set((v | val as u16) << 1);
+                    self.oamadd_addr.set(self.oamadd_reload.get());
+                    Some(())
                 }
                 // OAMADDH - OAM Address and Priority Rotation (W)
                 0x2103 => {
                     self.oam_priority = val & 0x80 != 0;
 
-                    let v = (self.oamadd.get() >> 1) & 0x00FF;
+                    let v = (self.oamadd_reload.get() >> 1) & 0x00FF;
                     let val = val & 0x01;
-                    Some(self.oamadd.set((v | (val as u16) << 8) << 1))
+                    self.oamadd_reload.set((v | (val as u16) << 8) << 1);
+                    self.oamadd_addr.set(self.oamadd_reload.get());
+                    Some(())
                 }
                 // OAMDATA - OAM Data Write (W)
                 0x2104 => {
-                    let oaddr = self.oamadd.get();
+                    let oaddr = self.oamadd_addr.get();
 
                     // Deal with the upper table mirrors
                     let addr = if oaddr >= 0x200 {
@@ -172,7 +176,7 @@ where
                     if addr > 0x1FF {
                         self.oam[addr] = val;
                     }
-                    Some(self.oamadd.set((oaddr + 1) & 0x3FF))
+                    Some(self.oamadd_addr.set((oaddr + 1) & 0x3FF))
                 }
                 // BGMODE - BG Mode and BG Character Size
                 0x2105 => {

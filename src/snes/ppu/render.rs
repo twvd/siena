@@ -153,7 +153,7 @@ where
         for idx in 0..OAM_ENTRIES {
             let prio_idx = if self.oam_priority {
                 // Priority rotation enabled
-                (idx + self.oamadd.get() as usize) % OAM_ENTRIES
+                (idx + self.oamadd_reload.get() as usize) % OAM_ENTRIES
             } else {
                 idx
             };

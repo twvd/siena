@@ -142,7 +142,8 @@ pub struct PPU<TRenderer: Renderer> {
     ts: u8,
 
     obsel: u8,
-    oamadd: Cell<u16>,
+    oamadd_reload: Cell<u16>,
+    oamadd_addr: Cell<u16>,
     oam: [u8; OAM_SIZE],
     oam_writebuf: u8,
     oam_priority: bool,
@@ -251,7 +252,8 @@ where
             ts: 0,
 
             obsel: 0,
-            oamadd: Cell::new(0),
+            oamadd_addr: Cell::new(0),
+            oamadd_reload: Cell::new(0),
             oam: [0; OAM_SIZE],
             oam_writebuf: 0,
             oam_priority: false,
@@ -516,6 +518,9 @@ where
                     // Entered VBlank
                     self.vblank = true;
                     self.intreq_vblank = true;
+
+                    // Reload OAMADD
+                    self.oamadd_addr.set(self.oamadd_reload.get());
 
                     // Send frame to the screen
                     let renderer = self.renderer.as_mut().unwrap();
