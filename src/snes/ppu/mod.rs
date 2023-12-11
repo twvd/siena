@@ -145,6 +145,7 @@ pub struct PPU<TRenderer: Renderer> {
     oamadd: Cell<u16>,
     oam: [u8; OAM_SIZE],
     oam_writebuf: u8,
+    oam_priority: bool,
 
     inidisp: u8,
 
@@ -253,6 +254,7 @@ where
             oamadd: Cell::new(0),
             oam: [0; OAM_SIZE],
             oam_writebuf: 0,
+            oam_priority: false,
 
             inidisp: 0,
 

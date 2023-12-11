@@ -145,7 +145,13 @@ where
         }
 
         for idx in 0..OAM_ENTRIES {
-            let e = self.get_oam_entry(idx);
+            let prio_idx = if self.oam_priority {
+                // Priority rotation enabled
+                (idx + self.oamadd.get() as usize) % OAM_ENTRIES
+            } else {
+                idx
+            };
+            let e = self.get_oam_entry(prio_idx);
 
             if e.priority != priority {
                 continue;

@@ -144,12 +144,10 @@ where
                 }
                 // OAMADDH - OAM Address and Priority Rotation (W)
                 0x2103 => {
+                    self.oam_priority = val & 0x80 != 0;
+
                     let v = (self.oamadd.get() >> 1) & 0x00FF;
-                    let val = val & 0x83; // bit 10-14 unused
-                    if val & 0x80 != 0 {
-                        // Obj priority
-                        // TODO
-                    }
+                    let val = val & 0x01;
                     Some(self.oamadd.set((v | (val as u16) << 8) << 1))
                 }
                 // OAMDATA - OAM Data Write (W)
