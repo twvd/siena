@@ -508,6 +508,7 @@ where
         }
 
         if self.get_current_scanline() != self.last_scanline {
+            // Vertically progressed into a new scanline
             self.last_scanline = self.get_current_scanline();
 
             if self.in_vblank() {
@@ -516,11 +517,17 @@ where
                     self.vblank = true;
                     self.intreq_vblank = true;
 
+                    // Send frame to the screen
                     let renderer = self.renderer.as_mut().unwrap();
                     renderer.update()?;
                 }
             } else {
                 self.vblank = false;
+
+                // Scanline 0 is discarded by the original hardware, so
+                // scanline 1 becomes the top of the frame. However, H/V-interrupts,
+                // HDMA, etc are still executed for scanline 0, so we only discard
+                // it here and shift the whole frame up by 1.
                 if (self.last_scanline as isize)
                     < ((SCREEN_HEIGHT as isize) - SCANLINE_OUTPUT_OFFSET)
                     && (self.last_scanline as isize) + SCANLINE_OUTPUT_OFFSET >= 0

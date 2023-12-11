@@ -144,6 +144,12 @@ where
             return;
         }
 
+        // Sprites are actually offset 1 scanline down, because on the original hardware
+        // the sprites for the NEXT scanline are fetched during the CURRENT scanline.
+        // On scanline 0, the sprites at Y 0 are fetched to be drawn at scanline 1.
+        // This is also why scanline 0 is never rendered.
+        let scanline = scanline - 1;
+
         for idx in 0..OAM_ENTRIES {
             let prio_idx = if self.oam_priority {
                 // Priority rotation enabled
