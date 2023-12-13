@@ -12,6 +12,7 @@ macro_rules! ppu_test {
                 &hex!($hash),
                 60000,
                 true,
+                false,
             );
         }
     };
@@ -26,6 +27,7 @@ macro_rules! ppu_test_ns {
                 include_bytes!(concat!("../../../siena_tests/SNES/PPU/", $testfn)),
                 &hex!($hash),
                 60000,
+                false,
                 false,
             );
         }
