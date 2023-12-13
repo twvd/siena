@@ -434,9 +434,20 @@ where
     fn read(&self, fulladdr: Address) -> u8 {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
+        if let Some(v) = self.cartridge.read(fulladdr) {
+            // Handled by cartridge
+            self.openbus.set(v);
+            return v;
+        }
+
         let mapped_val = match bank {
+            // Full WRAM area
+            0x7E..=0x7F => Some(self.wram[((bank - 0x7E) * WRAM_BANK_SIZE) + addr]),
+
             // System area
-            0x00..=0x3F | 0x80..=0xBF => match addr {
+            // This is supposed to run until bank 0xBF, but some LoROM games expect it to
+            // expand further to 0xFF?
+            0x00..=0x3F | 0x80..=0xFF => match addr {
                 // WRAM mirror
                 0x0000..=0x1FFF => Some(self.wram[addr]),
                 // Picture Processing Unit
@@ -572,15 +583,10 @@ where
                         _ => None,
                     }
                 }
-                // HiROM SRAM, LoROM
-                0x6000..=0x6FFF | 0x8000..=0xFFFF => self.cartridge.read(fulladdr),
 
                 _ => None,
             },
-            // Cartridge (HiROM)
-            0x40..=0x7D | 0xC0..=0xFF => self.cartridge.read(fulladdr),
-            // Full WRAM area
-            0x7E..=0x7F => Some(self.wram[((bank - 0x7E) * WRAM_BANK_SIZE) + addr]),
+
             _ => None,
         };
 
@@ -603,9 +609,19 @@ where
     fn write(&mut self, fulladdr: Address, val: u8) {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
+        if let Some(v) = self.cartridge.write(fulladdr, val) {
+            // Handled by cartridge
+            return v;
+        }
+
         let written = match bank {
+            // Full WRAM area
+            0x7E..=0x7F => Some(self.wram[((bank - 0x7E) * WRAM_BANK_SIZE) + addr] = val),
+
             // System area
-            0x00..=0x3F | 0x80..=0xBF => match addr {
+            // This is supposed to run until bank 0xBF, but some LoROM games expect it to
+            // expand further to 0xFF?
+            0x00..=0x3F | 0x80..=0xFF => match addr {
                 // WRAM mirror
                 0x0000..=0x1FFF => Some(self.wram[addr] = val),
                 // Picture Processing Unit
@@ -742,15 +758,8 @@ where
                     }
                 }
 
-                // HiROM SRAM, LoROM
-                0x6000..=0x6FFF | 0x8000..=0xFFFF => self.cartridge.write(fulladdr, val),
-
                 _ => None,
             },
-            // Cartridge (HiROM)
-            0x70..=0x7D | 0xC0..=0xFF => self.cartridge.write(fulladdr, val),
-            // Full WRAM area
-            0x7E..=0x7F => Some(self.wram[((bank - 0x7E) * WRAM_BANK_SIZE) + addr] = val),
 
             _ => None,
         };

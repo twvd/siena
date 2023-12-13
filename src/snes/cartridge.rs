@@ -65,6 +65,10 @@ impl Cartridge {
         .to_owned()
     }
 
+    pub fn is_hirom(&self) -> bool {
+        self.hirom
+    }
+
     fn get_map(&self) -> MapMode {
         MapMode::from_u8(self.rom[self.header_offset + HDR_MAPMODE_OFFSET] & 0x0F).unwrap()
     }
@@ -185,7 +189,7 @@ impl BusMember<Address> for Cartridge {
                 Some(self.rom[addr - 0x0000 + (bank & !0x80) * 0x10000])
             }
             // LoROM
-            (0x00..=0x3F | 0x80..=0xBF, 0x8000..=0xFFFF) => {
+            (0x00..=0x3F | 0x80..=0xFF, 0x8000..=0xFFFF) if !self.hirom => {
                 Some(self.rom[addr - 0x8000 + (bank & !0x80) * 0x8000])
             }
 
@@ -195,7 +199,9 @@ impl BusMember<Address> for Cartridge {
             }
 
             // HiROM
-            (0x40..=0x6F, _) => Some(self.rom[(addr + ((bank - 0x40) * 0x10000)) % self.rom.len()]),
+            (0x40..=0x6F, _) if self.hirom => {
+                Some(self.rom[(addr + ((bank - 0x40) * 0x10000)) % self.rom.len()])
+            }
 
             // LoROM SRAM
             (0x70..=0x7D, 0x0000..=0x7FFF) if !self.hirom => {
@@ -203,7 +209,7 @@ impl BusMember<Address> for Cartridge {
             }
 
             // HiROM
-            (0xC0..=0xFF, _) => Some(self.rom[addr + ((bank - 0xC0) * 0x10000)]),
+            (0xC0..=0xFF, _) if self.hirom => Some(self.rom[addr + ((bank - 0xC0) * 0x10000)]),
 
             _ => None,
         }

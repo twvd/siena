@@ -110,47 +110,39 @@ impl Tickable for Apu {
 
 impl BusMember<Address> for Apu {
     fn read(&self, fulladdr: Address) -> Option<u8> {
-        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+        let (_bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
-        match bank {
-            // System area
-            0x00..=0x3F | 0x80..=0xBF => match addr {
-                0x2140..=0x217F => {
-                    let ch = (addr - 0x2140) % 4;
+        match addr {
+            0x2140..=0x217F => {
+                let ch = (addr - 0x2140) % 4;
 
-                    let ports = self.ports.borrow();
-                    Some(ports.cpu[ch])
-                }
-                _ => None,
-            },
+                let ports = self.ports.borrow();
+                Some(ports.cpu[ch])
+            }
             _ => None,
         }
     }
 
     fn write(&mut self, fulladdr: Address, val: u8) -> Option<()> {
-        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+        let (_bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
-        match bank {
-            // System area
-            0x00..=0x3F | 0x80..=0xBF => match addr {
-                0x2140..=0x217F => {
-                    let ch = (addr - 0x2140) % 4;
-                    let mut ports = self.ports.borrow_mut();
-                    if ports.trace {
-                        println!(
-                            "{} ({:04X}) to {} ({}): {:02X}",
-                            "CPU".green(),
-                            addr,
-                            "APU".red(),
-                            ch,
-                            val
-                        );
-                    }
-                    ports.apu[ch] = val;
-                    Some(())
+        match addr {
+            0x2140..=0x217F => {
+                let ch = (addr - 0x2140) % 4;
+                let mut ports = self.ports.borrow_mut();
+                if ports.trace {
+                    println!(
+                        "{} ({:04X}) to {} ({}): {:02X}",
+                        "CPU".green(),
+                        addr,
+                        "APU".red(),
+                        ch,
+                        val
+                    );
                 }
-                _ => None,
-            },
+                ports.apu[ch] = val;
+                Some(())
+            }
             _ => None,
         }
     }
