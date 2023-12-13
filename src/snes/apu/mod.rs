@@ -1,4 +1,5 @@
 pub mod apubus;
+pub mod dsp;
 pub mod timers;
 
 use std::cell::RefCell;
