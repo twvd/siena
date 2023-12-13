@@ -19,6 +19,7 @@ pub struct TestRenderer {
 pub struct TestRendererState {
     pub stable_frames: u16,
     pub hash: [u8; 256 / 8],
+    pub all_black: bool,
 }
 
 pub type TDS = Rc<Cell<TestRendererState>>;
@@ -37,6 +38,7 @@ impl TestRenderer {
         let state = Rc::new(Cell::new(TestRendererState {
             stable_frames: 0,
             hash: [0; 256 / 8],
+            all_black: true,
         }));
 
         (
@@ -85,9 +87,12 @@ impl Renderer for TestRenderer {
             1
         };
 
+        let all_black = self.buffer.iter().flatten().all(|&c| c == (0, 0, 0));
+
         self.state.set(TestRendererState {
             hash: hash.into(),
             stable_frames,
+            all_black,
         });
         Ok(())
     }

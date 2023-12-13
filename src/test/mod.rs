@@ -35,6 +35,9 @@ fn test_display(rom: &[u8], pass_hash: &[u8], time_limit: u128, stable: bool) {
             return;
         }
         if stable && newstatus.stable_frames >= 20 {
+            if newstatus.all_black {
+                panic!("Frame is all black");
+            }
             if newstatus.hash != pass_hash {
                 println!(
                     ":%s/{:02x}/{:02x}",
