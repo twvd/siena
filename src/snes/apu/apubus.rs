@@ -10,6 +10,7 @@ use crate::snes::bus::Bus;
 use crate::snes::cpu_spc700::cpu::{SpcAddress, SPC_ADDRESS_MASK};
 use crate::tickable::{Tickable, Ticks};
 
+use super::dsp::dsp::Dsp;
 use super::timers::{Timer, APU_TIMERS};
 use super::ApuPorts;
 
@@ -33,6 +34,11 @@ pub struct Apubus {
 
     /// If true, ROM is mapped to FFC0-FFFF
     rom_mapped: bool,
+
+    #[serde(skip)]
+    pub dsp: Option<RefCell<Box<Dsp>>>,
+
+    dsp_reg: u8,
 }
 
 impl Apubus {
@@ -52,6 +58,9 @@ impl Apubus {
                 Timer::new(1_024_000 / 64_000),
             ],
             timers_enabled: 0,
+
+            dsp: None,
+            dsp_reg: 0,
         }
     }
 }
@@ -59,11 +68,20 @@ impl Apubus {
 impl Bus<SpcAddress> for Apubus {
     fn read(&self, addr: SpcAddress) -> u8 {
         match addr {
+            // DSP
+            0x00F2 => self.dsp_reg,
+            0x00F3 => {
+                let mut dsp = self.dsp.as_ref().unwrap().borrow_mut();
+                dsp.get_register(self.dsp_reg)
+            }
+
             // Ports
             0x00F4..=0x00F7 => {
                 let ports = self.ports.borrow();
                 ports.apu[addr as usize - 0x00F4]
             }
+
+            // Timers
             0x00FD => self.timers[0].get_cnt(),
             0x00FE => self.timers[1].get_cnt(),
             0x00FF => self.timers[2].get_cnt(),
@@ -101,6 +119,14 @@ impl Bus<SpcAddress> for Apubus {
                     println!("SPC700 ROM mapped: {}", self.rom_mapped);
                 }
             }
+
+            // DSP
+            0x00F2 => self.dsp_reg = val,
+            0x00F3 => {
+                let mut dsp = self.dsp.as_ref().unwrap().borrow_mut();
+                dsp.set_register(self.dsp_reg, val)
+            }
+
             // Ports
             0x00F4..=0x00F7 => {
                 let mut ports = self.ports.borrow_mut();

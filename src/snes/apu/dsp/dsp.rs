@@ -1,5 +1,4 @@
-use super::super::apu::Apu;
-use super::super::spc::spc::{Spc, REG_LEN};
+use super::super::Apu;
 use super::dsp_helpers;
 use super::filter::Filter;
 use super::ring_buffer::RingBuffer;
@@ -155,19 +154,6 @@ impl Dsp {
 
     fn calculate_echo_start_address(value: u8) -> u16 {
         (value as u16) << 8
-    }
-
-    pub fn set_state(&mut self, spc: &Spc) {
-        for i in 0..REG_LEN {
-            match i {
-                0x4c | 0x5c => (), // Do nothing
-                _ => {
-                    self.set_register(i as u8, spc.regs[i as usize]);
-                }
-            }
-        }
-
-        self.set_kon(spc.regs[0x4c]);
     }
 
     pub fn cycles_callback(&mut self, num_cycles: i32) {

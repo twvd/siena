@@ -9,12 +9,13 @@ use anyhow::Result;
 use colored::*;
 use serde::{Deserialize, Serialize};
 
-use crate::snes::bus::{Address, BusMember};
+use crate::snes::bus::{Address, Bus, BusMember};
 use crate::snes::cpu_spc700::cpu::{CpuSpc700, SpcAddress};
 use crate::snes::cpu_spc700::regs::Register;
 use crate::tickable::{Tickable, Ticks};
 
 use apubus::Apubus;
+use dsp::dsp::Dsp;
 
 /// Type for the CPU <-> APU communication ports
 #[derive(Serialize, Deserialize)]
@@ -69,7 +70,7 @@ impl Apu {
             apu: [0; 4],
             trace: false,
         }));
-        Self {
+        let mut apu = Self {
             cpu: CpuSpc700::<Apubus>::new(
                 Apubus::new(&Self::IPL_BIN, Rc::clone(&ports)),
                 Self::IPL_ENTRYPOINT,
@@ -78,12 +79,23 @@ impl Apu {
             spc_master_credit: 0,
             verbose,
             ports,
-        }
+        };
+        apu.cpu.bus.dsp = Some(RefCell::new(Dsp::new(&mut apu as *mut Apu)));
+        apu
     }
 
     /// Get a (reference counted) copy of the communication ports
     pub fn get_ports(&self) -> Rc<RefCell<ApuPorts>> {
         Rc::clone(&self.ports)
+    }
+
+    /// Interface for the DSP to read I/O and RAM
+    pub fn read_u8(&self, addr: u32) -> u8 {
+        self.cpu.bus.read(addr as SpcAddress)
+    }
+    /// Interface for the DSP to read I/O and RAM
+    pub fn write_u8(&mut self, addr: u32, val: u8) {
+        self.cpu.bus.write(addr as SpcAddress, val)
     }
 }
 
@@ -103,6 +115,19 @@ impl Tickable for Apu {
             }
             self.spc_cycles_taken -= 1;
             self.spc_master_credit -= Self::SPC_MASTER_FACTOR;
+        }
+
+        // Render audio
+        let mut dsp = self.cpu.bus.dsp.as_ref().unwrap().borrow_mut();
+        dsp.cycles_callback(ticks as i32 * 8);
+        let mut l: [i16; 64] = [0; 64];
+        let mut r: [i16; 64] = [0; 64];
+        dsp.flush();
+        if dsp.output_buffer.get_sample_count() > 64 {
+            dsp.output_buffer.read(&mut l, &mut r, 64);
+            if l.iter().chain(r.iter()).any(|&i| i != 0) {
+                println!("{:?} {:?}", l, r);
+            }
         }
 
         Ok(())

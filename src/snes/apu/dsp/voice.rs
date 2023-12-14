@@ -1,4 +1,4 @@
-use super::super::apu::Apu;
+use super::super::Apu;
 use super::brr_block_decoder::BrrBlockDecoder;
 use super::dsp::Dsp;
 use super::dsp_helpers;
