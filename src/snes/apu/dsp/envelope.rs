@@ -4,7 +4,7 @@ enum Mode {
     Attack,
     Decay,
     Sustain,
-    Release
+    Release,
 }
 
 pub struct Envelope {
@@ -16,7 +16,7 @@ pub struct Envelope {
 
     mode: Mode,
     pub level: i32,
-    hidden_level: i32
+    hidden_level: i32,
 }
 
 impl Envelope {
@@ -30,15 +30,13 @@ impl Envelope {
 
             mode: Mode::Release,
             level: 0,
-            hidden_level: 0
+            hidden_level: 0,
         }
     }
 
     #[inline]
     fn dsp(&self) -> &mut Dsp {
-        unsafe {
-            &mut (*self.dsp)
-        }
+        unsafe { &mut (*self.dsp) }
     }
 
     pub fn key_on(&mut self) {
@@ -60,7 +58,7 @@ impl Envelope {
                     env = 0;
                 }
                 self.level = env;
-            },
+            }
             _ => {
                 let rate: i32;
                 let env_data = self.adsr1 as i32;
@@ -70,14 +68,14 @@ impl Envelope {
                         Mode::Attack => {
                             rate = ((self.adsr0 as i32) & 0x0f) * 2 + 1;
                             env += if rate < 31 { 0x20 } else { 0x400 };
-                        },
+                        }
                         _ => {
                             env -= 1;
                             env -= env >> 8;
                             match self.mode {
                                 Mode::Decay => {
                                     rate = (((self.adsr0 as i32) >> 3) & 0x0e) + 0x10;
-                                },
+                                }
                                 _ => {
                                     rate = env_data & 0x1f;
                                 }

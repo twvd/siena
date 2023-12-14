@@ -7,7 +7,7 @@ pub struct BrrBlockDecoder {
 
     sample_index: i32,
     last_sample: i16,
-    last_last_sample: i16
+    last_last_sample: i16,
 }
 
 impl BrrBlockDecoder {
@@ -20,7 +20,7 @@ impl BrrBlockDecoder {
             sample_index: 0,
 
             last_sample: 0,
-            last_last_sample: 0
+            last_last_sample: 0,
         }
     }
 
@@ -66,22 +66,22 @@ impl BrrBlockDecoder {
                         // sample += p1 * 0.46875
                         sample += p1 >> 1;
                         sample += (-p1) >> 5;
-                    },
+                    }
                     2 => {
                         // sample += p1 * 0.953125 - p2 * 0.46875
                         sample += p1;
                         sample -= p2;
                         sample += p2 >> 4;
                         sample += (p1 * -3) >> 6;
-                    },
+                    }
                     3 => {
                         // sample += p1 * 0.8984375 - p2 * 0.40625
                         sample += p1;
                         sample -= p2;
                         sample += (p1 * -13) >> 7;
                         sample += (p2 * 3) >> 4;
-                    },
-                    _ => ()
+                    }
+                    _ => (),
                 }
 
                 sample = dsp_helpers::clamp(sample);
