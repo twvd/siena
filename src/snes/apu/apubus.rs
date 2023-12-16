@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use colored::*;
@@ -14,8 +14,8 @@ use super::dsp::dsp::Dsp;
 use super::timers::{Timer, APU_TIMERS};
 use super::ApuPorts;
 
-const APU_RAM_SIZE: usize = 64 * 1024;
-const APU_ROM_SIZE: usize = 64;
+pub const APU_RAM_SIZE: usize = 64 * 1024;
+pub const APU_ROM_SIZE: usize = 64;
 
 /// APU peripherals as they face the SPC700 audio CPU
 #[serbia]
@@ -23,7 +23,7 @@ const APU_ROM_SIZE: usize = 64;
 pub struct Apubus {
     ram: [u8; APU_RAM_SIZE],
     rom: [u8; APU_ROM_SIZE],
-    ports: Rc<RefCell<ApuPorts>>,
+    ports: Arc<Mutex<ApuPorts>>,
 
     /// Timers
     timers: [Timer; APU_TIMERS],
@@ -42,7 +42,7 @@ pub struct Apubus {
 }
 
 impl Apubus {
-    pub fn new(rom: &[u8], ports: Rc<RefCell<ApuPorts>>) -> Self {
+    pub fn new(rom: &[u8], ports: Arc<Mutex<ApuPorts>>) -> Self {
         Self {
             ram: [0; APU_RAM_SIZE],
             rom: rom.try_into().unwrap(),
@@ -77,7 +77,7 @@ impl Bus<SpcAddress> for Apubus {
 
             // Ports
             0x00F4..=0x00F7 => {
-                let ports = self.ports.borrow();
+                let ports = self.ports.lock().unwrap();
                 ports.apu[addr as usize - 0x00F4]
             }
 
@@ -104,12 +104,12 @@ impl Bus<SpcAddress> for Apubus {
                 self.timers_enabled = val & 0x03;
 
                 if val & (1 << 4) != 0 {
-                    let mut ports = self.ports.borrow_mut();
+                    let mut ports = self.ports.lock().unwrap();
                     ports.apu[0] = 0;
                     ports.apu[1] = 0;
                 }
                 if val & (1 << 5) != 0 {
-                    let mut ports = self.ports.borrow_mut();
+                    let mut ports = self.ports.lock().unwrap();
                     ports.apu[2] = 0;
                     ports.apu[3] = 0;
                 }
@@ -129,7 +129,7 @@ impl Bus<SpcAddress> for Apubus {
 
             // Ports
             0x00F4..=0x00F7 => {
-                let mut ports = self.ports.borrow_mut();
+                let mut ports = self.ports.lock().unwrap();
                 if ports.trace {
                     println!(
                         "{} ({:04X}) to {} ({}): {:02X}",

@@ -3,7 +3,7 @@ pub mod dsp;
 pub mod timers;
 
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use colored::*;
@@ -46,7 +46,7 @@ pub struct Apu {
     pub verbose: bool,
 
     /// Main CPU communication ports
-    pub ports: Rc<RefCell<ApuPorts>>,
+    pub ports: Arc<Mutex<ApuPorts>>,
 }
 
 impl Apu {
@@ -65,14 +65,14 @@ impl Apu {
     ];
 
     pub fn new(verbose: bool) -> Self {
-        let ports = Rc::new(RefCell::new(ApuPorts {
+        let ports = Arc::new(Mutex::new(ApuPorts {
             cpu: [0; 4],
             apu: [0; 4],
             trace: false,
         }));
         let mut apu = Self {
             cpu: CpuSpc700::<Apubus>::new(
-                Apubus::new(&Self::IPL_BIN, Rc::clone(&ports)),
+                Apubus::new(&Self::IPL_BIN, Arc::clone(&ports)),
                 Self::IPL_ENTRYPOINT,
             ),
             spc_cycles_taken: 0,
@@ -111,23 +111,20 @@ impl Tickable for Apu {
                 if self.verbose && self.cpu.regs.read(Register::PC) < Self::IPL_ENTRYPOINT {
                     println!("{}", self.cpu.dump_state().red());
                 }
-                self.spc_cycles_taken += self.cpu.step()?;
+                let cycles = self.cpu.step()?;
+                self.spc_cycles_taken += cycles;
+                self.dsp_spc_credit += cycles;
+
+                self.cpu
+                    .bus
+                    .dsp
+                    .as_ref()
+                    .unwrap()
+                    .borrow_mut()
+                    .cycles_callback(cycles as i32);
             }
             self.spc_cycles_taken -= 1;
             self.spc_master_credit -= Self::SPC_MASTER_FACTOR;
-        }
-
-        // Render audio
-        let mut dsp = self.cpu.bus.dsp.as_ref().unwrap().borrow_mut();
-        dsp.cycles_callback(ticks as i32 * 8);
-        let mut l: [i16; 64] = [0; 64];
-        let mut r: [i16; 64] = [0; 64];
-        dsp.flush();
-        if dsp.output_buffer.get_sample_count() > 64 {
-            dsp.output_buffer.read(&mut l, &mut r, 64);
-            if l.iter().chain(r.iter()).any(|&i| i != 0) {
-                println!("{:?} {:?}", l, r);
-            }
         }
 
         Ok(())
@@ -142,7 +139,7 @@ impl BusMember<Address> for Apu {
             0x2140..=0x217F => {
                 let ch = (addr - 0x2140) % 4;
 
-                let ports = self.ports.borrow();
+                let ports = self.ports.lock().unwrap();
                 Some(ports.cpu[ch])
             }
             _ => None,
@@ -155,7 +152,7 @@ impl BusMember<Address> for Apu {
         match addr {
             0x2140..=0x217F => {
                 let ch = (addr - 0x2140) % 4;
-                let mut ports = self.ports.borrow_mut();
+                let mut ports = self.ports.lock().unwrap();
                 if ports.trace {
                     println!(
                         "{} ({:04X}) to {} ({}): {:02X}",

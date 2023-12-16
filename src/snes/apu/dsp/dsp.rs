@@ -81,6 +81,9 @@ pub struct Dsp {
     resampling_mode: ResamplingMode,
 }
 
+// Required to share Dsp among threads because of the raw pointers
+unsafe impl Send for Dsp {}
+
 impl Dsp {
     pub fn new(emulator: *mut Apu) -> Box<Dsp> {
         let resampling_mode = ResamplingMode::Gaussian;
