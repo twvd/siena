@@ -10,7 +10,7 @@ use sdl2::keyboard::Keycode;
 use serde::Deserialize;
 use serde_json::Deserializer;
 
-use siena::frontend::sdl::{SDLEventPump, SDLRenderer};
+use siena::frontend::sdl::{SDLAudioSink, SDLEventPump, SDLRenderer};
 use siena::frontend::Renderer;
 use siena::snes::bus::mainbus::{BusTrace, Mainbus};
 use siena::snes::bus::Bus;
@@ -111,6 +111,7 @@ fn main() -> Result<()> {
         Cartridge::load_nohdr(&f, args.no_header_hirom)
     };
     let mut bus = Mainbus::<SDLRenderer>::new(cart, args.trace_bus, display, joypads, args.verbose);
+    let _audiosink = SDLAudioSink::init(bus.get_apu())?;
 
     {
         let mut apu = bus.apu.lock().unwrap();

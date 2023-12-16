@@ -3,6 +3,7 @@ pub mod dsp;
 pub mod timers;
 
 use std::cell::RefCell;
+use std::cmp;
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
@@ -42,6 +43,9 @@ pub struct Apu {
     /// Master ticks received that we can spend.
     spc_master_credit: Ticks,
 
+    /// SPC ticks we can spend on DSP
+    dsp_spc_credit: Ticks,
+
     /// Print instructions
     pub verbose: bool,
 
@@ -51,7 +55,7 @@ pub struct Apu {
 
 impl Apu {
     /// One SPC cycle = 3 master cycles
-    const SPC_MASTER_FACTOR: Ticks = 3;
+    const SPC_MASTER_FACTOR: Ticks = 1;
 
     const IPL_ENTRYPOINT: SpcAddress = 0xFFC0;
     const IPL_SIZE: usize = 64;
@@ -77,6 +81,7 @@ impl Apu {
             ),
             spc_cycles_taken: 0,
             spc_master_credit: 0,
+            dsp_spc_credit: 0,
             verbose,
             ports,
         };
@@ -85,17 +90,46 @@ impl Apu {
     }
 
     /// Get a (reference counted) copy of the communication ports
-    pub fn get_ports(&self) -> Rc<RefCell<ApuPorts>> {
-        Rc::clone(&self.ports)
+    pub fn get_ports(&self) -> Arc<Mutex<ApuPorts>> {
+        Arc::clone(&self.ports)
     }
 
     /// Interface for the DSP to read I/O and RAM
     pub fn read_u8(&self, addr: u32) -> u8 {
         self.cpu.bus.read(addr as SpcAddress)
     }
+
     /// Interface for the DSP to read I/O and RAM
     pub fn write_u8(&mut self, addr: u32, val: u8) {
         self.cpu.bus.write(addr as SpcAddress, val)
+    }
+
+    /// Render audio to specified output buffer
+    pub fn render(&mut self, out: &mut [i16]) {
+        let num_samples = out.len() as i32;
+        let mut dsp = self.cpu.bus.dsp.as_ref().unwrap().borrow_mut();
+
+        dsp.flush();
+
+        let samples_available = dsp.output_buffer.get_sample_count();
+        if num_samples > samples_available {
+            println!(
+                "Audio behind by {} samples ({} / {})",
+                num_samples - samples_available,
+                num_samples,
+                samples_available
+            );
+        }
+
+        // TODO stereo
+        let mut trash = vec![0; num_samples as usize];
+        dsp.output_buffer
+            .read(out, &mut trash, cmp::min(samples_available, num_samples));
+        //println!(
+        //    "{} {}",
+        //    out.iter().min().unwrap(),
+        //    out.iter().max().unwrap()
+        //);
     }
 }
 
