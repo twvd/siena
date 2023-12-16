@@ -1,10 +1,13 @@
 use std::fmt;
 
 use anyhow::Result;
+use arrayvec::ArrayVec;
 use thiserror::Error;
 
 use super::instruction_table::INSTRUCTION_TABLE;
 use super::regs::Register;
+
+pub const MAX_INSTRUCTION_LEN: usize = 3;
 
 /// Instruction operands
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -135,7 +138,7 @@ pub struct Instruction {
     pub immediate: [u8; 2],
 
     /// Raw bytes
-    pub raw: Vec<u8>,
+    pub raw: ArrayVec<u8, MAX_INSTRUCTION_LEN>,
 
     /// Instruction length
     pub len: usize,
@@ -144,7 +147,7 @@ pub struct Instruction {
 impl Instruction {
     /// Try to decode a single instruction from an iterator.
     pub fn decode(stream: &mut impl Iterator<Item = u8>) -> Result<Instruction> {
-        let mut raw: Vec<u8> = vec![];
+        let mut raw: ArrayVec<u8, MAX_INSTRUCTION_LEN> = ArrayVec::new();
         let mut rd = || -> Result<u8> {
             let b = stream.next().ok_or(DecodeErr::EndOfStream)?;
             raw.push(b);

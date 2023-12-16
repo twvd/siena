@@ -7,6 +7,7 @@ default-run = "siena"
 
 [dependencies]
 anyhow = { version = "1.0.75", features = ["backtrace"] }
+arrayvec = "0.7.4"
 clap = { version = "4.4.6", features = ["derive"] }
 colored = "2.0.4"
 dbg_hex = "0.1.1"

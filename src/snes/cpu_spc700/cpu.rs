@@ -1,10 +1,11 @@
 use anyhow::Result;
+use arrayvec::ArrayVec;
 use serde::{Deserialize, Serialize};
 
 use crate::snes::bus::{Bus, BusIterator};
 use crate::tickable::Ticks;
 
-use super::instruction::{Instruction, InstructionType, Operand};
+use super::instruction::{Instruction, InstructionType, Operand, MAX_INSTRUCTION_LEN};
 use super::regs::{Flag, Register, RegisterFile};
 
 pub type SpcAddress = u16;
@@ -47,7 +48,7 @@ where
 
     /// Fetches and decodes the next instruction at PC
     pub fn fetch_next_instr(&mut self) -> Result<Instruction> {
-        let mut fetched: Vec<u8> = vec![];
+        let mut fetched: ArrayVec<u8, MAX_INSTRUCTION_LEN> = ArrayVec::new();
 
         for i in 0.. {
             let pc = self.regs.pc as SpcAddress;
