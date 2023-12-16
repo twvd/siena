@@ -106,9 +106,8 @@ impl Apu {
 
     /// Render audio to specified output buffer
     pub fn render(&mut self, out: &mut [i16]) {
-        let num_samples = out.len() as i32;
+        let num_samples = out.len() as i32 / 2;
         let mut dsp = self.cpu.bus.dsp.as_ref().unwrap().borrow_mut();
-
         dsp.flush();
 
         let samples_available = dsp.output_buffer.get_sample_count();
@@ -121,15 +120,19 @@ impl Apu {
             );
         }
 
-        // TODO stereo
-        let mut trash = vec![0; num_samples as usize];
-        dsp.output_buffer
-            .read(out, &mut trash, cmp::min(samples_available, num_samples));
-        //println!(
-        //    "{} {}",
-        //    out.iter().min().unwrap(),
-        //    out.iter().max().unwrap()
-        //);
+        let mut left = vec![0; num_samples as usize];
+        let mut right = vec![0; num_samples as usize];
+        let samples = cmp::min(samples_available, num_samples);
+        dsp.output_buffer.read(&mut left, &mut right, samples);
+        for i in 0..(samples as usize) {
+            out[i * 2] = left[i];
+            out[i * 2 + 1] = right[i];
+        }
+        println!(
+            "{} {}",
+            out.iter().min().unwrap(),
+            out.iter().max().unwrap()
+        );
     }
 }
 

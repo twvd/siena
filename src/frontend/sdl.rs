@@ -169,8 +169,8 @@ impl SDLAudioSink {
             let audio_subsystem = sdls.context.audio().map_err(|e| anyhow!(e))?;
             let spec = AudioSpecDesired {
                 freq: Some(32000),
-                channels: Some(1),
-                samples: None,
+                channels: Some(2),
+                samples: Some(128),
             };
 
             let device = audio_subsystem
