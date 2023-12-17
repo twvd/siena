@@ -6,6 +6,8 @@ impl<TRenderer> PPU<TRenderer>
 where
     TRenderer: Renderer,
 {
+    /// Maps mode 7 VRAM coordinate to a color
+    #[inline(always)]
     fn mode7_vram_to_color(&self, vram_x: i32, vram_y: i32) -> u8 {
         let screenover = (self.m7sel >> 6) & 0x03;
         let overflow = (vram_x >> 18) | (vram_y >> 18) != 0;
@@ -34,7 +36,21 @@ where
         (self.vram[pixel_addr & VRAM_ADDRMASK] >> 8) as u8
     }
 
-    fn mode7_get_pixel(&self, x: usize, scanline: usize) -> u8 {
+    /// Calculate VRAM coordinates for the next (horizontal) screen
+    /// coordinate in mode 7. Faster than mode7_initial_vramxy().
+    #[inline(always)]
+    fn mode7_next_vramxy(&self, vram_x: i32, vram_y: i32) -> (i32, i32) {
+        // IF xflip THEN VRAM.X=VRAM.X-M7A, ELSE VRAM.X=VRAM.X+M7A
+        // IF xflip THEN VRAM.Y=VRAM.Y-M7C, ELSE VRAM.Y=VRAM.Y+M7C
+        if self.m7sel & 0x01 != 0 {
+            (vram_x - self.m7a as i32, vram_y - self.m7c as i32)
+        } else {
+            (vram_x + self.m7a as i32, vram_y + self.m7c as i32)
+        }
+    }
+
+    /// Calculate VRAM coordinates for any screen coordinate in mode 7
+    fn mode7_initial_vramxy(&self, x: usize, scanline: usize) -> (i32, i32) {
         // IF xflip THEN SCREEN.X=((0..255) XOR FFh), ELSE SCREEN.X=(0..255)
         let screen_x = if self.m7sel & 0x01 != 0 {
             // H-flip
@@ -75,22 +91,24 @@ where
         vram_y +=
             ((self.m7d as i32 * screen_y as i32) & !0x3F) + (self.m7c as i32 * screen_x as i32);
 
-        self.mode7_vram_to_color(vram_x, vram_y)
+        (vram_x, vram_y)
     }
 
-    pub fn render_scanline_mode7(&mut self, scanline: usize, state: &mut RenderState) {
-        if state.layermask & (1 << 0) == 0 {
+    /// Render one full scanline in mode 7
+    pub fn render_scanline_mode7(&mut self, scanline: usize, bg: usize, state: &mut RenderState) {
+        if state.layermask & (1 << bg) == 0 {
             return;
         }
 
+        let (mut vram_x, mut vram_y) = self.mode7_initial_vramxy(0, scanline);
         for x in 0..SCREEN_WIDTH {
-            let c = self.mode7_get_pixel(x, scanline);
-            if c == 0 || state.idx[x] != 0 {
-                continue;
+            let c = self.mode7_vram_to_color(vram_x, vram_y);
+            if state.idx[x] == 0 {
+                state.idx[x] = c;
+                state.paletted[x] = self.cgram_to_color(c);
+                state.layer[x] = bg as u8;
             }
-            state.idx[x] = c;
-            state.paletted[x] = self.cgram_to_color(c);
-            state.layer[x] = 1 as u8;
+            (vram_x, vram_y) = self.mode7_next_vramxy(vram_x, vram_y);
         }
     }
 }

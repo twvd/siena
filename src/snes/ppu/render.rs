@@ -344,7 +344,7 @@ where
                 // Sprites with priority 1
                 self.render_scanline_sprites(scanline, &mut state, 1);
                 // BG1
-                self.render_scanline_mode7(scanline, &mut state);
+                self.render_scanline_mode7(scanline, 0, &mut state);
                 // Sprites with priority 0
                 self.render_scanline_sprites(scanline, &mut state, 0);
             }
