@@ -252,6 +252,7 @@ pub struct InstructionDef {
 }
 
 /// A decoded instruction
+#[derive(Clone)]
 pub struct Instruction {
     /// Reference to definition in instruction table
     pub def: &'static InstructionDef,
