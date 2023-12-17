@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use crate::tickable::Ticks;
 
 use serde::{Deserialize, Serialize};
@@ -14,7 +16,10 @@ pub struct Timer {
     ticks: usize,
 
     /// Counter register (4-bit)
-    cnt: u8,
+    cnt: Cell<u8>,
+
+    /// Internal (low) part of counter (4-bits)
+    cnt_low: u8,
 
     /// Divider
     div: Ticks,
@@ -25,14 +30,15 @@ impl Timer {
         Self {
             top: 0,
             ticks: 0,
-            cnt: 0,
+            cnt: Cell::new(0),
+            cnt_low: 0,
             div,
         }
     }
 
     pub fn reset(&mut self) {
         self.ticks = 0;
-        self.cnt = 0;
+        self.cnt.set(0);
     }
 
     pub fn tick(&mut self, ticks: Ticks) {
@@ -40,9 +46,15 @@ impl Timer {
         // the timer will scale down by its divider.
 
         self.ticks += ticks;
-        if self.ticks / self.div >= usize::from(self.top) {
-            self.cnt = (self.cnt + 1) & 0x0F;
-            self.ticks -= self.top * self.div;
+        while self.ticks >= self.div {
+            self.ticks -= self.div;
+            self.cnt_low += 1;
+            if self.top != 0 {
+                if self.cnt_low == self.top as u8 {
+                    self.cnt.set((self.cnt.get() + 1) & 0x0F);
+                    self.cnt_low = 0;
+                }
+            }
         }
     }
 
@@ -51,6 +63,8 @@ impl Timer {
     }
 
     pub fn get_cnt(&self) -> u8 {
-        self.cnt
+        let v = self.cnt.get();
+        self.cnt.set(0);
+        v
     }
 }
