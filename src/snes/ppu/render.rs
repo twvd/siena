@@ -75,10 +75,12 @@ impl<TRenderer> PPU<TRenderer>
 where
     TRenderer: Renderer,
 {
+    #[inline(always)]
     pub fn cgram_to_color(&self, addr: u8) -> SnesColor {
         SnesColor::from(self.cgram[addr as usize])
     }
 
+    #[inline(always)]
     fn cindex_to_color<'a>(&self, bg: usize, tile: &impl Tile<'a>, idx: u8) -> SnesColor {
         let paletteidx = tile.get_tile_palette();
         let palette = match tile.get_tile_bpp() {
@@ -110,14 +112,17 @@ where
         let bgvofs = self.bgxvofs[bg] as usize;
         let tilesize = self.get_bg_tile_size(bg);
 
-        for x in 0..SCREEN_WIDTH {
+        let mut x = 0;
+        'line: while x < SCREEN_WIDTH {
             let entry = self.get_tilemap_entry_xy(bg, x, scanline);
             if entry.bgprio() != priority {
+                x += 1;
                 continue;
             }
 
             if state.window.bg[bg][x] && state.windowlayermask & (1 << bg) != 0 {
                 // Masked by window.
+                x += 1;
                 continue;
             }
 
@@ -128,14 +133,43 @@ where
             // get_bg_tile will select the sub-tile (for 16x16).
             let tile = self.get_bg_tile(bg, &entry, px_x, px_y);
 
-            // Wrap coordinates back here to the (sub)-tile size
-            let c = tile.get_coloridx(px_x % TILE_WIDTH, px_y % TILE_HEIGHT);
-            if c == 0 || state.idx[x] != 0 {
-                continue;
+            if px_x != 0 {
+                // Do individual colors until aligned
+                // Wrap coordinates back here to the (sub)-tile size
+                let c = tile.get_coloridx(px_x % TILE_WIDTH, px_y % TILE_HEIGHT);
+                if c == 0 || state.idx[x] != 0 {
+                    x += 1;
+                    continue;
+                }
+                state.idx[x] = c;
+                state.paletted[x] = self.cindex_to_color(bg, &tile, c);
+                state.layer[x] = bg as u8;
+                x += 1;
+            } else {
+                // Full tile at once.
+                let c = tile.get_coloridcs_y(px_y % TILE_HEIGHT);
+
+                // An inner loop here is not very nice, but it proved
+                // to have the best performance.
+                for ix in 0..TILE_WIDTH {
+                    if x >= SCREEN_WIDTH {
+                        break 'line;
+                    }
+                    if c[ix] == 0 || state.idx[x] != 0 {
+                        x += 1;
+                        continue;
+                    }
+                    if state.window.bg[bg][x] && state.windowlayermask & (1 << bg) != 0 {
+                        // Masked by window.
+                        x += 1;
+                        continue;
+                    }
+                    state.idx[x] = c[ix];
+                    state.paletted[x] = self.cindex_to_color(bg, &tile, c[ix]);
+                    state.layer[x] = bg as u8;
+                    x += 1;
+                }
             }
-            state.idx[x] = c;
-            state.paletted[x] = self.cindex_to_color(bg, &tile, c);
-            state.layer[x] = bg as u8;
         }
     }
 
