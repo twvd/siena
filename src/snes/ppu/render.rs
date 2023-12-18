@@ -198,23 +198,35 @@ where
             }
 
             if (e.y..(e.y + e.height)).contains(&scanline) {
-                for x in e.x..(e.x + e.width) {
-                    if x >= state.idx.len() {
+                for x in e.x..(e.x + e.width as i32) {
+                    if x >= state.idx.len() as i32 || x < 0 {
                         // Outside of visible area.
-                        break;
+                        continue;
                     }
-                    if state.window.sprites[x] && state.windowlayermask & (1 << LAYER_SPRITES) != 0
+
+                    if state.window.sprites[x as usize]
+                        && state.windowlayermask & (1 << LAYER_SPRITES) != 0
                     {
                         // Masked by window.
                         continue;
                     }
 
-                    let t_x = (x - e.x) / TILE_WIDTH;
-                    let t_y = (scanline - e.y) / TILE_HEIGHT;
+                    // Coordinates within the tile
+                    let (in_x, in_y) = (
+                        ((x - e.x) % TILE_WIDTH as i32) as usize,
+                        ((scanline - e.y) % TILE_HEIGHT) as usize,
+                    );
+                    // Sub-tile coordinates
+                    let (t_x, t_y) = (
+                        ((x - e.x) / TILE_WIDTH as i32) as usize,
+                        ((scanline - e.y) / TILE_HEIGHT) as usize,
+                    );
+                    // Should be positive from here on
+                    let x = x as usize;
+
                     let sprite = self.get_sprite_tile(&e, t_x, t_y);
 
-                    let coloridx =
-                        sprite.get_coloridx((x - e.x) % TILE_WIDTH, (scanline - e.y) % TILE_HEIGHT);
+                    let coloridx = sprite.get_coloridx(in_x, in_y);
                     if coloridx == 0 || state.idx[x] != 0 {
                         continue;
                     }

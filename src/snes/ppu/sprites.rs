@@ -1,10 +1,11 @@
 use super::*;
+use crate::util::sign_extend;
 
 pub const OAM_ENTRIES: usize = 128;
 
 #[derive(Debug)]
 pub struct OAMEntry {
-    pub x: usize,
+    pub x: i32,
     pub y: usize,
     pub priority: u8,
     pub attr: u8,
@@ -107,7 +108,7 @@ where
         };
 
         OAMEntry {
-            x: usize::from(e[0]) | (usize::from(ext) & 0x01) << 8,
+            x: sign_extend(i32::from(e[0]) | (i32::from(ext) & 0x01) << 8, 9),
             y: e[1].into(),
             tileidx: e[2] as u16 | (e[3] as u16 & 0x01) << 8,
             attr: e[3],

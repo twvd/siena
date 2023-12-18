@@ -2,10 +2,7 @@ use super::*;
 
 use crate::frontend::Renderer;
 use crate::snes::bus::{Address, BusMember};
-
-use num::traits::{WrappingShl, WrappingShr};
-use num::Integer;
-use std::mem::size_of_val;
+use crate::util::sign_extend;
 
 macro_rules! write_m7x {
     ($self:ident, $reg:ident, $val:expr) => {{
@@ -22,11 +19,6 @@ macro_rules! write_m7x_13b {
         );
         $self.m7_old = $val
     }};
-}
-
-fn sign_extend<T: Integer + WrappingShl + WrappingShr>(val: T, nbits: u32) -> T {
-    let notherbits = size_of_val(&val) as u32 * 8 - nbits;
-    val.wrapping_shl(notherbits).wrapping_shr(notherbits)
 }
 
 impl<TRenderer> BusMember<Address> for PPU<TRenderer>
