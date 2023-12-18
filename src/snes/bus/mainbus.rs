@@ -5,7 +5,7 @@ use dbg_hex::dbg_hex;
 use serde::{Deserialize, Serialize};
 
 use crate::frontend::Renderer;
-use crate::snes::apu::Apu;
+use crate::snes::apu::apu::Apu;
 use crate::snes::bus::{Address, Bus, BusMember, ADDRESS_MASK};
 use crate::snes::cartridge::{Cartridge, VideoFormat};
 use crate::snes::joypad::{Joypad, JOYPAD_COUNT};

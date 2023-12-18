@@ -7,8 +7,8 @@ use crate::snes::bus::Bus;
 use crate::snes::cpu_spc700::cpu::{SpcAddress, SPC_ADDRESS_MASK};
 use crate::tickable::{Tickable, Ticks};
 
+use super::apu::ApuPorts;
 use super::timers::{Timer, APU_TIMERS};
-use super::ApuPorts;
 
 const APU_RAM_SIZE: usize = 64 * 1024;
 const APU_ROM_SIZE: usize = 64;
