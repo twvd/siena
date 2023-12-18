@@ -171,8 +171,12 @@ fn main() -> Result<()> {
         fps,
         videoformat,
     );
-    bus.apu.verbose = args.spc_verbose;
-    bus.apu.ports.write().unwrap().trace = args.trace_apu_comm;
+
+    #[cfg(not(feature = "apu_blargg"))]
+    {
+        bus.apu.verbose = args.spc_verbose;
+        bus.apu.ports.write().unwrap().trace = args.trace_apu_comm;
+    }
 
     // Fetch reset vector address
     let reset = bus.read16(0xFFFC);

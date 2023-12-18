@@ -5,12 +5,17 @@ use dbg_hex::dbg_hex;
 use serde::{Deserialize, Serialize};
 
 use crate::frontend::Renderer;
-use crate::snes::apu::apu::Apu;
 use crate::snes::bus::{Address, Bus, BusMember, ADDRESS_MASK};
 use crate::snes::cartridge::{Cartridge, VideoFormat};
 use crate::snes::joypad::{Joypad, JOYPAD_COUNT};
 use crate::snes::ppu::ppu::PPU;
 use crate::tickable::{Tickable, Ticks};
+
+#[cfg(not(feature = "apu_blargg"))]
+use crate::snes::apu::apu::Apu;
+
+#[cfg(feature = "apu_blargg")]
+use crate::snes::apu_blargg::Apu;
 
 const WRAM_BANKS: usize = 2;
 const WRAM_BANK_SIZE: usize = 64 * 1024;
