@@ -585,8 +585,17 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "snes_spc",
  "strum",
  "thiserror",
+]
+
+[[package]]
+name = "snes_spc"
+version = "0.1.2"
+dependencies = [
+ "cc",
+ "libc",
 ]
 
 [[package]]
