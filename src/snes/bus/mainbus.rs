@@ -1,4 +1,5 @@
 use std::cell::Cell;
+use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use dbg_hex::dbg_hex;
@@ -47,7 +48,7 @@ where
     pub joypads: Option<[Joypad; JOYPAD_COUNT]>,
 
     /// Audio Processing Unit
-    pub apu: Apu,
+    pub apu: Arc<Mutex<Apu>>,
 
     /// Picture Processing Unit
     pub ppu: PPU<TRenderer>,
@@ -252,7 +253,7 @@ where
             joypads: Some(joypads),
 
             ppu: PPU::<TRenderer>::new(renderer, fps, videoformat),
-            apu: Apu::new(apu_verbose),
+            apu: Arc::new(Mutex::new(Apu::new(apu_verbose))),
 
             memsel: 0,
             wmadd: Cell::new(0),
@@ -274,6 +275,10 @@ where
 
             rdnmi_vblank: Cell::new(false),
         }
+    }
+
+    pub fn get_apu(&mut self) -> Arc<Mutex<Apu>> {
+        Arc::clone(&self.apu)
     }
 
     fn gdma_run(&mut self, chmask: u8) {
@@ -460,7 +465,10 @@ where
                 // Picture Processing Unit
                 0x2100..=0x213F => self.ppu.read(fulladdr),
                 // APU comms
-                0x2140..=0x217F => self.apu.read(fulladdr),
+                0x2140..=0x217F => {
+                    let apu = self.apu.lock().unwrap();
+                    apu.read(fulladdr)
+                }
                 // WMDATA - WRAM Data Read/Write (R/W)
                 0x2180 => {
                     let addr = self.wmadd.get();
@@ -634,7 +642,10 @@ where
                 // Picture Processing Unit
                 0x2100..=0x213F => self.ppu.write(fulladdr, val),
                 // APU comms
-                0x2140..=0x217F => self.apu.write(fulladdr, val),
+                0x2140..=0x217F => {
+                    let mut apu = self.apu.lock().unwrap();
+                    apu.write(fulladdr, val)
+                }
                 // WMDATA - WRAM Data Read/Write
                 0x2180 => {
                     let addr = self.wmadd.get();
@@ -802,7 +813,10 @@ where
         self.cartridge.tick(ticks)?;
 
         // APU deals with its own stuff
-        self.apu.tick(ticks)?;
+        {
+            let mut apu = self.apu.lock().unwrap();
+            apu.tick(ticks)?;
+        }
 
         // The PPU is supposed to run at 5.3/5.6 MHz dot clock
         // for a 3.5 MHz CPU.

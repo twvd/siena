@@ -1,9 +1,12 @@
 use std::cell::RefCell;
 use std::sync::atomic::AtomicU8;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use anyhow::{anyhow, Result};
+use sdl2::audio::AudioCallback;
+use sdl2::audio::AudioDevice;
+use sdl2::audio::AudioSpecDesired;
 use sdl2::event::Event;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::render::{Canvas, Texture};
@@ -11,6 +14,8 @@ use sdl2::video::Window;
 use sdl2::{EventPump, Sdl};
 
 use super::{new_displaybuffer, DisplayBuffer, Renderer};
+
+use crate::snes::apu_blargg::Apu;
 
 pub struct SDLSingleton {
     context: Sdl,
@@ -127,6 +132,43 @@ impl SDLEventPump {
         SDL.with(|cell| {
             let mut sdls = cell.borrow_mut();
             sdls.pump.poll_event()
+        })
+    }
+}
+
+pub struct SDLAudioSink {
+    apu: Arc<Mutex<Apu>>,
+}
+
+impl AudioCallback for SDLAudioSink {
+    type Channel = i16;
+
+    fn callback(&mut self, out: &mut [i16]) {
+        let mut apu = self.apu.lock().unwrap();
+        apu.render(out);
+    }
+}
+
+impl SDLAudioSink {
+    /// Creates a new audiosink
+    pub fn init(apu: Arc<Mutex<Apu>>) -> Result<AudioDevice<SDLAudioSink>> {
+        SDL.with(|cell| {
+            let sdls = cell.borrow_mut();
+            let audio_subsystem = sdls.context.audio().map_err(|e| anyhow!(e))?;
+            let spec = AudioSpecDesired {
+                freq: Some(32000),
+                channels: Some(2),
+                samples: Some(128),
+            };
+
+            let device = audio_subsystem
+                .open_playback(None, &spec, |spec| {
+                    dbg!(&spec);
+                    Self { apu }
+                })
+                .map_err(|e| anyhow!(e))?;
+            device.resume();
+            Ok(device)
         })
     }
 }

@@ -24,7 +24,7 @@ num = "0.4.1"
 num-derive = "0.4.0"
 num-traits = "0.2.16"
 rusty_pool = { version = "0.7.0", default-features = false }
-snes_spc = { path = "../rust-snes_spc", optional = true }
+snes_spc = { git = "https://github.com/twvd/rust-snes_spc", optional = true }
 sdl2 = { version = "0.35.2", features = ["unsafe_textures"] }
 serbia = "0.4.3"
 serde = { version = "1.0.193", features = ["derive", "rc"] }

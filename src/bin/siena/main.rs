@@ -12,7 +12,7 @@ use serde::Deserialize;
 use serde_json::Deserializer;
 
 use siena::frontend::channel::ChannelRenderer;
-use siena::frontend::sdl::{SDLEventPump, SDLRenderer};
+use siena::frontend::sdl::{SDLAudioSink, SDLEventPump, SDLRenderer};
 use siena::frontend::Renderer;
 use siena::snes::bus::mainbus::{BusTrace, Mainbus};
 use siena::snes::bus::Bus;
@@ -172,6 +172,9 @@ fn main() -> Result<()> {
         videoformat,
     );
 
+    // Initialize audio
+    let _audio = SDLAudioSink::init(bus.get_apu());
+
     #[cfg(not(feature = "apu_blargg"))]
     {
         bus.apu.verbose = args.spc_verbose;
@@ -224,6 +227,7 @@ fn main() -> Result<()> {
                 println!("State dumped to {}", filename);
             }
             Ok(EmuThreadSignal::ToggleVerbose) => t_verbose = !t_verbose,
+            #[cfg(not(feature = "apu_blargg"))]
             Ok(EmuThreadSignal::ToggleVerboseSPC) => cpu.bus.apu.verbose = !cpu.bus.apu.verbose,
             _ => (),
         }
@@ -265,7 +269,7 @@ fn main() -> Result<()> {
                     emuthread_tx.send(EmuThreadSignal::ToggleVerbose)?;
                 }
 
-                // Toggle SPC70P verbose
+                // Toggle SPC700 verbose
                 Event::KeyDown {
                     keycode: Some(Keycode::Num9),
                     ..

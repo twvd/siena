@@ -749,6 +749,7 @@ dependencies = [
 [[package]]
 name = "snes_spc"
 version = "0.1.2"
+source = "git+https://github.com/twvd/rust-snes_spc#0153d0d332d018895d54666d660f58aea71a0f58"
 dependencies = [
  "cc",
  "libc",
