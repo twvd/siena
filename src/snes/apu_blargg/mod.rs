@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
 use anyhow::Result;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use snes_spc::{SnesSpc, SpcTime};
 
 use crate::snes::bus::{Address, BusMember};
@@ -19,7 +19,9 @@ pub struct Apu {
 
 impl Apu {
     /// One SPC cycle = 3 master cycles
-    const SPC_MASTER_FACTOR: Ticks = 3;
+    const SPC_MASTER_FACTOR: Ticks = 24;
+
+    const SAMPLE_BUFFER_SIZE: usize = 256;
 
     const IPL_SIZE: usize = 64;
 
@@ -32,9 +34,18 @@ impl Apu {
     ];
 
     pub fn new(_verbose: bool) -> Self {
+        let mut spc = SnesSpc::from_ipl(Self::SAMPLE_BUFFER_SIZE, &Self::IPL_BIN).unwrap();
+        spc.reset();
+        spc.reset_output();
         Self {
-            spc: Some(RefCell::new(SnesSpc::from_ipl(&Self::IPL_BIN).unwrap())),
-            ticks: 0
+            spc: Some(RefCell::new(spc)),
+            ticks: 0,
+        }
+    }
+
+    pub fn render(&mut self, out: &mut [i16]) {
+        if let Some(spc) = &self.spc {
+            let res = spc.borrow_mut().play(out);
         }
     }
 }
@@ -42,6 +53,15 @@ impl Apu {
 impl Tickable for Apu {
     fn tick(&mut self, ticks: Ticks) -> Result<()> {
         self.ticks += ticks;
+
+        if self.ticks >= 100 {
+            if let Some(spc) = &self.spc {
+                spc.borrow_mut()
+                    .end_frame((self.ticks / Self::SPC_MASTER_FACTOR) as SpcTime);
+            }
+            self.ticks = 0;
+        }
+
         Ok(())
     }
 }
@@ -55,7 +75,11 @@ impl BusMember<Address> for Apu {
                 let ch = (addr - 0x2140) % 4;
 
                 if let Some(spc) = &self.spc {
-                    Some(spc.borrow_mut().read_port((self.ticks / Self::SPC_MASTER_FACTOR) as SpcTime, ch as u8) as u8)
+                    Some(
+                        spc.borrow_mut()
+                            .read_port((self.ticks / Self::SPC_MASTER_FACTOR) as SpcTime, ch as u8)
+                            as u8,
+                    )
                 } else {
                     Some(0)
                 }
@@ -71,7 +95,11 @@ impl BusMember<Address> for Apu {
             0x2140..=0x217F => {
                 let ch = (addr - 0x2140) % 4;
                 if let Some(spc) = &self.spc {
-                    spc.borrow_mut().write_port((self.ticks / Self::SPC_MASTER_FACTOR) as SpcTime, ch as u8, val);
+                    spc.borrow_mut().write_port(
+                        (self.ticks / Self::SPC_MASTER_FACTOR) as SpcTime,
+                        ch as u8,
+                        val,
+                    );
                 }
                 Some(())
             }
