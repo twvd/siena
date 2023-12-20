@@ -13,7 +13,7 @@ use crate::snes::bus::Bus;
 use crate::snes::cartridge::Cartridge;
 use crate::snes::cpu_65816::cpu::Cpu65816;
 use crate::snes::joypad::Joypad;
-use crate::snes::ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::snes::ppu::ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
 fn test_display(rom: &[u8], pass_hash: &[u8], time_limit: u128, stable: bool, hirom: bool) {
     let (display, dispstatus) = TestRenderer::new_test(SCREEN_WIDTH, SCREEN_HEIGHT);

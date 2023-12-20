@@ -1,4 +1,4 @@
-use super::*;
+use super::ppu::*;
 
 use crate::frontend::Renderer;
 use crate::snes::bus::{Address, BusMember};

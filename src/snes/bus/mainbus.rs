@@ -9,7 +9,7 @@ use crate::snes::apu::Apu;
 use crate::snes::bus::{Address, Bus, BusMember, ADDRESS_MASK};
 use crate::snes::cartridge::Cartridge;
 use crate::snes::joypad::{Joypad, JOYPAD_COUNT};
-use crate::snes::ppu::PPU;
+use crate::snes::ppu::ppu::PPU;
 use crate::tickable::{Tickable, Ticks};
 
 const WRAM_BANKS: usize = 2;

@@ -1,6 +1,7 @@
 use super::color::SnesColor;
+use super::ppu::*;
 use super::sprites::{SpriteTile, OAM_ENTRIES};
-use super::*;
+use super::tile::*;
 use crate::frontend::Renderer;
 
 use num_derive::FromPrimitive;

@@ -1,5 +1,5 @@
+use super::ppu::*;
 use super::render::*;
-use super::*;
 use crate::frontend::Renderer;
 
 impl<TRenderer> PPU<TRenderer>

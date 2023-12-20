@@ -1,4 +1,7 @@
-use super::*;
+use super::ppu::*;
+use super::tile::*;
+
+use crate::frontend::Renderer;
 use crate::util::sign_extend;
 
 pub const OAM_ENTRIES: usize = 128;
