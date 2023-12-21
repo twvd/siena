@@ -1,4 +1,4 @@
-use super::ppu::*;
+use super::state::*;
 
 use arrayvec::ArrayVec;
 

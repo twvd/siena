@@ -1,9 +1,11 @@
 use super::color::SnesColor;
-use super::ppu::*;
+use super::ppu::SCREEN_WIDTH;
 use super::sprites::{SpriteTile, OAM_ENTRIES};
+use super::state::*;
 use super::tile::*;
-use crate::frontend::Renderer;
+use crate::frontend::Color;
 
+use arrayvec::ArrayVec;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
@@ -72,10 +74,7 @@ enum WindowMask {
     Xnor = 3,
 }
 
-impl<TRenderer> PPU<TRenderer>
-where
-    TRenderer: Renderer,
-{
+impl PPUState {
     #[inline(always)]
     pub fn cgram_to_color(&self, addr: u8) -> SnesColor {
         SnesColor::from(self.cgram[addr as usize])
@@ -371,7 +370,7 @@ where
         state
     }
 
-    pub fn render_scanline(&mut self, scanline: usize, output_offset: isize) {
+    pub fn render_scanline(&mut self, scanline: usize) -> ArrayVec<Color, SCREEN_WIDTH> {
         let windows = self.render_windows();
         let mainscreen = self.render_scanline_screen(
             scanline,
@@ -395,14 +394,13 @@ where
         );
 
         // Send line to screen buffer
-        let output_line = usize::try_from((scanline as isize) + output_offset).unwrap();
         let brightness = (self.inidisp & 0x0F) as usize;
 
-        for x in 0..mainscreen.paletted.len() {
+        let mut out: ArrayVec<Color, SCREEN_WIDTH> = ArrayVec::new();
+        for x in 0..SCREEN_WIDTH {
             if brightness == 0 || self.inidisp & 0x80 != 0 {
                 // Force blank or no brightness
-                let renderer = self.renderer.as_mut().unwrap();
-                renderer.set_pixel(x, output_line, SnesColor::BLACK.to_native());
+                out.push(SnesColor::BLACK.to_native());
                 continue;
             }
 
@@ -416,13 +414,10 @@ where
             );
 
             // Apply master brightness and output
-            let renderer = self.renderer.as_mut().unwrap();
-            renderer.set_pixel(
-                x,
-                output_line,
-                pixel.apply_brightness(brightness).to_native(),
-            );
+            out.push(pixel.apply_brightness(brightness).to_native());
         }
+
+        out
     }
 
     fn apply_colormath(

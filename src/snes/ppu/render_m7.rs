@@ -1,11 +1,8 @@
-use super::ppu::*;
+use super::ppu::SCREEN_WIDTH;
 use super::render::*;
-use crate::frontend::Renderer;
+use super::state::*;
 
-impl<TRenderer> PPU<TRenderer>
-where
-    TRenderer: Renderer,
-{
+impl PPUState {
     /// Maps mode 7 VRAM coordinate to a color
     #[inline(always)]
     fn mode7_vram_to_color(&self, vram_x: i32, vram_y: i32) -> u8 {

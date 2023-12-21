@@ -1,6 +1,5 @@
-use super::ppu::*;
+use super::state::*;
 
-use crate::frontend::Renderer;
 use crate::snes::bus::{Address, BusMember};
 use crate::util::sign_extend;
 
@@ -21,10 +20,7 @@ macro_rules! write_m7x_13b {
     }};
 }
 
-impl<TRenderer> BusMember<Address> for PPU<TRenderer>
-where
-    TRenderer: Renderer,
-{
+impl BusMember<Address> for PPUState {
     fn read(&self, fulladdr: Address) -> Option<u8> {
         let (_bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
@@ -64,14 +60,6 @@ where
                 let res = i32::from(self.m7a as i16) * i32::from(self.m7b_8b);
                 Some((res >> 16) as u8)
             }
-            // SLHV - Latch H/V-Counter by Software (R)
-            0x2137 => {
-                self.hlatch.set(self.get_current_h() as u8);
-                self.vlatch.set(self.get_current_scanline() as u8);
-
-                // Read openbus
-                None
-            }
             // RDOAM - OAM Data Read (R)
             0x2138 => {
                 let oaddr = self.oamadd_addr.get();
@@ -106,10 +94,6 @@ where
 
                 Some(valb)
             }
-            // OPHCT - Horizontal Counter Latch (R)
-            0x213C => Some(self.hlatch.get()),
-            // OPVCT - Vertical Counter Latch (R)
-            0x213D => Some(self.vlatch.get()),
 
             _ => None,
         }

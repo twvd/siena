@@ -1,7 +1,6 @@
-use super::ppu::*;
+use super::state::*;
 use super::tile::*;
 
-use crate::frontend::Renderer;
 use crate::util::sign_extend;
 
 pub const OAM_ENTRIES: usize = 128;
@@ -76,10 +75,7 @@ where
     }
 }
 
-impl<TRenderer> PPU<TRenderer>
-where
-    TRenderer: Renderer,
-{
+impl PPUState {
     /// Retrieve a sprite entry from OAM
     pub fn get_oam_entry(&self, idx: usize) -> OAMEntry {
         // Base OAM table entry

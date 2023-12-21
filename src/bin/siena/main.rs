@@ -186,28 +186,6 @@ fn main() -> Result<()> {
                         }
                     }
 
-                    // Debug - toggle layer masks
-                    Event::KeyDown {
-                        keycode: Some(Keycode::Num1),
-                        ..
-                    } => cpu.bus.ppu.dbg_layermask ^= 1 << 0,
-                    Event::KeyDown {
-                        keycode: Some(Keycode::Num2),
-                        ..
-                    } => cpu.bus.ppu.dbg_layermask ^= 1 << 1,
-                    Event::KeyDown {
-                        keycode: Some(Keycode::Num3),
-                        ..
-                    } => cpu.bus.ppu.dbg_layermask ^= 1 << 2,
-                    Event::KeyDown {
-                        keycode: Some(Keycode::Num4),
-                        ..
-                    } => cpu.bus.ppu.dbg_layermask ^= 1 << 3,
-                    Event::KeyDown {
-                        keycode: Some(Keycode::Num5),
-                        ..
-                    } => cpu.bus.ppu.dbg_layermask ^= 1 << 4,
-
                     // Dump state
                     Event::KeyDown {
                         keycode: Some(Keycode::D),

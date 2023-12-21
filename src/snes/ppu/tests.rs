@@ -1,10 +1,9 @@
-use crate::frontend::{NullRenderer, Renderer};
 use crate::snes::bus::BusMember;
 
-use super::ppu::*;
+use super::state::PPUState;
 
-fn ppu() -> PPU<NullRenderer> {
-    PPU::<NullRenderer>::new(NullRenderer::new(0, 0).unwrap())
+fn ppu() -> PPUState {
+    PPUState::new()
 }
 
 #[test]
