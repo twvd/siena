@@ -9,6 +9,7 @@ use crate::snes::bus::{Address, BusMember};
 use crate::tickable::{Tickable, Ticks};
 
 use std::cell::Cell;
+use std::sync::atomic::Ordering;
 
 pub const SCREEN_WIDTH: usize = 8 * 32;
 pub const SCREEN_HEIGHT: usize = 8 * 28;
@@ -107,12 +108,11 @@ where
 
         self.pool.execute(move || {
             let line = t_state.render_scanline(scanline);
-            let mut buffer = t_buffer.lock().unwrap();
             for (x, color) in line.into_iter().enumerate() {
                 let idx = ((output_line * SCREEN_WIDTH) + x) * 4;
-                buffer[idx] = color.2;
-                buffer[idx + 1] = color.1;
-                buffer[idx + 2] = color.0;
+                t_buffer[idx].store(color.2.into(), Ordering::Release);
+                t_buffer[idx + 1].store(color.1.into(), Ordering::Release);
+                t_buffer[idx + 2].store(color.0.into(), Ordering::Release);
             }
         });
     }

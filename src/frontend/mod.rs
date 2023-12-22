@@ -3,7 +3,11 @@ pub mod test;
 
 use anyhow::Result;
 
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::AtomicU8;
+use std::sync::Arc;
+
+/// Thread-safe display buffer
+pub type DisplayBuffer = Arc<Vec<AtomicU8>>;
 
 /// RGB888 format
 pub type Color = (u8, u8, u8);
@@ -18,7 +22,7 @@ pub trait Renderer {
     fn update(&mut self) -> Result<()>;
 
     /// Gets a reference to the (lockable) back buffer
-    fn get_buffer(&mut self) -> Arc<Mutex<Vec<u8>>>;
+    fn get_buffer(&mut self) -> DisplayBuffer;
 }
 
 pub struct NullRenderer {}
@@ -31,7 +35,7 @@ impl Renderer for NullRenderer {
         Ok(())
     }
 
-    fn get_buffer(&mut self) -> Arc<Mutex<Vec<u8>>> {
+    fn get_buffer(&mut self) -> DisplayBuffer {
         unreachable!()
     }
 }

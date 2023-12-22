@@ -1,5 +1,7 @@
 use std::cell::RefCell;
-use std::sync::{Arc, Mutex};
+use std::iter;
+use std::sync::atomic::AtomicU8;
+use std::sync::Arc;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -10,7 +12,7 @@ use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
 use sdl2::{EventPump, Sdl};
 
-use super::Renderer;
+use super::{DisplayBuffer, Renderer};
 
 pub struct SDLSingleton {
     context: Sdl,
@@ -32,7 +34,7 @@ thread_local! {
 pub struct SDLRenderer {
     canvas: Canvas<Window>,
     texture: Texture,
-    displaybuffer: Arc<Mutex<Vec<u8>>>,
+    displaybuffer: DisplayBuffer,
     width: usize,
     #[allow(dead_code)]
     height: usize,
@@ -73,7 +75,9 @@ impl Renderer for SDLRenderer {
             Ok(SDLRenderer {
                 canvas,
                 texture,
-                displaybuffer: Arc::new(Mutex::new(vec![0; width * height * Self::BPP])),
+                displaybuffer: Arc::new(Vec::from_iter(
+                    iter::repeat_with(|| AtomicU8::new(0)).take(width * height * Self::BPP),
+                )),
                 width,
                 height,
                 last_frame: Instant::now(),
@@ -84,17 +88,18 @@ impl Renderer for SDLRenderer {
         })
     }
 
-    fn get_buffer(&mut self) -> Arc<Mutex<Vec<u8>>> {
+    fn get_buffer(&mut self) -> DisplayBuffer {
         Arc::clone(&self.displaybuffer)
     }
 
     /// Renders changes to screen
     fn update(&mut self) -> Result<()> {
-        {
-            let displaybuffer = self.displaybuffer.lock().unwrap();
-            self.texture
-                .update(None, &displaybuffer, self.width * Self::BPP)?;
-        }
+        // This is safe because SDL will only read from the transmuted
+        // buffer. Worst case is a garbled display.
+        let sdl_displaybuffer =
+            unsafe { std::mem::transmute::<&[AtomicU8], &[u8]>(&self.displaybuffer) };
+        self.texture
+            .update(None, &sdl_displaybuffer, self.width * Self::BPP)?;
         self.canvas
             .copy(&self.texture, None, None)
             .map_err(|e| anyhow!(e))?;

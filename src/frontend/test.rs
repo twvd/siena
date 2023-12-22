@@ -1,4 +1,4 @@
-use super::Renderer;
+use super::{DisplayBuffer, Renderer};
 
 use anyhow::Result;
 use itertools::Itertools;
@@ -6,12 +6,14 @@ use sha2::{Digest, Sha256};
 
 use std::cell::Cell;
 use std::cmp;
+use std::iter;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::Arc;
 
 /// A display that hashes the contents using SHA256.
 pub struct TestRenderer {
-    buffer: Arc<Mutex<Vec<u8>>>,
+    buffer: DisplayBuffer,
     state: TDS,
 }
 
@@ -34,7 +36,9 @@ impl TestRenderer {
 
         (
             TestRenderer {
-                buffer: Arc::new(Mutex::new(vec![0; width * height * 4])),
+                buffer: Arc::new(Vec::from_iter(
+                    iter::repeat_with(|| AtomicU8::new(0)).take(width * height * 4),
+                )),
                 state: Rc::clone(&state),
             },
             state,
@@ -52,15 +56,14 @@ impl Renderer for TestRenderer {
     }
 
     fn update(&mut self) -> Result<()> {
-        let buffer = self.buffer.lock().unwrap();
         let mut hasher = Sha256::new();
         hasher.update(
             // Shuffle them around into the old format, BEFORE
             // everything started using 32-bit RGB, which was just
             // 24-bit R, G, B.
-            buffer
+            self.buffer
                 .iter()
-                .copied()
+                .map(|a| a.load(Ordering::Acquire))
                 .chunks(4)
                 .into_iter()
                 .flat_map(|i| i.take(3).collect::<Vec<_>>().into_iter().rev())
@@ -75,7 +78,7 @@ impl Renderer for TestRenderer {
             1
         };
 
-        let all_black = buffer.iter().all(|&c| c == 0);
+        let all_black = self.buffer.iter().all(|c| c.load(Ordering::Acquire) == 0);
 
         self.state.set(TestRendererState {
             hash: hash.into(),
@@ -85,7 +88,7 @@ impl Renderer for TestRenderer {
         Ok(())
     }
 
-    fn get_buffer(&mut self) -> Arc<Mutex<Vec<u8>>> {
+    fn get_buffer(&mut self) -> DisplayBuffer {
         Arc::clone(&self.buffer)
     }
 }
