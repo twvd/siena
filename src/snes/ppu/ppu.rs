@@ -1,6 +1,7 @@
 use super::state::PPUState;
 
 use anyhow::Result;
+use rusty_pool::ThreadPool;
 use serde::{Deserialize, Serialize};
 
 use crate::frontend::Renderer;
@@ -33,6 +34,9 @@ pub struct PPU<TRenderer: Renderer> {
 
     state: PPUState,
 
+    #[serde(skip)]
+    pool: ThreadPool,
+
     // H/V latches
     pub(super) hlatch: Cell<u8>,
     pub(super) vlatch: Cell<u8>,
@@ -58,6 +62,7 @@ where
             hblank: false,
 
             state: PPUState::new(),
+            pool: ThreadPool::default(),
 
             hlatch: Cell::new(0),
             vlatch: Cell::new(0),
@@ -93,13 +98,23 @@ where
     }
 
     pub fn render_scanline(&mut self, scanline: usize, output_offset: isize) {
-        let line = self.state.render_scanline(scanline);
-
         let output_line = usize::try_from((scanline as isize) + output_offset).unwrap();
-        let renderer = self.renderer.as_mut().unwrap();
-        for (x, pixel) in line.into_iter().enumerate() {
-            renderer.set_pixel(x, output_line, pixel);
+        if output_line >= SCREEN_HEIGHT {
+            return;
         }
+        let mut t_state = self.state.clone();
+        let t_buffer = self.renderer.as_mut().unwrap().get_buffer();
+
+        self.pool.execute(move || {
+            let line = t_state.render_scanline(scanline);
+            let mut buffer = t_buffer.lock().unwrap();
+            for (x, color) in line.into_iter().enumerate() {
+                let idx = ((output_line * SCREEN_WIDTH) + x) * 4;
+                buffer[idx] = color.2;
+                buffer[idx + 1] = color.1;
+                buffer[idx + 2] = color.0;
+            }
+        });
     }
 }
 
@@ -133,13 +148,16 @@ where
 
                     // Reload OAMADD
                     self.state.oamadd_addr.set(self.state.oamadd_reload.get());
+                }
+            } else {
+                if self.vblank {
+                    self.vblank = false;
 
                     // Send frame to the screen
+                    self.pool.join();
                     let renderer = self.renderer.as_mut().unwrap();
                     renderer.update()?;
                 }
-            } else {
-                self.vblank = false;
 
                 // Scanline 0 is discarded by the original hardware, so
                 // scanline 1 becomes the top of the frame. However, H/V-interrupts,

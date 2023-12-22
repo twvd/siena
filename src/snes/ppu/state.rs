@@ -79,7 +79,7 @@ impl BPP {
 }
 
 #[serbia]
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct PPUState {
     // Debug toggles to mask certain bg/obj layers
     pub dbg_layermask: u8,

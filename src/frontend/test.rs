@@ -1,17 +1,17 @@
-use super::{Color, Renderer};
+use super::Renderer;
 
 use anyhow::Result;
+use itertools::Itertools;
 use sha2::{Digest, Sha256};
 
 use std::cell::Cell;
 use std::cmp;
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 /// A display that hashes the contents using SHA256.
 pub struct TestRenderer {
-    width: usize,
-    height: usize,
-    buffer: Vec<Vec<Color>>,
+    buffer: Arc<Mutex<Vec<u8>>>,
     state: TDS,
 }
 
@@ -26,15 +26,6 @@ pub type TDS = Rc<Cell<TestRendererState>>;
 
 impl TestRenderer {
     pub fn new_test(width: usize, height: usize) -> (Self, TDS) {
-        let mut vs: Vec<Vec<Color>> = Vec::with_capacity(height);
-        for _ in 0..height {
-            let mut vline = Vec::<Color>::with_capacity(width);
-            for _ in 0..width {
-                vline.push((0, 0, 0));
-            }
-            vs.push(vline);
-        }
-
         let state = Rc::new(Cell::new(TestRendererState {
             stable_frames: 0,
             hash: [0; 256 / 8],
@@ -43,9 +34,7 @@ impl TestRenderer {
 
         (
             TestRenderer {
-                width,
-                height,
-                buffer: vs,
+                buffer: Arc::new(Mutex::new(vec![0; width * height * 4])),
                 state: Rc::clone(&state),
             },
             state,
@@ -62,20 +51,19 @@ impl Renderer for TestRenderer {
         panic!("Use new_test().");
     }
 
-    fn set_pixel(&mut self, x: usize, y: usize, color: Color) {
-        assert!(x < self.width);
-        assert!(y < self.height);
-
-        self.buffer[y][x] = color;
-    }
-
     fn update(&mut self) -> Result<()> {
+        let buffer = self.buffer.lock().unwrap();
         let mut hasher = Sha256::new();
         hasher.update(
-            self.buffer
+            // Shuffle them around into the old format, BEFORE
+            // everything started using 32-bit RGB, which was just
+            // 24-bit R, G, B.
+            buffer
                 .iter()
-                .flat_map(|v| v.clone().into_iter())
-                .flat_map(|i| [i.0, i.1, i.2].into_iter())
+                .copied()
+                .chunks(4)
+                .into_iter()
+                .flat_map(|i| i.take(3).collect::<Vec<_>>().into_iter().rev())
                 .collect::<Vec<u8>>(),
         );
         let hash = hasher.finalize();
@@ -87,7 +75,7 @@ impl Renderer for TestRenderer {
             1
         };
 
-        let all_black = self.buffer.iter().flatten().all(|&c| c == (0, 0, 0));
+        let all_black = buffer.iter().all(|&c| c == 0);
 
         self.state.set(TestRendererState {
             hash: hash.into(),
@@ -95,5 +83,9 @@ impl Renderer for TestRenderer {
             all_black,
         });
         Ok(())
+    }
+
+    fn get_buffer(&mut self) -> Arc<Mutex<Vec<u8>>> {
+        Arc::clone(&self.buffer)
     }
 }

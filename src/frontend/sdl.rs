@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -9,7 +10,7 @@ use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
 use sdl2::{EventPump, Sdl};
 
-use super::{Color, Renderer};
+use super::Renderer;
 
 pub struct SDLSingleton {
     context: Sdl,
@@ -31,7 +32,7 @@ thread_local! {
 pub struct SDLRenderer {
     canvas: Canvas<Window>,
     texture: Texture,
-    displaybuffer: Vec<u8>,
+    displaybuffer: Arc<Mutex<Vec<u8>>>,
     width: usize,
     #[allow(dead_code)]
     height: usize,
@@ -72,7 +73,7 @@ impl Renderer for SDLRenderer {
             Ok(SDLRenderer {
                 canvas,
                 texture,
-                displaybuffer: vec![0; width * height * Self::BPP],
+                displaybuffer: Arc::new(Mutex::new(vec![0; width * height * Self::BPP])),
                 width,
                 height,
                 last_frame: Instant::now(),
@@ -83,24 +84,17 @@ impl Renderer for SDLRenderer {
         })
     }
 
-    /// Updates a sungle pixel in the backbuffer
-    fn set_pixel(&mut self, x: usize, y: usize, color: Color) {
-        debug_assert!(x < self.width);
-        debug_assert!(y < self.height);
-
-        let idx = ((y * self.width) + x) * Self::BPP;
-        self.displaybuffer[idx] = color.2;
-        self.displaybuffer[idx + 1] = color.1;
-        self.displaybuffer[idx + 2] = color.0;
-        // idx + 3 unused. We use the 32-bit version rather than
-        // the 24-bit version because it allows for more
-        // optimizations in terms of alignment etc.
+    fn get_buffer(&mut self) -> Arc<Mutex<Vec<u8>>> {
+        Arc::clone(&self.displaybuffer)
     }
 
     /// Renders changes to screen
     fn update(&mut self) -> Result<()> {
-        self.texture
-            .update(None, &self.displaybuffer, self.width * Self::BPP)?;
+        {
+            let displaybuffer = self.displaybuffer.lock().unwrap();
+            self.texture
+                .update(None, &displaybuffer, self.width * Self::BPP)?;
+        }
         self.canvas
             .copy(&self.texture, None, None)
             .map_err(|e| anyhow!(e))?;
@@ -120,7 +114,7 @@ impl Renderer for SDLRenderer {
         // Limit the framerate
         let framelen = self.last_frame.elapsed().as_micros() as u64;
         if framelen < self.frametime {
-            sleep(Duration::from_micros(self.frametime - framelen));
+            //sleep(Duration::from_micros(self.frametime - framelen));
         }
         self.last_frame = Instant::now();
 
