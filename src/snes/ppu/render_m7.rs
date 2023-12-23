@@ -1,4 +1,4 @@
-use super::ppu::SCREEN_WIDTH;
+use super::ppu::*;
 use super::render::*;
 use super::state::*;
 
@@ -30,6 +30,7 @@ impl PPUState {
         let tilemap_addr = ((tile_y << 7) + tile_x) as usize;
         let tileidx = self.vram[tilemap_addr & VRAM_ADDRMASK] & 0xFF;
         let pixel_addr = ((tileidx << 6) + (pixel_y << 3) + pixel_x) as usize;
+
         (self.vram[pixel_addr & VRAM_ADDRMASK] >> 8) as u8
     }
 

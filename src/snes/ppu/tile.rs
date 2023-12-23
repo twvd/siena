@@ -1,4 +1,7 @@
+use super::ppu::*;
 use super::state::*;
+
+use std::ops::Range;
 
 use arrayvec::ArrayVec;
 
@@ -8,14 +11,14 @@ pub const TILE_HEIGHT: usize = 8;
 /// A tile is a single 8 x 8 pixel segment of a background layer
 /// or a sprite.
 pub trait Tile<'tdata> {
-    fn get_tile_data(&self) -> &'tdata [VramWord];
+    fn get_vram_range(&self) -> Range<usize>;
     fn get_tile_flip_x(&self) -> bool;
     fn get_tile_flip_y(&self) -> bool;
     fn get_tile_bpp(&self) -> BPP;
     fn get_tile_palette(&self) -> u8;
 
     /// Get a single pixel (color index) of a tile.
-    fn get_coloridx(&self, x: usize, y: usize) -> u8 {
+    fn get_coloridx(&self, x: usize, y: usize, vram: &Vram) -> u8 {
         let mut result: u8 = 0;
         let bitp_w = self.get_tile_bpp().num_bitplanes() / VRAM_WORDSIZE;
         let y = if self.get_tile_flip_y() { 7 - y } else { y };
@@ -26,7 +29,7 @@ pub trait Tile<'tdata> {
             (1 << 7 - x, 1 << 15 - x)
         };
 
-        let data = self.get_tile_data();
+        let data = &vram[self.get_vram_range()];
         for i in 0..bitp_w {
             let offset = y + (8 * i);
 
@@ -41,12 +44,12 @@ pub trait Tile<'tdata> {
     }
 
     /// Get all pixels (color indices) of a tile line
-    fn get_coloridcs_y(&self, y: usize) -> ArrayVec<u8, TILE_WIDTH> {
+    fn get_coloridcs_y(&self, y: usize, vram: &Vram) -> ArrayVec<u8, TILE_WIDTH> {
         let mut result: ArrayVec<u8, TILE_WIDTH> = ArrayVec::new();
         let bitp_w = self.get_tile_bpp().num_bitplanes() / VRAM_WORDSIZE;
         let y = if self.get_tile_flip_y() { 7 - y } else { y };
 
-        let data = self.get_tile_data();
+        let data = &vram[self.get_vram_range()];
         for x in 0..TILE_WIDTH {
             let (x_a, x_b) = if self.get_tile_flip_x() {
                 (1 << x, 1 << 8 + x)

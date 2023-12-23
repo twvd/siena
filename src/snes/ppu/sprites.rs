@@ -1,7 +1,10 @@
+use super::ppu::*;
 use super::state::*;
 use super::tile::*;
 
 use crate::util::sign_extend;
+
+use std::ops::Range;
 
 pub const OAM_ENTRIES: usize = 128;
 
@@ -50,15 +53,15 @@ impl OAMEntry {
 
 /// A sprite tile is a single 8 x 8 pixel segment of a sprite.
 pub struct SpriteTile<'a> {
-    pub data: &'a [VramWord],
+    data_range: Range<usize>,
     pub oam: &'a OAMEntry,
 }
 impl<'a, 'tdata> Tile<'tdata> for SpriteTile<'a>
 where
     'a: 'tdata,
 {
-    fn get_tile_data(&self) -> &'tdata [VramWord] {
-        self.data
+    fn get_vram_range(&self) -> Range<usize> {
+        self.data_range.clone()
     }
     fn get_tile_flip_x(&self) -> bool {
         self.oam.flip_x()
@@ -136,7 +139,7 @@ impl PPUState {
         } & VRAM_ADDRMASK;
 
         SpriteTile {
-            data: &self.vram[idx..(idx + len)],
+            data_range: idx..(idx + len),
             oam,
         }
     }

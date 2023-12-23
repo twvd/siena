@@ -10,6 +10,7 @@ use crate::tickable::{Tickable, Ticks};
 
 use std::cell::Cell;
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 
 pub const SCREEN_WIDTH: usize = 8 * 32;
 pub const SCREEN_HEIGHT: usize = 8 * 28;
@@ -17,12 +18,30 @@ pub const SCREEN_HEIGHT: usize = 8 * 28;
 // The entire screen should be shifted up by 1 scanline
 const SCANLINE_OUTPUT_OFFSET: isize = -1;
 
+/// Type used for VRAM storage, thread safe
+pub type Vram = Arc<InnerVram>;
+pub type InnerVram = Vec<VramWord>;
+
+pub type VramWord = u16;
+pub const VRAM_WORDS: usize = 32 * 1024;
+pub const VRAM_WORDSIZE: usize = 2;
+// 32K-words addressable (64KB)
+pub const VRAM_ADDRMASK: usize = VRAM_WORDS - 1;
+
+// VMAIN bits
+const VMAIN_HIGH: u8 = 1 << 7;
+const VMAIN_INC_MASK: u8 = 0x03;
+const VMAIN_TRANSLATE_MASK: u8 = 0x03;
+const VMAIN_TRANSLATE_SHIFT: u8 = 2;
+
 fn _default_none<T>() -> Option<T> {
     None
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct PPU<TRenderer: Renderer> {
+    vram: InnerVram,
+
     #[serde(skip, default = "_default_none")]
     pub renderer: Option<TRenderer>,
 
@@ -41,6 +60,10 @@ pub struct PPU<TRenderer: Renderer> {
     // H/V latches
     pub(super) hlatch: Cell<u8>,
     pub(super) vlatch: Cell<u8>,
+
+    pub(super) vmadd: Cell<u16>,
+    pub(super) vmain: u8,
+    pub(super) vram_prefetch: Cell<u16>,
 }
 
 impl<TRenderer> PPU<TRenderer>
@@ -54,6 +77,8 @@ where
 
     pub fn new(renderer: TRenderer) -> Self {
         Self {
+            vram: vec![0; VRAM_WORDS],
+
             renderer: Some(renderer),
             cycles: 0,
             last_scanline: 0,
@@ -67,6 +92,10 @@ where
 
             hlatch: Cell::new(0),
             vlatch: Cell::new(0),
+
+            vmadd: Cell::new(0),
+            vmain: 0,
+            vram_prefetch: Cell::new(0),
         }
     }
 
@@ -116,6 +145,45 @@ where
             }
         });
     }
+
+    pub(super) fn vram_autoinc(&self, upper: bool) {
+        let inc_on_upper = self.vmain & VMAIN_HIGH != 0;
+        if upper != inc_on_upper {
+            return;
+        }
+
+        // Prefetch glitch: prefetch is updated BEFORE the address
+        self.vram_update_prefetch();
+
+        let inc = match self.vmain & VMAIN_INC_MASK {
+            0 => 1,
+            1 => 32,
+            2..=3 => 128,
+            _ => unreachable!(),
+        };
+        self.vmadd.set(self.vmadd.get().wrapping_add(inc));
+    }
+
+    pub(super) fn vram_update_prefetch(&self) {
+        let addr = self.vram_addr_translate(self.vmadd.get());
+
+        self.vram_prefetch
+            .set(self.vram[addr as usize & VRAM_ADDRMASK]);
+    }
+
+    pub(super) fn vram_addr_translate(&self, addr: u16) -> u16 {
+        // Translation  Bitmap Type              Port [2116h/17h]     VRAM Word-Address
+        //  8bit rotate  4-color; 1 word/plane   aaaaaaaaYYYxxxxx --> aaaaaaaaxxxxxYYY
+        //  9bit rotate  16-color; 2 words/plane aaaaaaaYYYxxxxxP --> aaaaaaaxxxxxPYYY
+        // 10bit rotate 256-color; 4 words/plane aaaaaaYYYxxxxxPP --> aaaaaaxxxxxPPYYY
+        match (self.vmain >> VMAIN_TRANSLATE_SHIFT) & VMAIN_TRANSLATE_MASK {
+            0 => addr,
+            1 => (addr & 0xFF00) | ((addr << 3) & 0x00F8) | ((addr >> 5) & 0x07),
+            2 => (addr & 0xFE00) | ((addr << 3) & 0x01F8) | ((addr >> 6) & 0x07),
+            3 => (addr & 0xFC00) | ((addr << 3) & 0x03F8) | ((addr >> 7) & 0x07),
+            _ => unreachable!(),
+        }
+    }
 }
 
 impl<TRenderer> Tickable for PPU<TRenderer>
@@ -148,6 +216,8 @@ where
 
                     // Reload OAMADD
                     self.state.oamadd_addr.set(self.state.oamadd_reload.get());
+
+                    self.state.vram = Arc::new(self.vram.clone());
                 }
             } else {
                 if self.vblank {
@@ -184,6 +254,24 @@ where
         let (_bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
         match addr {
+            // VMAIN - VRAM Address Increment Mode
+            0x2115 => Some(self.vmain),
+            // VMADDL - VRAM Address (lower 8bit)
+            0x2116 => Some(self.vmadd.get() as u8),
+            // VMADDH - VRAM Address (upper 8bit)
+            0x2117 => Some((self.vmadd.get() >> 8) as u8),
+            // RDVRAML - VRAM Data Read (lower 8bit)
+            0x2139 => {
+                let v = self.vram_prefetch.get() as u8;
+                self.vram_autoinc(false);
+                Some(v)
+            }
+            // RDVRAMH - VRAM Data Read (upper 8bit)
+            0x213A => {
+                let v = (self.vram_prefetch.get() >> 8) as u8;
+                self.vram_autoinc(true);
+                Some(v)
+            }
             // SLHV - Latch H/V-Counter by Software (R)
             0x2137 => {
                 self.hlatch.set(self.get_current_h() as u8);
@@ -204,6 +292,38 @@ where
         let (_bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
         match addr {
+            // VMAIN - VRAM Address Increment Mode
+            0x2115 => Some(self.vmain = val),
+            // VMADDL - VRAM Address (lower 8bit)
+            0x2116 => {
+                let v = self.vmadd.get() & 0xFF00;
+                self.vmadd.set(v | val as u16);
+                self.vram_update_prefetch();
+                Some(())
+            }
+            // VMADDH - VRAM Address (upper 8bit)
+            0x2117 => {
+                let v = self.vmadd.get() & 0x00FF;
+                self.vmadd.set(v | (val as u16) << 8);
+                self.vram_update_prefetch();
+                Some(())
+            }
+            // VMDATAL - VRAM Data write (lower 8bit)
+            0x2118 => {
+                let addr = usize::from(self.vram_addr_translate(self.vmadd.get())) & VRAM_ADDRMASK;
+                self.vram_autoinc(false);
+
+                let cur = self.vram[addr];
+                Some(self.vram[addr] = (cur & 0xFF00) | val as u16)
+            }
+            // VMDATAH - VRAM Data write (upper 8bit)
+            0x2119 => {
+                let addr = usize::from(self.vram_addr_translate(self.vmadd.get())) & VRAM_ADDRMASK;
+                self.vram_autoinc(true);
+
+                let cur = self.vram[addr];
+                Some(self.vram[addr] = (cur & 0xFF) | (val as u16) << 8)
+            }
             _ => self.state.write(fulladdr, val),
         }
     }

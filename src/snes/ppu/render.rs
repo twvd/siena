@@ -136,7 +136,7 @@ impl PPUState {
             if px_x != 0 {
                 // Do individual colors until aligned
                 // Wrap coordinates back here to the (sub)-tile size
-                let c = tile.get_coloridx(px_x % TILE_WIDTH, px_y % TILE_HEIGHT);
+                let c = tile.get_coloridx(px_x % TILE_WIDTH, px_y % TILE_HEIGHT, &self.vram);
                 if c == 0 || state.idx[x] != 0 {
                     x += 1;
                     continue;
@@ -147,7 +147,7 @@ impl PPUState {
                 x += 1;
             } else {
                 // Full tile at once.
-                let c = tile.get_coloridcs_y(px_y % TILE_HEIGHT);
+                let c = tile.get_coloridcs_y(px_y % TILE_HEIGHT, &self.vram);
 
                 // An inner loop here is not very nice, but it proved
                 // to have the best performance.
@@ -226,7 +226,7 @@ impl PPUState {
 
                     let sprite = self.get_sprite_tile(&e, t_x, t_y);
 
-                    let coloridx = sprite.get_coloridx(in_x, in_y);
+                    let coloridx = sprite.get_coloridx(in_x, in_y, &self.vram);
                     if coloridx == 0 || state.idx[x] != 0 {
                         continue;
                     }

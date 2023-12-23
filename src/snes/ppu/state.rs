@@ -1,4 +1,6 @@
 use std::cell::Cell;
+use std::ops::Range;
+use std::sync::Arc;
 
 use anyhow::Result;
 use num_derive::{FromPrimitive, ToPrimitive};
@@ -7,13 +9,8 @@ use serbia::serbia;
 use serde::{Deserialize, Serialize};
 
 use super::color::SnesColor;
+use super::ppu::*;
 use super::tile::{Tile, TILE_HEIGHT, TILE_WIDTH};
-
-pub type VramWord = u16;
-pub const VRAM_WORDS: usize = 32 * 1024;
-pub const VRAM_WORDSIZE: usize = 2;
-// 32K-words addressable (64KB)
-pub const VRAM_ADDRMASK: usize = VRAM_WORDS - 1;
 
 pub type CgramWord = u16;
 pub const CGRAM_WORDS: usize = 256;
@@ -21,12 +18,6 @@ pub const CGRAM_WORDS: usize = 256;
 pub const CGRAM_WORDSIZE: usize = 2;
 #[allow(dead_code)]
 pub const CGRAM_ADDRMASK: usize = CGRAM_WORDS - 1;
-
-// VMAIN bits
-const VMAIN_HIGH: u8 = 1 << 7;
-const VMAIN_INC_MASK: u8 = 0x03;
-const VMAIN_TRANSLATE_MASK: u8 = 0x03;
-const VMAIN_TRANSLATE_SHIFT: u8 = 2;
 
 const OAM_SIZE: usize = 512 + 32;
 
@@ -84,10 +75,7 @@ pub struct PPUState {
     // Debug toggles to mask certain bg/obj layers
     pub dbg_layermask: u8,
 
-    pub(super) vram: Vec<VramWord>,
-    pub(super) vmadd: Cell<u16>,
-    pub(super) vmain: u8,
-    pub(super) vram_prefetch: Cell<u16>,
+    pub(super) vram: Vram,
 
     /// Palette RAM (CGRAM)
     pub(super) cgram: Vec<CgramWord>,
@@ -151,7 +139,7 @@ pub struct PPUState {
 }
 
 pub struct BgTile<'a> {
-    data: &'a [u16],
+    data_range: Range<usize>,
     map: &'a TilemapEntry,
     bpp: BPP,
 }
@@ -159,8 +147,8 @@ impl<'a, 'tdata> Tile<'tdata> for BgTile<'a>
 where
     'a: 'tdata,
 {
-    fn get_tile_data(&self) -> &'tdata [VramWord] {
-        self.data
+    fn get_vram_range(&self) -> Range<usize> {
+        self.data_range.clone()
     }
     fn get_tile_flip_x(&self) -> bool {
         self.map.flip_x()
@@ -181,10 +169,7 @@ impl PPUState {
         Self {
             dbg_layermask: 0,
 
-            vram: vec![0; VRAM_WORDS],
-            vmadd: Cell::new(0),
-            vmain: 0,
-            vram_prefetch: Cell::new(0),
+            vram: Arc::new(vec![0; VRAM_WORDS]),
 
             cgram: vec![0; CGRAM_WORDS],
             cgadd: Cell::new(0),
@@ -236,44 +221,6 @@ impl PPUState {
             m7x: 0,
             m7y: 0,
             m7_old: 0,
-        }
-    }
-
-    pub(super) fn vram_autoinc(&self, upper: bool) {
-        let inc_on_upper = self.vmain & VMAIN_HIGH != 0;
-        if upper != inc_on_upper {
-            return;
-        }
-
-        // Prefetch glitch: prefetch is updated BEFORE the address
-        self.vram_update_prefetch();
-
-        let inc = match self.vmain & VMAIN_INC_MASK {
-            0 => 1,
-            1 => 32,
-            2..=3 => 128,
-            _ => unreachable!(),
-        };
-        self.vmadd.set(self.vmadd.get().wrapping_add(inc));
-    }
-
-    pub(super) fn vram_update_prefetch(&self) {
-        let addr = self.vram_addr_translate(self.vmadd.get());
-        self.vram_prefetch
-            .set(self.vram[addr as usize & VRAM_ADDRMASK]);
-    }
-
-    pub(super) fn vram_addr_translate(&self, addr: u16) -> u16 {
-        // Translation  Bitmap Type              Port [2116h/17h]     VRAM Word-Address
-        //  8bit rotate  4-color; 1 word/plane   aaaaaaaaYYYxxxxx --> aaaaaaaaxxxxxYYY
-        //  9bit rotate  16-color; 2 words/plane aaaaaaaYYYxxxxxP --> aaaaaaaxxxxxPYYY
-        // 10bit rotate 256-color; 4 words/plane aaaaaaYYYxxxxxPP --> aaaaaaxxxxxPPYYY
-        match (self.vmain >> VMAIN_TRANSLATE_SHIFT) & VMAIN_TRANSLATE_MASK {
-            0 => addr,
-            1 => (addr & 0xFF00) | ((addr << 3) & 0x00F8) | ((addr >> 5) & 0x07),
-            2 => (addr & 0xFE00) | ((addr << 3) & 0x01F8) | ((addr >> 6) & 0x07),
-            3 => (addr & 0xFC00) | ((addr << 3) & 0x03F8) | ((addr >> 7) & 0x07),
-            _ => unreachable!(),
         }
     }
 
@@ -393,7 +340,7 @@ impl PPUState {
 
         let idx = ((self.bgxnba[bg] as usize * 4096) + (tilenr * len)) & VRAM_ADDRMASK;
         BgTile {
-            data: &self.vram[idx..(idx + len)],
+            data_range: idx..(idx + len),
             bpp,
             map: entry,
         }
