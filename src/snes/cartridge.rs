@@ -3,6 +3,7 @@ use std::fmt;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
+use strum::Display;
 
 use crate::snes::bus::{Address, BusMember};
 
@@ -12,10 +13,17 @@ const HDR_MAPMODE_OFFSET: usize = 0x15;
 const HDR_CHIPSET_OFFSET: usize = 0x16;
 const HDR_ROMSIZE_OFFSET: usize = 0x17;
 const HDR_RAMSIZE_OFFSET: usize = 0x18;
+const HDR_DESTINATION_OFFSET: usize = 0x19;
 const HDR_CHECKSUM_OFFSET: usize = 0x1C;
 const HDR_ICHECKSUM_OFFSET: usize = 0x1E;
 const HDR_LEN: usize = 0x1F;
 const RAM_SIZE: usize = 32 * 1024;
+
+#[derive(Display)]
+pub enum VideoFormat {
+    PAL,
+    NTSC,
+}
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, FromPrimitive)]
 pub enum Chipset {
@@ -83,6 +91,15 @@ impl Cartridge {
 
     fn get_ram_size(&self) -> usize {
         (1 << self.rom[self.header_offset + HDR_RAMSIZE_OFFSET]) * 1024
+    }
+
+    fn get_video_format(&self) -> VideoFormat {
+        match self.rom[self.header_offset + HDR_DESTINATION_OFFSET] {
+            0 // Japan
+            | 1 // North-America
+            => VideoFormat::NTSC,
+            _ => VideoFormat::PAL
+        }
     }
 
     fn probe_header(hdr: &[u8]) -> bool {
@@ -169,8 +186,9 @@ impl fmt::Display for Cartridge {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "\"{}\" - {:?} {:?} - {} KB ROM, {} KB RAM",
+            "\"{}\" {} - {:?} {:?} - {} KB ROM, {} KB RAM",
             self.get_title(),
+            self.get_video_format(),
             self.get_chipset(),
             self.get_map(),
             self.get_rom_size() / 1024,
