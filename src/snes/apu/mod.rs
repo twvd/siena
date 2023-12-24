@@ -1,8 +1,7 @@
 pub mod apubus;
 pub mod timers;
 
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
 use colored::*;
@@ -16,8 +15,11 @@ use crate::tickable::{Tickable, Ticks};
 use apubus::Apubus;
 
 /// Type for the CPU <-> APU communication ports
+type ApuPorts = Arc<RwLock<InnerApuPorts>>;
+
+/// Type for the CPU <-> APU communication ports
 #[derive(Serialize, Deserialize)]
-pub struct ApuPorts {
+pub struct InnerApuPorts {
     /// APU -> CPU
     cpu: [u8; 4],
 
@@ -44,7 +46,7 @@ pub struct Apu {
     pub verbose: bool,
 
     /// Main CPU communication ports
-    pub ports: Rc<RefCell<ApuPorts>>,
+    pub ports: ApuPorts,
 }
 
 impl Apu {
@@ -63,14 +65,14 @@ impl Apu {
     ];
 
     pub fn new(verbose: bool) -> Self {
-        let ports = Rc::new(RefCell::new(ApuPorts {
+        let ports = Arc::new(RwLock::new(InnerApuPorts {
             cpu: [0; 4],
             apu: [0; 4],
             trace: false,
         }));
         Self {
             cpu: CpuSpc700::<Apubus>::new(
-                Apubus::new(&Self::IPL_BIN, Rc::clone(&ports)),
+                Apubus::new(&Self::IPL_BIN, Arc::clone(&ports)),
                 Self::IPL_ENTRYPOINT,
             ),
             spc_cycles_taken: 0,
@@ -81,8 +83,8 @@ impl Apu {
     }
 
     /// Get a (reference counted) copy of the communication ports
-    pub fn get_ports(&self) -> Rc<RefCell<ApuPorts>> {
-        Rc::clone(&self.ports)
+    pub fn get_ports(&self) -> ApuPorts {
+        Arc::clone(&self.ports)
     }
 }
 
@@ -116,7 +118,7 @@ impl BusMember<Address> for Apu {
             0x2140..=0x217F => {
                 let ch = (addr - 0x2140) % 4;
 
-                let ports = self.ports.borrow();
+                let ports = self.ports.read().unwrap();
                 Some(ports.cpu[ch])
             }
             _ => None,
@@ -129,7 +131,7 @@ impl BusMember<Address> for Apu {
         match addr {
             0x2140..=0x217F => {
                 let ch = (addr - 0x2140) % 4;
-                let mut ports = self.ports.borrow_mut();
+                let mut ports = self.ports.write().unwrap();
                 if ports.trace {
                     println!(
                         "{} ({:04X}) to {} ({}): {:02X}",

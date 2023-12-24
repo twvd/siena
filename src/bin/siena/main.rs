@@ -112,7 +112,7 @@ fn main() -> Result<()> {
     };
     let mut bus = Mainbus::<SDLRenderer>::new(cart, args.trace_bus, display, joypads, args.verbose);
     bus.apu.verbose = args.spc_verbose;
-    bus.apu.ports.borrow_mut().trace = args.trace_apu_comm;
+    bus.apu.ports.write().unwrap().trace = args.trace_apu_comm;
 
     let reset = bus.read16(0xFFFC);
     println!("Reset at PC {:06X}", reset);

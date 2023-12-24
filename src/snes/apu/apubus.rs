@@ -1,6 +1,3 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use anyhow::Result;
 use colored::*;
 use serbia::serbia;
@@ -22,7 +19,7 @@ const APU_ROM_SIZE: usize = 64;
 pub struct Apubus {
     ram: [u8; APU_RAM_SIZE],
     rom: [u8; APU_ROM_SIZE],
-    ports: Rc<RefCell<ApuPorts>>,
+    ports: ApuPorts,
 
     /// Timers
     timers: [Timer; APU_TIMERS],
@@ -36,7 +33,7 @@ pub struct Apubus {
 }
 
 impl Apubus {
-    pub fn new(rom: &[u8], ports: Rc<RefCell<ApuPorts>>) -> Self {
+    pub fn new(rom: &[u8], ports: ApuPorts) -> Self {
         Self {
             ram: [0; APU_RAM_SIZE],
             rom: rom.try_into().unwrap(),
@@ -61,7 +58,7 @@ impl Bus<SpcAddress> for Apubus {
         match addr {
             // Ports
             0x00F4..=0x00F7 => {
-                let ports = self.ports.borrow();
+                let ports = self.ports.read().unwrap();
                 ports.apu[addr as usize - 0x00F4]
             }
             0x00FD => self.timers[0].get_cnt(),
@@ -86,12 +83,12 @@ impl Bus<SpcAddress> for Apubus {
                 self.timers_enabled = val & 0x03;
 
                 if val & (1 << 4) != 0 {
-                    let mut ports = self.ports.borrow_mut();
+                    let mut ports = self.ports.write().unwrap();
                     ports.apu[0] = 0;
                     ports.apu[1] = 0;
                 }
                 if val & (1 << 5) != 0 {
-                    let mut ports = self.ports.borrow_mut();
+                    let mut ports = self.ports.write().unwrap();
                     ports.apu[2] = 0;
                     ports.apu[3] = 0;
                 }
@@ -103,7 +100,7 @@ impl Bus<SpcAddress> for Apubus {
             }
             // Ports
             0x00F4..=0x00F7 => {
-                let mut ports = self.ports.borrow_mut();
+                let mut ports = self.ports.write().unwrap();
                 if ports.trace {
                     println!(
                         "{} ({:04X}) to {} ({}): {:02X}",
