@@ -65,6 +65,7 @@ impl Renderer for SDLRenderer {
                 .build()?;
 
             let canvas = window.into_canvas().accelerated().build()?;
+            println!("Rendering driver: {:?}", canvas.info().name);
             let texture_creator = canvas.texture_creator();
             let texture = texture_creator.create_texture_streaming(
                 PixelFormatEnum::RGB888,
@@ -100,6 +101,7 @@ impl Renderer for SDLRenderer {
             unsafe { std::mem::transmute::<&[AtomicU8], &[u8]>(&self.displaybuffer) };
         self.texture
             .update(None, &sdl_displaybuffer, self.width * Self::BPP)?;
+        self.canvas.clear();
         self.canvas
             .copy(&self.texture, None, None)
             .map_err(|e| anyhow!(e))?;
