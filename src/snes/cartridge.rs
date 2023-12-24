@@ -95,8 +95,10 @@ impl Cartridge {
 
     pub fn get_video_format(&self) -> VideoFormat {
         match self.rom[self.header_offset + HDR_DESTINATION_OFFSET] {
-            0 // Japan
-            | 1 // North-America
+            0x00 // Japan
+            | 0x01 // North-America
+            | 0x0D // South Korea
+            | 0x0F // Canada
             => VideoFormat::NTSC,
             _ => VideoFormat::PAL
         }
