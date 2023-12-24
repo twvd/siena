@@ -40,7 +40,7 @@ fn _default_none<T>() -> Option<T> {
 
 #[derive(Serialize, Deserialize)]
 pub struct PPU<TRenderer: Renderer> {
-    vram: InnerVram,
+    pub(super) vram: InnerVram,
 
     #[serde(skip, default = "_default_none")]
     pub renderer: Option<TRenderer>,

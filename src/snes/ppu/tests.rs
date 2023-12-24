@@ -1,9 +1,14 @@
+use crate::frontend::NullRenderer;
 use crate::snes::bus::BusMember;
 
+use super::ppu::PPU;
 use super::state::PPUState;
 
-fn ppu() -> PPUState {
+fn ppustate() -> PPUState {
     PPUState::new()
+}
+fn ppu() -> PPU<NullRenderer> {
+    PPU::new(NullRenderer {})
 }
 
 #[test]
@@ -126,7 +131,7 @@ fn vram_write_inc_hundredtwentyeight() {
 
 #[test]
 fn cgram_write() {
-    let mut p = ppu();
+    let mut p = ppustate();
     p.write(0x2121, 0); // CGADD
     p.write(0x2122, 0xAA); // CGDATA
     assert_eq!(p.cgadd.get(), 0);
@@ -137,7 +142,7 @@ fn cgram_write() {
 
 #[test]
 fn cgram_addr_reset_flipflop() {
-    let mut p = ppu();
+    let mut p = ppustate();
     p.write(0x2121, 0); // CGADD
     p.write(0x2122, 0xAA); // CGDATA
     p.write(0x2121, 0); // CGADD
@@ -147,7 +152,7 @@ fn cgram_addr_reset_flipflop() {
 
 #[test]
 fn cgram_write_overflow() {
-    let mut p = ppu();
+    let mut p = ppustate();
     p.write(0x2121, 0xFF); // CGADD
     p.write(0x2122, 0xAA); // CGDATA
     p.write(0x2122, 0xBB); // CGDATA
@@ -159,7 +164,7 @@ fn cgram_write_overflow() {
 
 #[test]
 fn cgram_read() {
-    let mut p = ppu();
+    let mut p = ppustate();
     p.cgram[0] = 0xBBAA;
     p.cgram[1] = 0xDDCC;
     p.write(0x2121, 0); // CGADD
@@ -171,7 +176,7 @@ fn cgram_read() {
 
 #[test]
 fn cgram_read_overflow() {
-    let mut p = ppu();
+    let mut p = ppustate();
     p.cgram[255] = 0xBBAA;
     p.cgram[0] = 0xDDCC;
     p.write(0x2121, 0xFF); // CGADD
@@ -183,7 +188,7 @@ fn cgram_read_overflow() {
 
 #[test]
 fn oam_write_seq() {
-    let mut p = ppu();
+    let mut p = ppustate();
     p.write(0x2102, 0);
     p.write(0x2103, 0);
     assert_eq!(p.oam[0..3], [0, 0, 0]);
@@ -213,7 +218,7 @@ fn oam_write_seq() {
 
 #[test]
 fn oam_write_exttable() {
-    let mut p = ppu();
+    let mut p = ppustate();
     assert_eq!(p.oam[512], 0);
     p.write(0x2102, ((512 >> 1) & 0xFF) as u8);
     p.write(0x2103, ((512 >> 1) >> 8) as u8);
@@ -223,7 +228,7 @@ fn oam_write_exttable() {
 
 #[test]
 fn oam_write_exttable_mirror() {
-    let mut p = ppu();
+    let mut p = ppustate();
     assert_eq!(p.oam[512], 0);
     p.write(0x2102, (0x120 & 0xFF) as u8);
     p.write(0x2103, (0x120 >> 8) as u8);
@@ -233,7 +238,7 @@ fn oam_write_exttable_mirror() {
 
 #[test]
 fn signed_mul() {
-    let mut p = ppu();
+    let mut p = ppustate();
     p.write(0x211B, 0x22); // M7A
     p.write(0x211B, 0x11); // M7A
     p.write(0x211C, 0x33); // M7B
@@ -245,7 +250,7 @@ fn signed_mul() {
 
 #[test]
 fn oam_read() {
-    let mut p = ppu();
+    let mut p = ppustate();
     p.oam[3] = 1;
     p.oam[4] = 2;
     p.oam[5] = 3;
