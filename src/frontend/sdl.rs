@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::iter;
 use std::sync::atomic::AtomicU8;
 use std::sync::Arc;
 use std::thread::sleep;
@@ -12,7 +11,7 @@ use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
 use sdl2::{EventPump, Sdl};
 
-use super::{DisplayBuffer, Renderer};
+use super::{new_displaybuffer, DisplayBuffer, Renderer};
 
 pub struct SDLSingleton {
     context: Sdl,
@@ -38,15 +37,48 @@ pub struct SDLRenderer {
     width: usize,
     #[allow(dead_code)]
     height: usize,
+
     last_frame: Instant,
     frametime: u64,
-
     fps_count: u64,
     fps_time: Instant,
 }
 
 impl SDLRenderer {
     const BPP: usize = 4;
+
+    pub fn update_from(&mut self, buffer: DisplayBuffer) -> Result<()> {
+        // This is safe because SDL will only read from the transmuted
+        // buffer. Worst case is a garbled display.
+        let sdl_displaybuffer = unsafe { std::mem::transmute::<&[AtomicU8], &[u8]>(&buffer) };
+        self.texture
+            .update(None, &sdl_displaybuffer, self.width * Self::BPP)?;
+        self.canvas.clear();
+        self.canvas
+            .copy(&self.texture, None, None)
+            .map_err(|e| anyhow!(e))?;
+        self.canvas.present();
+
+        self.fps_count += 1;
+
+        if self.fps_time.elapsed().as_secs() >= 2 {
+            println!(
+                "SDL Frame rate: {:0.2} frames/second",
+                self.fps_count as f32 / self.fps_time.elapsed().as_secs_f32()
+            );
+            self.fps_count = 0;
+            self.fps_time = Instant::now();
+        }
+
+        // Limit the framerate
+        let framelen = self.last_frame.elapsed().as_micros() as u64;
+        if framelen < self.frametime {
+            //sleep(Duration::from_micros(self.frametime - framelen));
+        }
+        self.last_frame = Instant::now();
+
+        Ok(())
+    }
 }
 
 impl Renderer for SDLRenderer {
@@ -76,9 +108,7 @@ impl Renderer for SDLRenderer {
             Ok(SDLRenderer {
                 canvas,
                 texture,
-                displaybuffer: Arc::new(Vec::from_iter(
-                    iter::repeat_with(|| AtomicU8::new(0)).take(width * height * Self::BPP),
-                )),
+                displaybuffer: new_displaybuffer(width, height),
                 width,
                 height,
                 last_frame: Instant::now(),
@@ -95,37 +125,7 @@ impl Renderer for SDLRenderer {
 
     /// Renders changes to screen
     fn update(&mut self) -> Result<()> {
-        // This is safe because SDL will only read from the transmuted
-        // buffer. Worst case is a garbled display.
-        let sdl_displaybuffer =
-            unsafe { std::mem::transmute::<&[AtomicU8], &[u8]>(&self.displaybuffer) };
-        self.texture
-            .update(None, &sdl_displaybuffer, self.width * Self::BPP)?;
-        self.canvas.clear();
-        self.canvas
-            .copy(&self.texture, None, None)
-            .map_err(|e| anyhow!(e))?;
-        self.canvas.present();
-
-        self.fps_count += 1;
-
-        if self.fps_time.elapsed().as_secs() >= 2 {
-            println!(
-                "Frame rate: {:0.2} frames/second",
-                self.fps_count as f32 / self.fps_time.elapsed().as_secs_f32()
-            );
-            self.fps_count = 0;
-            self.fps_time = Instant::now();
-        }
-
-        // Limit the framerate
-        let framelen = self.last_frame.elapsed().as_micros() as u64;
-        if framelen < self.frametime {
-            //sleep(Duration::from_micros(self.frametime - framelen));
-        }
-        self.last_frame = Instant::now();
-
-        Ok(())
+        self.update_from(Arc::clone(&self.displaybuffer))
     }
 }
 

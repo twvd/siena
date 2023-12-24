@@ -1,5 +1,6 @@
 use std::fs;
-use std::io::{stdin, Read};
+use std::sync::Arc;
+use std::thread;
 use std::time::SystemTime;
 
 use anyhow::Result;
@@ -10,6 +11,7 @@ use sdl2::keyboard::Keycode;
 use serde::Deserialize;
 use serde_json::Deserializer;
 
+use siena::frontend::channel::ChannelRenderer;
 use siena::frontend::sdl::{SDLEventPump, SDLRenderer};
 use siena::frontend::Renderer;
 use siena::snes::bus::mainbus::{BusTrace, Mainbus};
@@ -19,6 +21,7 @@ use siena::snes::cpu_65816::cpu::Cpu65816;
 use siena::snes::joypad::{Button, Joypad, JoypadEvent};
 use siena::snes::ppu::ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
+/// Maps an SDL keycode to a controller input for a specific controller.
 fn map_keycode(keycode: Keycode) -> Option<(usize, Button)> {
     match keycode {
         Keycode::A => Some((0, Button::A)),
@@ -38,9 +41,15 @@ fn map_keycode(keycode: Keycode) -> Option<(usize, Button)> {
     }
 }
 
+/// Signals the main thread can send to the emulation thread.
+enum EmuThreadSignal {
+    Quit,
+    DumpState,
+}
+
 #[derive(Parser)]
 #[command(
-    about = "SNES Emulator",
+    about = "Siena - SNES Emulator",
     author = "Thomas <thomas@thomasw.dev>",
     long_about = None)]
 struct Args {
@@ -93,16 +102,22 @@ struct Args {
 }
 
 fn main() -> Result<()> {
-    let mut args = Args::parse();
+    let args = Args::parse();
 
-    let f = fs::read(args.filename)?;
-
+    // Set up joypad inputs
     let (mut joypads, joypad_senders) = Joypad::new_channel_all();
     for j in joypads.iter_mut() {
         j.sticky_enabled = args.sticky;
     }
-    let display = SDLRenderer::new(SCREEN_WIDTH, SCREEN_HEIGHT)?;
+
+    // Set up the display and events
+    let mut display = SDLRenderer::new(SCREEN_WIDTH, SCREEN_HEIGHT)?;
+    let mut displaychannel = ChannelRenderer::new(SCREEN_WIDTH, SCREEN_HEIGHT)?;
+    let framereceiver = displaychannel.get_receiver();
     let eventpump = SDLEventPump::new();
+
+    // Initialize cartridge
+    let f = fs::read(args.filename)?;
     let cart = if !args.no_header && !args.no_header_hirom {
         let c = Cartridge::load(&f);
         println!("Cartridge: {}", &c);
@@ -110,16 +125,27 @@ fn main() -> Result<()> {
     } else {
         Cartridge::load_nohdr(&f, args.no_header_hirom)
     };
-    let mut bus = Mainbus::<SDLRenderer>::new(cart, args.trace_bus, display, joypads, args.verbose);
+
+    // Initialize S-CPU bus
+    let mut bus = Mainbus::<ChannelRenderer>::new(
+        cart,
+        args.trace_bus,
+        displaychannel,
+        joypads,
+        args.verbose,
+    );
     bus.apu.verbose = args.spc_verbose;
     bus.apu.ports.write().unwrap().trace = args.trace_apu_comm;
 
+    // Fetch reset vector address
     let reset = bus.read16(0xFFFC);
     println!("Reset at PC {:06X}", reset);
-    let mut cpu = Cpu65816::<Mainbus<SDLRenderer>>::new(bus, reset);
 
+    // Initialize S-CPU
+    let mut cpu = Cpu65816::<Mainbus<ChannelRenderer>>::new(bus, reset);
+
+    // Load and deserialize state file
     if let Some(state_filename) = args.state {
-        // Load and deserialize state file
         println!("Restoring state from {}", state_filename);
         let json = fs::read_to_string(state_filename)?;
         let mut deserializer = Deserializer::from_str(&json);
@@ -128,7 +154,7 @@ fn main() -> Result<()> {
         //Deserialize::deserialize_in_place(&mut deserializer, &mut cpu)?;
 
         // Until then..
-        let mut new_cpu: Cpu65816<Mainbus<SDLRenderer>> =
+        let mut new_cpu: Cpu65816<Mainbus<ChannelRenderer>> =
             Deserialize::deserialize(&mut deserializer)?;
         // ..and move all the non-serializable stuff over.
         new_cpu.bus.ppu.renderer = std::mem::replace(&mut cpu.bus.ppu.renderer, None);
@@ -137,92 +163,78 @@ fn main() -> Result<()> {
         cpu = new_cpu;
     }
 
-    let mut eventpoll = 0;
-    'mainloop: loop {
-        if args.verbose {
+    // Spin up emulation thread and communication channel
+    let (emuthread_tx, emuthread_rx) = crossbeam_channel::unbounded();
+    let t_verbose = args.verbose;
+    let emuthread = thread::spawn(move || loop {
+        // Handle signals from main thread
+        match emuthread_rx.try_recv() {
+            Ok(EmuThreadSignal::Quit) => break,
+            Ok(EmuThreadSignal::DumpState) => {
+                let filename = format!(
+                    "state_{}.json",
+                    SystemTime::now()
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .expect("Timetravel detected")
+                        .as_secs()
+                );
+                let file = fs::File::create(&filename).unwrap();
+                serde_json::to_writer(file, &cpu).unwrap();
+                println!("State dumped to {}", filename);
+            }
+            _ => (),
+        }
+
+        // Step the CPU
+        if t_verbose {
             println!("{}", cpu.dump_state().green());
         }
+        cpu.step().unwrap();
+    });
 
-        if args.pause {
-            let _ = stdin().read(&mut [0u8]).unwrap();
-        }
+    // Presentation / event thread below
+    'mainloop: loop {
+        let frame = framereceiver.recv()?;
+        display.update_from(Arc::clone(&frame))?;
 
-        cpu.step()?;
-
-        eventpoll += 1;
-        // Polling SDL events is too expensive to do every step..
-        // TODO do this once per VBlank or something..
-        if eventpoll == 1000 {
-            eventpoll = 0;
-            while let Some(event) = eventpump.poll() {
-                match event {
-                    // Application exit
-                    Event::KeyDown {
-                        keycode: Some(Keycode::Escape),
-                        ..
-                    }
-                    | Event::Quit { .. } => break 'mainloop,
-
-                    // Debug - toggle verbose (instruction trace)
-                    Event::KeyDown {
-                        keycode: Some(Keycode::Num0),
-                        ..
-                    } => args.verbose = !args.verbose,
-
-                    // Debug - toggle SPC700 verbose (instruction trace)
-                    Event::KeyDown {
-                        keycode: Some(Keycode::Num9),
-                        ..
-                    } => cpu.bus.apu.verbose = !cpu.bus.apu.verbose,
-
-                    // Debug - toggle open bus trace
-                    Event::KeyDown {
-                        keycode: Some(Keycode::C),
-                        ..
-                    } => {
-                        cpu.bus.trace = match cpu.bus.trace {
-                            BusTrace::None => BusTrace::Open,
-                            _ => BusTrace::None,
-                        }
-                    }
-
-                    // Dump state
-                    Event::KeyDown {
-                        keycode: Some(Keycode::D),
-                        ..
-                    } => {
-                        let filename = format!(
-                            "state_{}.json",
-                            SystemTime::now()
-                                .duration_since(SystemTime::UNIX_EPOCH)
-                                .expect("Timetravel detected")
-                                .as_secs()
-                        );
-                        let file = fs::File::create(&filename)?;
-                        serde_json::to_writer(file, &cpu)?;
-                        println!("State dumped to {}", filename);
-                    }
-
-                    // Controller input
-                    Event::KeyDown {
-                        keycode: Some(k), ..
-                    } => {
-                        if let Some((padidx, button)) = map_keycode(k) {
-                            joypad_senders[padidx].send(JoypadEvent::Down(button))?;
-                        }
-                    }
-                    Event::KeyUp {
-                        keycode: Some(k), ..
-                    } => {
-                        if let Some((padidx, button)) = map_keycode(k) {
-                            joypad_senders[padidx].send(JoypadEvent::Up(button))?;
-                        }
-                    }
-                    _ => (),
+        while let Some(event) = eventpump.poll() {
+            match event {
+                // Application exit
+                Event::KeyDown {
+                    keycode: Some(Keycode::Escape),
+                    ..
                 }
+                | Event::Quit { .. } => break 'mainloop,
+
+                // Dump state
+                Event::KeyDown {
+                    keycode: Some(Keycode::D),
+                    ..
+                } => {
+                    emuthread_tx.send(EmuThreadSignal::DumpState)?;
+                }
+
+                // Controller input
+                Event::KeyDown {
+                    keycode: Some(k), ..
+                } => {
+                    if let Some((padidx, button)) = map_keycode(k) {
+                        joypad_senders[padidx].send(JoypadEvent::Down(button))?;
+                    }
+                }
+                Event::KeyUp {
+                    keycode: Some(k), ..
+                } => {
+                    if let Some((padidx, button)) = map_keycode(k) {
+                        joypad_senders[padidx].send(JoypadEvent::Up(button))?;
+                    }
+                }
+                _ => (),
             }
         }
     }
 
+    emuthread_tx.send(EmuThreadSignal::Quit)?;
+    emuthread.join().unwrap();
     Ok(())
 }

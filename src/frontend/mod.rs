@@ -1,13 +1,21 @@
+pub mod channel;
 pub mod sdl;
 pub mod test;
 
 use anyhow::Result;
 
+use std::iter;
 use std::sync::atomic::AtomicU8;
 use std::sync::Arc;
 
 /// Thread-safe display buffer
 pub type DisplayBuffer = Arc<Vec<AtomicU8>>;
+
+fn new_displaybuffer(width: usize, height: usize) -> DisplayBuffer {
+    Arc::new(Vec::from_iter(
+        iter::repeat_with(|| AtomicU8::new(0)).take(width * height * 4),
+    ))
+}
 
 /// RGB888 format
 pub type Color = (u8, u8, u8);

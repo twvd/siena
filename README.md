@@ -6,6 +6,7 @@ Siena is a Super Nintendo / Super Famicom emulator, written in Rust. This emulat
 
 Current features and state:
  * SDL2 graphical frontend
+ * Multi-threaded architecture, concurrently processing presentation/events, emulation and PPU rendering (at the scanline level).
  * Supports LoROM / HiROM cartridges, with auto-detect
  * Fully functional (native-mode only), cycle accurate 65816 main CPU core
  * Fully functional, cycle accurate SPC700 audio CPU core
