@@ -103,6 +103,10 @@ struct Args {
     /// Override frame rate limit (0 = unlimited)
     #[arg(long)]
     fps: Option<u64>,
+
+    /// Override video format
+    #[arg(long)]
+    videoformat: Option<VideoFormat>,
 }
 
 fn main() -> Result<()> {
@@ -130,10 +134,16 @@ fn main() -> Result<()> {
         Cartridge::load_nohdr(&f, args.no_header_hirom)
     };
 
+    // Determine video format (PAL/NTSC)
+    let videoformat = match args.videoformat {
+        Some(f) => f,
+        None => cartridge.get_video_format(),
+    };
+
     // Determine frame rate limit, either based on the video format
     // or what the user specified.
     let fps = match args.fps {
-        None => match cartridge.get_video_format() {
+        None => match videoformat {
             VideoFormat::NTSC => 60,
             VideoFormat::PAL => 50,
         },
@@ -148,6 +158,7 @@ fn main() -> Result<()> {
         joypads,
         args.verbose,
         fps,
+        videoformat,
     );
     bus.apu.verbose = args.spc_verbose;
     bus.apu.ports.write().unwrap().trace = args.trace_apu_comm;

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::frontend::Renderer;
 use crate::snes::apu::Apu;
 use crate::snes::bus::{Address, Bus, BusMember, ADDRESS_MASK};
-use crate::snes::cartridge::Cartridge;
+use crate::snes::cartridge::{Cartridge, VideoFormat};
 use crate::snes::joypad::{Joypad, JOYPAD_COUNT};
 use crate::snes::ppu::ppu::PPU;
 use crate::tickable::{Tickable, Ticks};
@@ -236,6 +236,7 @@ where
         joypads: [Joypad; JOYPAD_COUNT],
         apu_verbose: bool,
         fps: u64,
+        videoformat: VideoFormat,
     ) -> Self {
         Self {
             cartridge,
@@ -245,7 +246,7 @@ where
             hdmaen: 0,
             joypads: Some(joypads),
 
-            ppu: PPU::<TRenderer>::new(renderer, fps),
+            ppu: PPU::<TRenderer>::new(renderer, fps, videoformat),
             apu: Apu::new(apu_verbose),
 
             memsel: 0,
@@ -859,6 +860,7 @@ mod tests {
             joypads,
             false,
             0,
+            VideoFormat::PAL,
         )
     }
 

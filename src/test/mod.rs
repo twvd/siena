@@ -10,7 +10,7 @@ use std::time::Instant;
 use crate::frontend::test::TestRenderer;
 use crate::snes::bus::mainbus::{BusTrace, Mainbus};
 use crate::snes::bus::Bus;
-use crate::snes::cartridge::Cartridge;
+use crate::snes::cartridge::{Cartridge, VideoFormat};
 use crate::snes::cpu_65816::cpu::Cpu65816;
 use crate::snes::joypad::Joypad;
 use crate::snes::ppu::ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
@@ -19,7 +19,15 @@ fn test_display(rom: &[u8], pass_hash: &[u8], time_limit: u128, stable: bool, hi
     let (display, dispstatus) = TestRenderer::new_test(SCREEN_WIDTH, SCREEN_HEIGHT);
     let (joypads, _) = Joypad::new_channel_all();
     let cart = Cartridge::load_nohdr(rom, hirom);
-    let bus = Mainbus::<TestRenderer>::new(cart, BusTrace::None, display, joypads, false, 0);
+    let bus = Mainbus::<TestRenderer>::new(
+        cart,
+        BusTrace::None,
+        display,
+        joypads,
+        false,
+        0,
+        VideoFormat::PAL,
+    );
     let reset = bus.read16(0xFFFC);
     let mut cpu = Cpu65816::<Mainbus<TestRenderer>>::new(bus, reset);
 

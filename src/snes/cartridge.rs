@@ -19,7 +19,7 @@ const HDR_ICHECKSUM_OFFSET: usize = 0x1E;
 const HDR_LEN: usize = 0x1F;
 const RAM_SIZE: usize = 32 * 1024;
 
-#[derive(Display)]
+#[derive(Copy, Clone, Display, Serialize, Deserialize, clap::ValueEnum)]
 pub enum VideoFormat {
     PAL,
     NTSC,

@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::frontend::Renderer;
 use crate::snes::bus::{Address, BusMember};
+use crate::snes::cartridge::VideoFormat;
 use crate::tickable::{Tickable, Ticks};
 
 use std::cell::Cell;
@@ -51,6 +52,8 @@ pub struct PPU<TRenderer: Renderer> {
     #[serde(skip, default = "_default_none")]
     pub renderer: Option<TRenderer>,
 
+    videoformat: VideoFormat,
+
     /// Timestamp when the last frame was completed
     #[serde(skip, default = "_default_now")]
     last_frame: Instant,
@@ -89,13 +92,14 @@ where
     const VBLANK_START: usize = 0xE1;
     const LINE_HBLANK_START: usize = 274 * 4;
 
-    pub fn new(renderer: TRenderer, fps: u64) -> Self {
+    pub fn new(renderer: TRenderer, fps: u64, videoformat: VideoFormat) -> Self {
         let desired_frametime = if fps == 0 { 0 } else { 1_000_000 / fps };
 
         Self {
             vram: vec![0; VRAM_WORDS],
 
             renderer: Some(renderer),
+            videoformat,
             cycles: 0,
             last_scanline: 0,
             intreq_vblank: false,
@@ -316,6 +320,14 @@ where
             0x213C => Some(self.hlatch.get()),
             // OPVCT - Vertical Counter Latch (R)
             0x213D => Some(self.vlatch.get()),
+            // STAT78 - PPU2 Status and Version Number (R)
+            0x213F => {
+                // TODO latches, open bus, interlace
+                Some(match self.videoformat {
+                    VideoFormat::NTSC => 3,
+                    VideoFormat::PAL => (1 << 4) | 3,
+                })
+            }
             _ => self.state.read(fulladdr),
         }
     }

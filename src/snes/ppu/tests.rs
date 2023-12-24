@@ -1,5 +1,6 @@
 use crate::frontend::NullRenderer;
 use crate::snes::bus::BusMember;
+use crate::snes::cartridge::VideoFormat;
 
 use super::ppu::PPU;
 use super::state::PPUState;
@@ -8,7 +9,7 @@ fn ppustate() -> PPUState {
     PPUState::new()
 }
 fn ppu() -> PPU<NullRenderer> {
-    PPU::new(NullRenderer {}, 0)
+    PPU::new(NullRenderer {}, 0, VideoFormat::PAL)
 }
 
 #[test]
