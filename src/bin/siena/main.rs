@@ -16,7 +16,7 @@ use siena::frontend::sdl::{SDLEventPump, SDLRenderer};
 use siena::frontend::Renderer;
 use siena::snes::bus::mainbus::{BusTrace, Mainbus};
 use siena::snes::bus::Bus;
-use siena::snes::cartridge::Cartridge;
+use siena::snes::cartridge::{Cartridge, VideoFormat};
 use siena::snes::cpu_65816::cpu::Cpu65816;
 use siena::snes::joypad::{Button, Joypad, JoypadEvent};
 use siena::snes::ppu::ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
@@ -99,6 +99,10 @@ struct Args {
     /// Skip cartridge header detection, load as HiROM (mostly for test ROMs)
     #[arg(long)]
     no_header_hirom: bool,
+
+    /// Override frame rate limit (0 = unlimited)
+    #[arg(long)]
+    fps: Option<u64>,
 }
 
 fn main() -> Result<()> {
@@ -118,7 +122,7 @@ fn main() -> Result<()> {
 
     // Initialize cartridge
     let f = fs::read(args.filename)?;
-    let cart = if !args.no_header && !args.no_header_hirom {
+    let cartridge = if !args.no_header && !args.no_header_hirom {
         let c = Cartridge::load(&f);
         println!("Cartridge: {}", &c);
         c
@@ -126,13 +130,24 @@ fn main() -> Result<()> {
         Cartridge::load_nohdr(&f, args.no_header_hirom)
     };
 
+    // Determine frame rate limit, either based on the video format
+    // or what the user specified.
+    let fps = match args.fps {
+        None => match cartridge.get_video_format() {
+            VideoFormat::NTSC => 60,
+            VideoFormat::PAL => 50,
+        },
+        Some(fps) => fps,
+    };
+
     // Initialize S-CPU bus
     let mut bus = Mainbus::<ChannelRenderer>::new(
-        cart,
+        cartridge,
         args.trace_bus,
         displaychannel,
         joypads,
         args.verbose,
+        fps,
     );
     bus.apu.verbose = args.spc_verbose;
     bus.apu.ports.write().unwrap().trace = args.trace_apu_comm;

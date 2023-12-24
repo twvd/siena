@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::time::Instant;
 
 use anyhow::Result;
 use crossbeam_channel::{Receiver, Sender, TrySendError};
@@ -13,9 +12,6 @@ pub struct ChannelRenderer {
     receiver: Receiver<DisplayBuffer>,
     width: usize,
     height: usize,
-
-    fps_count: u64,
-    fps_time: Instant,
 }
 
 impl ChannelRenderer {
@@ -34,9 +30,6 @@ impl Renderer for ChannelRenderer {
             receiver,
             width,
             height,
-
-            fps_count: 0,
-            fps_time: Instant::now(),
         })
     }
 
@@ -46,17 +39,6 @@ impl Renderer for ChannelRenderer {
 
     /// Renders changes to screen
     fn update(&mut self) -> Result<()> {
-        self.fps_count += 1;
-
-        if self.fps_time.elapsed().as_secs() >= 2 {
-            println!(
-                "PPU Frame rate: {:0.2} frames/second",
-                self.fps_count as f32 / self.fps_time.elapsed().as_secs_f32()
-            );
-            self.fps_count = 0;
-            self.fps_time = Instant::now();
-        }
-
         let buffer = std::mem::replace(
             &mut self.displaybuffer,
             new_displaybuffer(self.width, self.height),

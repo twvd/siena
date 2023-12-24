@@ -93,7 +93,7 @@ impl Cartridge {
         (1 << self.rom[self.header_offset + HDR_RAMSIZE_OFFSET]) * 1024
     }
 
-    fn get_video_format(&self) -> VideoFormat {
+    pub fn get_video_format(&self) -> VideoFormat {
         match self.rom[self.header_offset + HDR_DESTINATION_OFFSET] {
             0 // Japan
             | 1 // North-America

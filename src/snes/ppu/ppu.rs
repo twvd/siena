@@ -11,6 +11,8 @@ use crate::tickable::{Tickable, Ticks};
 use std::cell::Cell;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::thread::sleep;
+use std::time::{Duration, Instant};
 
 pub const SCREEN_WIDTH: usize = 8 * 32;
 pub const SCREEN_HEIGHT: usize = 8 * 28;
@@ -38,12 +40,24 @@ fn _default_none<T>() -> Option<T> {
     None
 }
 
+fn _default_now() -> Instant {
+    Instant::now()
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct PPU<TRenderer: Renderer> {
     pub(super) vram: InnerVram,
 
     #[serde(skip, default = "_default_none")]
     pub renderer: Option<TRenderer>,
+
+    /// Timestamp when the last frame was completed
+    #[serde(skip, default = "_default_now")]
+    last_frame: Instant,
+
+    /// The desired speed at which to run the PPU (and with that the emulator)
+    /// in microseconds per frame.
+    desired_frametime: u64,
 
     pub(super) cycles: usize,
     pub(super) last_scanline: usize,
@@ -75,7 +89,9 @@ where
     const VBLANK_START: usize = 0xE1;
     const LINE_HBLANK_START: usize = 274 * 4;
 
-    pub fn new(renderer: TRenderer) -> Self {
+    pub fn new(renderer: TRenderer, fps: u64) -> Self {
+        let desired_frametime = if fps == 0 { 0 } else { 1_000_000 / fps };
+
         Self {
             vram: vec![0; VRAM_WORDS],
 
@@ -96,6 +112,9 @@ where
             vmadd: Cell::new(0),
             vmain: 0,
             vram_prefetch: Cell::new(0),
+
+            last_frame: Instant::now(),
+            desired_frametime,
         }
     }
 
@@ -217,16 +236,29 @@ where
                     // Reload OAMADD
                     self.state.oamadd_addr.set(self.state.oamadd_reload.get());
 
+                    // Roll over the VRAM buffer so changes can be made for the
+                    // next frame.
                     self.state.vram = Arc::new(self.vram.clone());
                 }
             } else {
                 if self.vblank {
+                    // VBlank period has ended
                     self.vblank = false;
 
                     // Send frame to the screen
+                    // Wait for threadpool workers to finish all scanlines
                     self.pool.join();
+
+                    // Present frame to the screen
                     let renderer = self.renderer.as_mut().unwrap();
                     renderer.update()?;
+
+                    // Sync to desired framerate
+                    let frametime = self.last_frame.elapsed().as_micros() as u64;
+                    if frametime < self.desired_frametime {
+                        sleep(Duration::from_micros(self.desired_frametime - frametime));
+                    }
+                    self.last_frame = Instant::now();
                 }
 
                 // Scanline 0 is discarded by the original hardware, so

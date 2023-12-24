@@ -1,8 +1,7 @@
 use std::cell::RefCell;
 use std::sync::atomic::AtomicU8;
 use std::sync::Arc;
-use std::thread::sleep;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use anyhow::{anyhow, Result};
 use sdl2::event::Event;
@@ -38,8 +37,6 @@ pub struct SDLRenderer {
     #[allow(dead_code)]
     height: usize,
 
-    last_frame: Instant,
-    frametime: u64,
     fps_count: u64,
     fps_time: Instant,
 }
@@ -69,13 +66,6 @@ impl SDLRenderer {
             self.fps_count = 0;
             self.fps_time = Instant::now();
         }
-
-        // Limit the framerate
-        let framelen = self.last_frame.elapsed().as_micros() as u64;
-        if framelen < self.frametime {
-            //sleep(Duration::from_micros(self.frametime - framelen));
-        }
-        self.last_frame = Instant::now();
 
         Ok(())
     }
@@ -111,8 +101,6 @@ impl Renderer for SDLRenderer {
                 displaybuffer: new_displaybuffer(width, height),
                 width,
                 height,
-                last_frame: Instant::now(),
-                frametime: 1000000 / 50,
                 fps_count: 0,
                 fps_time: Instant::now(),
             })

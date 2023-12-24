@@ -235,6 +235,7 @@ where
         renderer: TRenderer,
         joypads: [Joypad; JOYPAD_COUNT],
         apu_verbose: bool,
+        fps: u64,
     ) -> Self {
         Self {
             cartridge,
@@ -244,7 +245,7 @@ where
             hdmaen: 0,
             joypads: Some(joypads),
 
-            ppu: PPU::<TRenderer>::new(renderer),
+            ppu: PPU::<TRenderer>::new(renderer, fps),
             apu: Apu::new(apu_verbose),
 
             memsel: 0,
@@ -857,6 +858,7 @@ mod tests {
             NullRenderer::new(0, 0).unwrap(),
             joypads,
             false,
+            0,
         )
     }
 

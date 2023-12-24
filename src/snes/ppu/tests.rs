@@ -8,7 +8,7 @@ fn ppustate() -> PPUState {
     PPUState::new()
 }
 fn ppu() -> PPU<NullRenderer> {
-    PPU::new(NullRenderer {})
+    PPU::new(NullRenderer {}, 0)
 }
 
 #[test]
