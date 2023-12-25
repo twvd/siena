@@ -239,15 +239,15 @@ where
 
                     // Reload OAMADD
                     self.state.oamadd_addr.set(self.state.oamadd_reload.get());
-
-                    // Roll over the VRAM buffer so changes can be made for the
-                    // next frame.
-                    self.state.vram = Arc::new(self.vram.clone());
                 }
             } else {
                 if self.vblank {
                     // VBlank period has ended
                     self.vblank = false;
+
+                    // Roll over the VRAM buffer so any changes during the last frame
+                    // reflect in the next frame.
+                    self.state.vram = Arc::new(self.vram.clone());
 
                     // Send frame to the screen
                     // Wait for threadpool workers to finish all scanlines
