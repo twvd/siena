@@ -45,6 +45,8 @@ fn map_keycode(keycode: Keycode) -> Option<(usize, Button)> {
 enum EmuThreadSignal {
     Quit,
     DumpState,
+    ToggleVerbose,
+    ToggleVerboseSPC,
 }
 
 #[derive(Parser)]
@@ -191,7 +193,7 @@ fn main() -> Result<()> {
 
     // Spin up emulation thread and communication channel
     let (emuthread_tx, emuthread_rx) = crossbeam_channel::unbounded();
-    let t_verbose = args.verbose;
+    let mut t_verbose = args.verbose;
     let emuthread = thread::spawn(move || loop {
         // Handle signals from main thread
         match emuthread_rx.try_recv() {
@@ -208,6 +210,8 @@ fn main() -> Result<()> {
                 serde_json::to_writer(file, &cpu).unwrap();
                 println!("State dumped to {}", filename);
             }
+            Ok(EmuThreadSignal::ToggleVerbose) => t_verbose = !t_verbose,
+            Ok(EmuThreadSignal::ToggleVerboseSPC) => cpu.bus.apu.verbose = !cpu.bus.apu.verbose,
             _ => (),
         }
 
@@ -238,6 +242,22 @@ fn main() -> Result<()> {
                     ..
                 } => {
                     emuthread_tx.send(EmuThreadSignal::DumpState)?;
+                }
+
+                // Toggle S-CPU verbose
+                Event::KeyDown {
+                    keycode: Some(Keycode::Num0),
+                    ..
+                } => {
+                    emuthread_tx.send(EmuThreadSignal::ToggleVerbose)?;
+                }
+
+                // Toggle SPC70P verbose
+                Event::KeyDown {
+                    keycode: Some(Keycode::Num9),
+                    ..
+                } => {
+                    emuthread_tx.send(EmuThreadSignal::ToggleVerboseSPC)?;
                 }
 
                 // Controller input
