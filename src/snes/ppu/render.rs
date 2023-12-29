@@ -496,8 +496,8 @@ impl PPUState {
         let use_masking = w1area & w2area & WINAREA_ENABLE != 0;
 
         for x in 0..=u8::MAX {
-            let in_w1 = in_window(w1area, &w1, x);
-            let in_w2 = in_window(w2area, &w2, x);
+            let in_w1 = (w1area & WINAREA_ENABLE) != 0 && in_window(w1area, &w1, x);
+            let in_w2 = (w2area & WINAREA_ENABLE) != 0 && in_window(w2area, &w2, x);
 
             if !use_masking {
                 ret[x as usize] = in_w1 || in_w2;
