@@ -49,7 +49,10 @@ where
             instr_cache: _clean_cache(),
         };
         cpu.regs.pc = reset_addr;
-        cpu.regs.p = (1 << Flag::M.to_u8().unwrap()) | (1 << Flag::X.to_u8().unwrap());
+        cpu.regs.p = (1 << Flag::M.to_u8().unwrap())
+            | (1 << Flag::X.to_u8().unwrap())
+            | (1 << Flag::I.to_u8().unwrap());
+        cpu.regs.s = 0x01FF;
         cpu.regs.emulation = true;
 
         cpu
