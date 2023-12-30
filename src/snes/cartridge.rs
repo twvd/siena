@@ -5,7 +5,8 @@ use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
-use crate::snes::bus::{Address, BusMember};
+use super::bus::{Address, BusMember};
+use super::coprocessor::dspx::DSPx;
 
 const HDR_TITLE_OFFSET: usize = 0x00;
 const HDR_TITLE_SIZE: usize = 21;
@@ -37,6 +38,16 @@ pub enum Chipset {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, FromPrimitive)]
+pub enum CoProcessor {
+    DSPx = 0,
+    SuperFX = 1,
+    OBC1 = 2,
+    SA1 = 3,
+    SDD1 = 4,
+    SRTC = 5,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, FromPrimitive)]
 pub enum MapMode {
     LoROM = 0,
     HiROM = 1,
@@ -55,6 +66,12 @@ pub struct Cartridge {
 
     /// RAM address mask, to properly emulate mirroring
     ram_mask: usize,
+
+    /// ROM address mask
+    rom_mask: usize,
+
+    /// DSP-x co-processor
+    co_dspx: Option<DSPx>,
 }
 
 impl Cartridge {
@@ -91,6 +108,16 @@ impl Cartridge {
 
     fn get_ram_size(&self) -> usize {
         (1 << self.rom[self.header_offset + HDR_RAMSIZE_OFFSET]) * 1024
+    }
+
+    fn get_coprocessor(&self) -> Option<CoProcessor> {
+        match self.get_chipset() {
+            Chipset::RomCo | Chipset::RomRamCo | Chipset::RomRamCoBat | Chipset::RomCoBat => Some(
+                CoProcessor::from_u8(self.rom[self.header_offset + HDR_CHIPSET_OFFSET] & 0xF0)
+                    .unwrap(),
+            ),
+            _ => None,
+        }
     }
 
     pub fn get_video_format(&self) -> VideoFormat {
@@ -149,7 +176,19 @@ impl Cartridge {
             hirom: false,
             header_offset: header_offset.expect("Could not locate header"),
             ram_mask: 0,
+            rom_mask: (rom.len() - load_offset - 1),
+            co_dspx: None,
         };
+
+        // Detect / initialize co-processor
+        match c.get_coprocessor() {
+            Some(CoProcessor::DSPx) => {
+                println!("DSP-x co-processor detected");
+                c.co_dspx = Some(DSPx::new());
+            }
+            Some(c) => println!("Warning: unimplemented co-processor: {:?}", c),
+            None => (),
+        }
 
         // TODO refactor header to its own struct
         c.hirom = match c.get_map() {
@@ -168,6 +207,8 @@ impl Cartridge {
             hirom,
             header_offset: 0,
             ram_mask: RAM_SIZE - 1,
+            rom_mask: rom.len() - 1,
+            co_dspx: None,
         }
     }
 
@@ -180,6 +221,8 @@ impl Cartridge {
             hirom: false,
             header_offset: 0,
             ram_mask: RAM_SIZE - 1,
+            rom_mask: usize::MAX,
+            co_dspx: None,
         }
     }
 }
@@ -206,8 +249,9 @@ impl BusMember<Address> for Cartridge {
         match (bank, addr) {
             // HiROM (mirrors in LoROM banks)
             (0x00..=0x3F | 0x80..=0xBF, 0x8000..=0xFFFF) if self.hirom => {
-                Some(self.rom[addr - 0x0000 + (bank & !0x80) * 0x10000])
+                Some(self.rom[(addr - 0x0000 + (bank & !0x80) * 0x10000) & self.rom_mask])
             }
+
             // LoROM
             (0x00..=0x3F | 0x80..=0xFF, 0x8000..=0xFFFF) if !self.hirom => {
                 Some(self.rom[addr - 0x8000 + (bank & !0x80) * 0x8000])
@@ -220,7 +264,7 @@ impl BusMember<Address> for Cartridge {
 
             // HiROM
             (0x40..=0x6F, _) if self.hirom => {
-                Some(self.rom[(addr + ((bank - 0x40) * 0x10000)) % self.rom.len()])
+                Some(self.rom[(addr + ((bank - 0x40) * 0x10000)) & self.rom_mask])
             }
 
             // LoROM SRAM
@@ -229,7 +273,15 @@ impl BusMember<Address> for Cartridge {
             }
 
             // HiROM
-            (0xC0..=0xFF, _) if self.hirom => Some(self.rom[addr + ((bank - 0xC0) * 0x10000)]),
+            (0xC0..=0xFF, _) if self.hirom => {
+                Some(self.rom[(addr + ((bank - 0xC0) * 0x10000)) & self.rom_mask])
+            }
+
+            // DSP-x co-processor
+            (0x00..=0xDF, 0x6000..=0x7FFF) if self.co_dspx.is_some() => {
+                let dspx = self.co_dspx.as_ref().unwrap();
+                dspx.read(fulladdr)
+            }
 
             _ => None,
         }
@@ -247,6 +299,12 @@ impl BusMember<Address> for Cartridge {
             // LoROM SRAM
             (0x70..=0x7D, 0x0000..=0x7FFF) if !self.hirom => {
                 Some(self.ram[(bank - 0x70) * 0x8000 + addr & self.ram_mask] = val)
+            }
+
+            // DSP-x co-processor
+            (0x00..=0xDF, 0x6000..=0x7FFF) if self.co_dspx.is_some() => {
+                let dspx = self.co_dspx.as_mut().unwrap();
+                dspx.write(fulladdr, val)
             }
 
             _ => None,
