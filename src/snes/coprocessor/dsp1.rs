@@ -2,19 +2,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::snes::bus::{Address, BusMember};
 
-/// DSP-x co-processor
+/// DSP-1 co-processor
 #[derive(Serialize, Deserialize)]
-pub struct DSPx {}
+pub struct DSP1 {}
 
-impl DSPx {
+impl DSP1 {
     pub fn new() -> Self {
         Self {}
     }
 }
 
-impl BusMember<Address> for DSPx {
+impl BusMember<Address> for DSP1 {
     fn read(&self, fulladdr: Address) -> Option<u8> {
-        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+        let (_bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
         match addr {
             0x7000 => {
@@ -30,7 +30,7 @@ impl BusMember<Address> for DSPx {
     }
 
     fn write(&mut self, fulladdr: Address, val: u8) -> Option<()> {
-        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+        let (_bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
         match addr {
             _ => None,

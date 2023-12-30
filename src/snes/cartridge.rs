@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use strum::Display;
 
 use super::bus::{Address, BusMember};
-use super::coprocessor::dspx::DSPx;
+use super::coprocessor::dsp1::DSP1;
 
 const HDR_TITLE_OFFSET: usize = 0x00;
 const HDR_TITLE_SIZE: usize = 21;
@@ -70,8 +70,8 @@ pub struct Cartridge {
     /// ROM address mask
     rom_mask: usize,
 
-    /// DSP-x co-processor
-    co_dspx: Option<DSPx>,
+    /// DSP-1 co-processor
+    co_dsp1: Option<DSP1>,
 }
 
 impl Cartridge {
@@ -177,14 +177,15 @@ impl Cartridge {
             header_offset: header_offset.expect("Could not locate header"),
             ram_mask: 0,
             rom_mask: (rom.len() - load_offset - 1),
-            co_dspx: None,
+            co_dsp1: None,
         };
 
         // Detect / initialize co-processor
         match c.get_coprocessor() {
             Some(CoProcessor::DSPx) => {
-                println!("DSP-x co-processor detected");
-                c.co_dspx = Some(DSPx::new());
+                println!("DSP-1 co-processor detected");
+                c.co_dsp1 = Some(DSP1::new());
+                // TODO detect DSP-2, DSP-3, DSP-4
             }
             Some(c) => println!("Warning: unimplemented co-processor: {:?}", c),
             None => (),
@@ -208,7 +209,7 @@ impl Cartridge {
             header_offset: 0,
             ram_mask: RAM_SIZE - 1,
             rom_mask: rom.len() - 1,
-            co_dspx: None,
+            co_dsp1: None,
         }
     }
 
@@ -222,7 +223,7 @@ impl Cartridge {
             header_offset: 0,
             ram_mask: RAM_SIZE - 1,
             rom_mask: usize::MAX,
-            co_dspx: None,
+            co_dsp1: None,
         }
     }
 }
@@ -277,10 +278,10 @@ impl BusMember<Address> for Cartridge {
                 Some(self.rom[(addr + ((bank - 0xC0) * 0x10000)) & self.rom_mask])
             }
 
-            // DSP-x co-processor
-            (0x00..=0xDF, 0x6000..=0x7FFF) if self.co_dspx.is_some() => {
-                let dspx = self.co_dspx.as_ref().unwrap();
-                dspx.read(fulladdr)
+            // DSP-1 co-processor
+            (0x00..=0xDF, 0x6000..=0x7FFF) if self.co_dsp1.is_some() => {
+                let dsp = self.co_dsp1.as_ref().unwrap();
+                dsp.read(fulladdr)
             }
 
             _ => None,
@@ -301,10 +302,10 @@ impl BusMember<Address> for Cartridge {
                 Some(self.ram[(bank - 0x70) * 0x8000 + addr & self.ram_mask] = val)
             }
 
-            // DSP-x co-processor
-            (0x00..=0xDF, 0x6000..=0x7FFF) if self.co_dspx.is_some() => {
-                let dspx = self.co_dspx.as_mut().unwrap();
-                dspx.write(fulladdr, val)
+            // DSP-1 co-processor
+            (0x00..=0xDF, 0x6000..=0x7FFF) if self.co_dsp1.is_some() => {
+                let dsp = self.co_dsp1.as_mut().unwrap();
+                dsp.write(fulladdr, val)
             }
 
             _ => None,
