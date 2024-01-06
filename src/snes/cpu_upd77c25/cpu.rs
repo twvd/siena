@@ -22,7 +22,7 @@ impl CpuUpd77c25 {
         Self {
             regs: RegisterFile::from_pc(0),
             cycles: 0,
-            code: vec![0; 16 * 1024],
+            code: vec![0xFF; 16 * 1024],
             rodata: vec![0; 2048],
             ram: vec![0; 2048],
             stack: vec![0; 16],

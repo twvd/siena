@@ -1,5 +1,6 @@
 use std::fmt;
 
+use anyhow::Result;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -7,6 +8,7 @@ use strum::Display;
 
 use super::bus::{Address, BusMember};
 use super::coprocessor::dsp1::DSP1;
+use crate::tickable::{Tickable, Ticks};
 
 const HDR_TITLE_OFFSET: usize = 0x00;
 const HDR_TITLE_SIZE: usize = 21;
@@ -315,5 +317,14 @@ impl BusMember<Address> for Cartridge {
 
             _ => None,
         }
+    }
+}
+
+impl Tickable for Cartridge {
+    fn tick(&mut self, ticks: Ticks) -> Result<()> {
+        if let Some(dsp) = self.co_dsp1.as_mut() {
+            dsp.tick(ticks)?;
+        }
+        Ok(())
     }
 }

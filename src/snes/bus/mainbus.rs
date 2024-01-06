@@ -794,6 +794,8 @@ where
     TRenderer: Renderer,
 {
     fn tick(&mut self, ticks: Ticks) -> Result<()> {
+        self.cartridge.tick(ticks)?;
+
         // APU deals with its own stuff
         self.apu.tick(ticks)?;
 

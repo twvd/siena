@@ -1,7 +1,9 @@
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::snes::bus::{Address, BusMember};
 use crate::snes::cpu_upd77c25::cpu::CpuUpd77c25;
+use crate::tickable::{Tickable, Ticks};
 
 /// DSP-1 co-processor
 #[derive(Serialize, Deserialize)]
@@ -44,5 +46,13 @@ impl BusMember<Address> for DSP1 {
         match addr {
             _ => None,
         }
+    }
+}
+
+impl Tickable for DSP1 {
+    fn tick(&mut self, _ticks: Ticks) -> Result<()> {
+        // TODO more granular or only as much as needed based on comms?
+        self.cpu.step()?;
+        Ok(())
     }
 }
