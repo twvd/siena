@@ -109,6 +109,10 @@ struct Args {
     /// Override video format
     #[arg(long)]
     videoformat: Option<VideoFormat>,
+
+    /// Co-processor ROM to load (if needed)
+    #[arg(short, long)]
+    corom: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -128,8 +132,13 @@ fn main() -> Result<()> {
 
     // Initialize cartridge
     let f = fs::read(args.filename)?;
+    let f_co = if let Some(filename) = args.corom {
+        Some(fs::read(filename)?)
+    } else {
+        None
+    };
     let cartridge = if !args.no_header && !args.no_header_hirom {
-        let c = Cartridge::load(&f);
+        let c = Cartridge::load(&f, f_co.as_deref());
         println!("Cartridge: {}", &c);
         c
     } else {

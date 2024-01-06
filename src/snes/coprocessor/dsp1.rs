@@ -1,14 +1,23 @@
 use serde::{Deserialize, Serialize};
 
 use crate::snes::bus::{Address, BusMember};
+use crate::snes::cpu_upd77c25::cpu::CpuUpd77c25;
 
 /// DSP-1 co-processor
 #[derive(Serialize, Deserialize)]
-pub struct DSP1 {}
+pub struct DSP1 {
+    cpu: CpuUpd77c25,
+}
 
 impl DSP1 {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            cpu: CpuUpd77c25::new(),
+        }
+    }
+
+    pub fn load_rom_combined(&mut self, rom: &[u8]) {
+        self.cpu.load_rom_combined(rom)
     }
 }
 

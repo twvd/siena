@@ -141,13 +141,13 @@ impl Cartridge {
 
     /// Loads a cartridge.
     /// Fails if it cannot find the cartridge header.
-    pub fn load(rom: &[u8]) -> Self {
-        Self::load_with_save(rom, &[])
+    pub fn load(rom: &[u8], co_rom: Option<&[u8]>) -> Self {
+        Self::load_with_save(rom, &[], co_rom)
     }
 
     /// Loads a cartridge and a save.
     /// Fails if it cannot find the cartridge header.
-    pub fn load_with_save(rom: &[u8], _save: &[u8]) -> Self {
+    pub fn load_with_save(rom: &[u8], _save: &[u8], co_rom: Option<&[u8]>) -> Self {
         let load_offset = match rom.len() % 1024 {
             0 => 0,
             0x200 => {
@@ -184,7 +184,12 @@ impl Cartridge {
         match c.get_coprocessor() {
             Some(CoProcessor::DSPx) => {
                 println!("DSP-1 co-processor detected");
-                c.co_dsp1 = Some(DSP1::new());
+                if let Some(rom) = co_rom {
+                    c.co_dsp1 = Some(DSP1::new());
+                    c.co_dsp1.as_mut().unwrap().load_rom_combined(rom);
+                } else {
+                    panic!("DSP-1 co-processor requires a ROM, please specify using --corom");
+                }
                 // TODO detect DSP-2, DSP-3, DSP-4
             }
             Some(c) => println!("Warning: unimplemented co-processor: {:?}", c),
