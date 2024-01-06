@@ -162,31 +162,29 @@ impl RegisterFile {
 
     /// Write a value to a register.
     pub fn write(&mut self, reg: Register, val: u16) {
-        let reg4 = || {
-            assert!(val <= 0x0F);
-            val as u8
-        };
-        let reg16 = || val;
-
         match reg {
             // Pure 16-bit registers
-            Register::ACCA => self.acca = reg16(),
-            Register::ACCB => self.accb = reg16(),
-            Register::SGN => self.sgn = reg16(),
-            Register::K => self.k = reg16(),
-            Register::L => self.l = reg16(),
-            Register::M => self.m = reg16(),
-            Register::N => self.n = reg16(),
-            Register::TR => self.tr = reg16(),
-            Register::TRB => self.trb = reg16(),
-            Register::PC => self.pc = reg16(),
-            Register::DP => self.dp = reg16(),
-            Register::RP => self.rp = reg16(),
-            Register::DR => self.dr = reg16(),
-            Register::SR => self.sr = reg16(),
+            Register::ACCA => self.acca = val,
+            Register::ACCB => self.accb = val,
+            Register::SGN => self.sgn = val,
+            Register::K => self.k = val,
+            Register::L => self.l = val,
+            Register::M => self.m = val,
+            Register::N => self.n = val,
+            Register::TR => self.tr = val,
+            Register::TRB => self.trb = val,
+            Register::DR => self.dr = val,
+            Register::SR => self.sr = val,
 
-            // 4-bit
-            Register::SP => self.sp = reg4(),
+            // 4-bit (stored as 8-bit)
+            Register::SP => self.sp = (val & 0x0F) as u8,
+
+            // 8-bit
+            Register::DP => self.dp = val & 0xFF,
+            // 10-bit
+            Register::RP => self.rp = val & 0x3FF,
+            // 11-bit
+            Register::PC => self.pc = val & 0x7FF,
         }
     }
 
@@ -283,7 +281,7 @@ impl fmt::Display for RegisterFile {
                     .collect::<String>()
             })
             .collect::<Vec<_>>();
-        let sr = Flag::iter()
+        let sr = SR::iter()
             .map(|f| (f, f.to_string().chars().nth(0).unwrap()))
             .map(|(f, fc)| {
                 if self.sr & 1 << f.to_u16().unwrap() != 0 {
@@ -328,13 +326,8 @@ mod tests {
         let mut r = RegisterFile::new();
         r.write(Register::SP, 0x0F);
         assert_eq!(r.sp, 0x0F);
-    }
-
-    #[test]
-    #[should_panic]
-    fn write_4bit_error() {
-        let mut r = RegisterFile::new();
-        r.write(Register::SP, 0x1F);
+        r.write(Register::SP, 0x10);
+        assert_eq!(r.sp, 0x00);
     }
 
     #[test]
