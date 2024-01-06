@@ -160,7 +160,7 @@ pub enum DST {
     MEM = 0b1111,
 }
 
-#[derive(EnumIter, FromPrimitive, Debug, Copy, Clone, Display)]
+#[derive(EnumIter, FromPrimitive, Debug, Copy, Clone, Display, Eq, PartialEq)]
 pub enum BrchCnd {
     JMP = 0b100000000,
     CALL = 0b101000000,
