@@ -93,6 +93,7 @@ impl CpuUpd77c25 {
                 Ok(())
             }
             Instruction::Jp(i) => self.op_jp(i),
+            Instruction::Ld(i) => self.op_ld(i),
             _ => todo!(),
         }
     }
@@ -149,12 +150,37 @@ impl CpuUpd77c25 {
 
         Ok(())
     }
+
+    fn op_ld(&mut self, instr: &InstructionLd) -> Result<()> {
+        let val = instr.imm16();
+        match instr.dst() {
+            DST::NON => (),
+            DST::ACCA => self.regs.write(Register::ACCA, val),
+            DST::ACCB => self.regs.write(Register::ACCB, val),
+            DST::TR => self.regs.write(Register::TR, val),
+            DST::DP => self.regs.write(Register::DP, val),
+            DST::RP => self.regs.write(Register::RP, val),
+            DST::DR => self.regs.write(Register::DR, val),
+            DST::SR => self.regs.write(Register::SR, val),
+            DST::SIM => todo!(),
+            DST::SIL => todo!(),
+            DST::K => self.regs.write(Register::K, val),
+            DST::KLR => todo!(),
+            DST::KLM => todo!(),
+            DST::L => self.regs.write(Register::L, val),
+            DST::TRB => self.regs.write(Register::TRB, val),
+            DST::MEM => todo!(),
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use num_traits::ToPrimitive;
+    use strum::IntoEnumIterator;
 
     fn cpu(op: u32) -> CpuUpd77c25 {
         let mut c = CpuUpd77c25::new();
@@ -337,5 +363,35 @@ mod tests {
         assert_eq!(c.regs.pc, 0x0008);
         assert_eq!(c.regs.sp, 0x0001);
         assert_eq!(c.stack[0], 0x0003);
+    }
+
+    #[test]
+    fn ld_nop() {
+        let c = cpu_run(0b11_1010101010101010_00_0000);
+        assert!(Register::iter()
+            .filter(|&r| r != Register::PC)
+            .all(|r| c.regs.read(r) == 0));
+    }
+
+    #[test]
+    fn ld_regs() {
+        let test = |op, reg| {
+            let c = cpu_run(op);
+            assert!(Register::iter()
+                .filter(|&r| r != Register::PC && r != reg)
+                .all(|r| c.regs.read(r) == 0));
+            assert_ne!(c.regs.read(reg), 0);
+        };
+
+        test(0b11_1010101010101010_00_0001, Register::ACCA);
+        test(0b11_1010101010101010_00_0010, Register::ACCB);
+        test(0b11_1010101010101010_00_0011, Register::TR);
+        test(0b11_1010101010101010_00_0100, Register::DP);
+        test(0b11_1010101010101010_00_0101, Register::RP);
+        test(0b11_1010101010101010_00_0110, Register::DR);
+        test(0b11_1010101010101010_00_0111, Register::SR);
+        test(0b11_1010101010101010_00_1010, Register::K);
+        test(0b11_1010101010101010_00_1101, Register::L);
+        test(0b11_1010101010101010_00_1110, Register::TRB);
     }
 }

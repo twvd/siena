@@ -68,7 +68,7 @@ pub enum RegisterWidth {
 }
 
 /// Enumeration of registers
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, EnumIter)]
 pub enum Register {
     /// Accumulator A
     ACCA,
