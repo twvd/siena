@@ -258,8 +258,20 @@ mod tests {
 
     #[test]
     fn jp_sr_rqm() {
-        assert_ne!(cpu_run(0x97C000).regs.pc, 0x0000);
-        assert_eq!(cpu_run_sr(0x97C000, SR::RQM).regs.pc, 0x0000);
+        assert_ne!(cpu_run(0b10_010111110_00000000000_00).regs.pc, 0x0000);
+        assert_eq!(
+            cpu_run_sr(0b10_010111110_00000000000_00, SR::RQM).regs.pc,
+            0x0000
+        );
+    }
+
+    #[test]
+    fn jp_sr_rqmn() {
+        assert_eq!(cpu_run(0b10_010111100_00000000000_00).regs.pc, 0x0000);
+        assert_ne!(
+            cpu_run_sr(0b10_010111100_00000000000_00, SR::RQM).regs.pc,
+            0x0000
+        );
     }
 
     #[test]
