@@ -381,7 +381,7 @@ mod tests {
     fn ld_nop() {
         let c = cpu_run(0b11_1010101010101010_00_0000);
         assert!(Register::iter()
-            .filter(|&r| r != Register::PC)
+            .filter(|&r| r != Register::PC && r != Register::SGN)
             .all(|r| c.regs.read(r) == 0));
     }
 
@@ -390,7 +390,7 @@ mod tests {
         let test = |op, reg| {
             let c = cpu_run(op);
             assert!(Register::iter()
-                .filter(|&r| r != Register::PC && r != reg)
+                .filter(|&r| r != Register::PC && r != Register::SGN && r != reg)
                 .all(|r| c.regs.read(r) == 0));
             assert_ne!(c.regs.read(reg), 0);
         };

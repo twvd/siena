@@ -117,7 +117,6 @@ impl Register {
 pub struct RegisterFile {
     pub acca: u16,
     pub accb: u16,
-    pub sgn: u16,
     pub k: u16,
     pub l: u16,
     pub m: u16,
@@ -139,7 +138,6 @@ impl RegisterFile {
         Self {
             acca: 0,
             accb: 0,
-            sgn: 0,
             k: 0,
             l: 0,
             m: 0,
@@ -166,7 +164,6 @@ impl RegisterFile {
             // Pure 16-bit registers
             Register::ACCA => self.acca = val,
             Register::ACCB => self.accb = val,
-            Register::SGN => self.sgn = val,
             Register::K => self.k = val,
             Register::L => self.l = val,
             Register::M => self.m = val,
@@ -185,6 +182,9 @@ impl RegisterFile {
             Register::RP => self.rp = val & 0x3FF,
             // 11-bit
             Register::PC => self.pc = val & 0x7FF,
+
+            // Virtual register
+            Register::SGN => unreachable!(),
         }
     }
 
@@ -194,7 +194,6 @@ impl RegisterFile {
             // Pure 16-bit registers
             Register::ACCA => self.acca,
             Register::ACCB => self.accb,
-            Register::SGN => self.sgn,
             Register::K => self.k,
             Register::L => self.l,
             Register::M => self.m,
@@ -209,6 +208,10 @@ impl RegisterFile {
 
             // 4-bit
             Register::SP => self.sp.into(),
+
+            // Virtual register
+            Register::SGN if self.test_flag(Flags::A, Flag::S1) => 0x7FFF,
+            Register::SGN => 0x8000,
         }
     }
 
@@ -574,5 +577,20 @@ mod tests {
         r.write_sr(&[(SR::O0, true)]);
         r.write_sr(&[(SR::O1, true)]);
         assert!(r.test_sr(SR::O0));
+    }
+
+    #[test]
+    fn read_sgn() {
+        let mut r = RegisterFile::new();
+        assert_eq!(r.read(Register::SGN), 0x8000);
+        r.write_flags(Flags::A, &[(Flag::S1, true)]);
+        assert_eq!(r.read(Register::SGN), 0x7FFF);
+    }
+
+    #[test]
+    #[should_panic]
+    fn write_sgn() {
+        let mut r = RegisterFile::new();
+        r.write(Register::SGN, 0);
     }
 }
