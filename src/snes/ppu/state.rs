@@ -253,7 +253,7 @@ impl PPUState {
         let tilesize = self.get_bg_tile_size(bg);
 
         match self.get_screen_mode() {
-            0 | 1 | 2 | 3 => {
+            0 | 1 | 2 | 3 | 4 => {
                 // AA BB CC DD, size = 0x800 per sub-map
                 // 00  32x32   AA
                 //             AA
@@ -308,6 +308,11 @@ impl PPUState {
             3 => match bg {
                 0 => BPP::Eight,
                 1 => BPP::Four,
+                _ => unreachable!(),
+            },
+            4 => match bg {
+                0 => BPP::Eight,
+                1 => BPP::Two,
                 _ => unreachable!(),
             },
             _ => todo!(),

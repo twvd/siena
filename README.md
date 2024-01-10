@@ -11,7 +11,7 @@ Current features and state:
  * Fully functional (native-mode only), cycle accurate 65816 main CPU core
  * Fully functional, cycle accurate SPC700 audio CPU core
  * Functional DMA and HDMA
- * PPU modes 0, 1, 3 and 7 functional
+ * PPU modes 0, 1, 2, 3, 4 and 7 functional
  * Color math
 
 ## Building and running

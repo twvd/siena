@@ -131,12 +131,8 @@ impl BusMember<Address> for PPUState {
                 Some(self.oamadd_addr.set((oaddr + 1) & 0x3FF))
             }
             // BGMODE - BG Mode and BG Character Size
-            0x2105 => {
-                if self.bgmode & 7 != val & 7 {
-                    println!("PPU screen mode: {}", val & 7);
-                }
-                Some(self.bgmode = val)
-            }
+            0x2105 => Some(self.bgmode = val),
+            // 2106h - MOSAIC  - Mosaic Size and Mosaic Enable
             0x2106 => Some(()),
             // BGxSC - BGx Screen Base and Screen Size
             0x2107..=0x210A => Some(self.bgxsc[addr - 0x2107] = val),

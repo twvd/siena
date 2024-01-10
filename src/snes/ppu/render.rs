@@ -347,6 +347,26 @@ impl PPUState {
                 // BG2 tiles with priority 0
                 self.render_scanline_bglayer(scanline, 1, &mut state, false);
             }
+            4 => {
+                // 2 layers, bg1: 8bpp (256 colors)
+                // bg2: 2bpp (16 colors)
+                // Sprites with priority 3
+                self.render_scanline_sprites(scanline, &mut state, 3);
+                // BG1 tiles with priority 1
+                self.render_scanline_bglayer(scanline, 0, &mut state, true);
+                // Sprites with priority 2
+                self.render_scanline_sprites(scanline, &mut state, 2);
+                // BG2 tiles with priority 1
+                self.render_scanline_bglayer(scanline, 1, &mut state, true);
+                // Sprites with priority 1
+                self.render_scanline_sprites(scanline, &mut state, 1);
+                // BG1 tiles with priority 0
+                self.render_scanline_bglayer(scanline, 0, &mut state, false);
+                // Sprites with priority 0
+                self.render_scanline_sprites(scanline, &mut state, 0);
+                // BG2 tiles with priority 0
+                self.render_scanline_bglayer(scanline, 1, &mut state, false);
+            }
             7 => {
                 // TODO extbg
                 // Sprites with priority 3
