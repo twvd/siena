@@ -67,6 +67,7 @@ pub struct Cartridge {
     hirom: bool,
 
     /// RAM address mask, to properly emulate mirroring
+    /// 0 == no RAM
     ram_mask: usize,
 
     /// ROM address mask
@@ -109,7 +110,10 @@ impl Cartridge {
     }
 
     fn get_ram_size(&self) -> usize {
-        (1 << self.rom[self.header_offset + HDR_RAMSIZE_OFFSET]) * 1024
+        match self.get_chipset() {
+            Chipset::RomOnly | Chipset::RomCo | Chipset::RomCoBat => 0,
+            _ => (1 << self.rom[self.header_offset + HDR_RAMSIZE_OFFSET]) * 1024,
+        }
     }
 
     fn get_coprocessor(&self) -> Option<CoProcessor> {
@@ -120,6 +124,10 @@ impl Cartridge {
             ),
             _ => None,
         }
+    }
+
+    fn has_ram(&self) -> bool {
+        self.ram_mask != 0
     }
 
     pub fn get_video_format(&self) -> VideoFormat {
@@ -203,7 +211,9 @@ impl Cartridge {
             MapMode::HiROM => true,
             _ => false,
         };
-        c.ram_mask = c.get_ram_size() - 1;
+        if c.get_ram_size() > 0 {
+            c.ram_mask = c.get_ram_size() - 1;
+        }
         c
     }
 
@@ -266,7 +276,7 @@ impl BusMember<Address> for Cartridge {
             }
 
             // HiROM SRAM
-            (0x30..=0x3F | 0x80..=0xBF, 0x6000..=0x6FFF) if self.hirom => {
+            (0x30..=0x3F | 0x80..=0xBF, 0x6000..=0x6FFF) if self.hirom && self.has_ram() => {
                 Some(self.ram[(bank - 0x30) * 0x1000 + (addr - 0x6000) & self.ram_mask])
             }
 
@@ -276,7 +286,7 @@ impl BusMember<Address> for Cartridge {
             }
 
             // LoROM SRAM
-            (0x70..=0x7D, 0x0000..=0x7FFF) if !self.hirom => {
+            (0x70..=0x7D, 0x0000..=0x7FFF) if !self.hirom && self.has_ram() => {
                 Some(self.ram[(bank - 0x70) * 0x8000 + addr & self.ram_mask])
             }
 
@@ -300,12 +310,12 @@ impl BusMember<Address> for Cartridge {
 
         match (bank, addr) {
             // HiROM SRAM
-            (0x30..=0x3F | 0x80..=0xBF, 0x6000..=0x6FFF) if self.hirom => {
+            (0x30..=0x3F | 0x80..=0xBF, 0x6000..=0x6FFF) if self.hirom && self.has_ram() => {
                 Some(self.ram[(bank - 0x30) * 0x1000 + (addr - 0x6000) & self.ram_mask] = val)
             }
 
             // LoROM SRAM
-            (0x70..=0x7D, 0x0000..=0x7FFF) if !self.hirom => {
+            (0x70..=0x7D, 0x0000..=0x7FFF) if !self.hirom && self.has_ram() => {
                 Some(self.ram[(bank - 0x70) * 0x8000 + addr & self.ram_mask] = val)
             }
 
