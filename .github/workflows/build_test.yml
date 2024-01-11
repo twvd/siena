@@ -30,10 +30,12 @@ jobs:
       run: cargo build --verbose
     - name: Build release
       run: cargo build --verbose --release
+    - name: Build release, Blargg S-APU
+      run: cargo build --verbose --release -F apu_blargg
     - name: Run tests
       run: cargo test --verbose
     - name: Generate code coverage
-      run: cargo llvm-cov --all-features --workspace --codecov --output-path codecov.json
+      run: cargo llvm-cov --workspace --codecov --output-path codecov.json
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       with:

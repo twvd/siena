@@ -177,8 +177,9 @@ fn main() -> Result<()> {
 
     #[cfg(not(feature = "apu_blargg"))]
     {
-        bus.apu.verbose = args.spc_verbose;
-        bus.apu.ports.write().unwrap().trace = args.trace_apu_comm;
+        let mut apu = bus.apu.lock().unwrap();
+        apu.verbose = args.spc_verbose;
+        apu.ports.write().unwrap().trace = args.trace_apu_comm;
     }
 
     // Fetch reset vector address
@@ -228,7 +229,10 @@ fn main() -> Result<()> {
             }
             Ok(EmuThreadSignal::ToggleVerbose) => t_verbose = !t_verbose,
             #[cfg(not(feature = "apu_blargg"))]
-            Ok(EmuThreadSignal::ToggleVerboseSPC) => cpu.bus.apu.verbose = !cpu.bus.apu.verbose,
+            Ok(EmuThreadSignal::ToggleVerboseSPC) => {
+                let mut apu = cpu.bus.apu.lock().unwrap();
+                apu.verbose = !apu.verbose;
+            }
             _ => (),
         }
 

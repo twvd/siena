@@ -45,7 +45,7 @@ impl Apu {
 
     pub fn render(&mut self, out: &mut [i16]) {
         if let Some(spc) = &self.spc {
-            let res = spc.borrow_mut().play(out);
+            spc.borrow_mut().play(out).unwrap();
         }
     }
 }

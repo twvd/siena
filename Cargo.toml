@@ -6,7 +6,7 @@ default-run = "siena"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["apu_blargg"]
+default = []
 apu_blargg = ["dep:snes_spc"]
 
 [dependencies]

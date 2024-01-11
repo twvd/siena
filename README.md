@@ -22,6 +22,12 @@ After checking out the source, run the following command to build and run the em
 cargo run --release -- path/to/rom.smc
 ```
 
+To build and run with Blargg's S-APU rather than Siena's own APU, you can run:
+
+```sh
+cargo run --release -F apu_blargg -- path/to/rom.smc
+```
+
 ## Tests
 
 This project is automatically tested against:

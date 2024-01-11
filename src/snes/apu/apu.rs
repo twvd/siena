@@ -9,19 +9,19 @@ use crate::snes::cpu_spc700::cpu::{CpuSpc700, SpcAddress};
 use crate::snes::cpu_spc700::regs::Register;
 use crate::tickable::{Tickable, Ticks};
 
-use apubus::Apubus;
+use super::apubus::Apubus;
 
 /// Type for the CPU <-> APU communication ports
-type ApuPorts = Arc<RwLock<InnerApuPorts>>;
+pub type ApuPorts = Arc<RwLock<InnerApuPorts>>;
 
 /// Type for the CPU <-> APU communication ports
 #[derive(Serialize, Deserialize)]
 pub struct InnerApuPorts {
     /// APU -> CPU
-    cpu: [u8; 4],
+    pub cpu: [u8; 4],
 
     /// CPU -> APU
-    apu: [u8; 4],
+    pub apu: [u8; 4],
 
     /// Trace S-CPU <-> S-APU communication
     pub trace: bool,
@@ -82,6 +82,13 @@ impl Apu {
     /// Get a (reference counted) copy of the communication ports
     pub fn get_ports(&self) -> ApuPorts {
         Arc::clone(&self.ports)
+    }
+
+    pub fn render(&mut self, out: &mut [i16]) {
+        // Stub until DSP is implemented
+        for i in 0..out.len() {
+            out[i] = 0;
+        }
     }
 }
 

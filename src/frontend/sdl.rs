@@ -15,6 +15,10 @@ use sdl2::{EventPump, Sdl};
 
 use super::{new_displaybuffer, DisplayBuffer, Renderer};
 
+#[cfg(not(feature = "apu_blargg"))]
+use crate::snes::apu::apu::Apu;
+
+#[cfg(feature = "apu_blargg")]
 use crate::snes::apu_blargg::Apu;
 
 pub struct SDLSingleton {
@@ -162,10 +166,7 @@ impl SDLAudioSink {
             };
 
             let device = audio_subsystem
-                .open_playback(None, &spec, |spec| {
-                    dbg!(&spec);
-                    Self { apu }
-                })
+                .open_playback(None, &spec, |_spec| Self { apu })
                 .map_err(|e| anyhow!(e))?;
             device.resume();
             Ok(device)
