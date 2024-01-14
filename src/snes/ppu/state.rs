@@ -32,6 +32,10 @@ pub enum TilemapDimensions {
 #[derive(Debug)]
 pub struct TilemapEntry(u16);
 impl TilemapEntry {
+    pub fn raw(&self) -> u16 {
+        self.0
+    }
+
     pub fn charnr(&self) -> u16 {
         self.0 & 0x3FF
     }
@@ -49,6 +53,31 @@ impl TilemapEntry {
     }
 
     pub fn flip_y(&self) -> bool {
+        (self.0 & (1 << 15)) != 0
+    }
+
+    pub fn as_opt(self) -> OptEntry {
+        OptEntry(self.0)
+    }
+}
+
+pub struct OptEntry(u16);
+impl OptEntry {
+    pub fn scrollv(&self) -> usize {
+        (self.0 & 0x3FF) as usize
+    }
+
+    pub fn scrollh(&self) -> usize {
+        (self.0 & 0x3F8) as usize
+    }
+
+    pub fn is_enabled(&self, bg: usize) -> bool {
+        debug_assert!(bg < 2);
+        (self.0 & (1 << (13 + bg))) != 0
+    }
+
+    pub fn is_vertical(&self) -> bool {
+        // Only mode 4!
         (self.0 & (1 << 15)) != 0
     }
 }
@@ -247,48 +276,69 @@ impl PPUState {
         TilemapDimensions::from_u8(self.bgxsc[bg] & 0x03).unwrap()
     }
 
-    pub(super) fn get_tilemap_entry_xy(&self, bg: usize, x: usize, y: usize) -> TilemapEntry {
-        let bghofs = self.bgxhofs[bg] as usize;
-        let bgvofs = self.bgxvofs[bg] as usize;
+    pub(super) fn get_tilemap_entry_xy(
+        &self,
+        bg: usize,
+        x: usize,
+        y: usize,
+        bghofs: usize,
+        bgvofs: usize,
+    ) -> TilemapEntry {
+        debug_assert!(self.get_screen_mode() != 7);
+
         let tilesize = self.get_bg_tile_size(bg);
 
-        match self.get_screen_mode() {
-            0 | 1 | 2 | 3 | 4 => {
-                // AA BB CC DD, size = 0x800 per sub-map
-                // 00  32x32   AA
-                //             AA
-                // 01  64x32   AB
-                //             AB
-                // 10  32x64   AA
-                //             BB
-                // 11  64x64   AB
-                //             CD
-                let (expand_x, expand_y) = match self.get_tilemap_dimensions(bg) {
-                    TilemapDimensions::D32x32 => (false, false),
-                    TilemapDimensions::D32x64 => (false, true),
-                    TilemapDimensions::D64x32 => (true, false),
-                    TilemapDimensions::D64x64 => (true, true),
-                };
-                let tm_x = (bghofs + x) / tilesize;
-                let tm_y = (bgvofs + y) / tilesize;
+        // AA BB CC DD, size = 0x800 per sub-map
+        // 00  32x32   AA
+        //             AA
+        // 01  64x32   AB
+        //             AB
+        // 10  32x64   AA
+        //             BB
+        // 11  64x64   AB
+        //             CD
+        let (expand_x, expand_y) = match self.get_tilemap_dimensions(bg) {
+            TilemapDimensions::D32x32 => (false, false),
+            TilemapDimensions::D32x64 => (false, true),
+            TilemapDimensions::D64x32 => (true, false),
+            TilemapDimensions::D64x64 => (true, true),
+        };
+        let tm_x = (bghofs + x) / tilesize;
+        let tm_y = (bgvofs + y) / tilesize;
 
-                // 32 tiles per row in the sub-map, 0-31
-                let mut idx = ((tm_y & 0x1F) << 5) + (tm_x & 0x1F);
-                if expand_y {
-                    if expand_x {
-                        idx += (tm_y & 0x20) << 6;
-                    } else {
-                        idx += (tm_y & 0x20) << 5;
-                    }
-                }
-                if expand_x {
-                    idx += (tm_x & 0x20) << 5;
-                }
-
-                self.get_tilemap_entry(bg, idx)
+        // 32 tiles per row in the sub-map, 0-31
+        let mut idx = ((tm_y & 0x1F) << 5) + (tm_x & 0x1F);
+        if expand_y {
+            if expand_x {
+                idx += (tm_y & 0x20) << 6;
+            } else {
+                idx += (tm_y & 0x20) << 5;
             }
-            _ => todo!(),
         }
+        if expand_x {
+            idx += (tm_x & 0x20) << 5;
+        }
+
+        self.get_tilemap_entry(bg, idx)
+    }
+
+    pub(super) fn get_opt_entries(&self, bg: usize, x: usize) -> (OptEntry, OptEntry) {
+        let tilesize = self.get_bg_tile_size(2);
+        let bghofs = self.bgxhofs[bg] as usize;
+        let (opthofs, optvofs) = (self.bgxhofs[2] as usize, self.bgxvofs[2] as usize);
+        let tm_x = (bghofs + x) / tilesize;
+
+        // First column has no OPT. Index 0 = second column of tiles
+        if tm_x == 0 {
+            return (OptEntry(0), OptEntry(0));
+        }
+
+        (
+            self.get_tilemap_entry_xy(2, x - tilesize, 0, opthofs, optvofs)
+                .as_opt(),
+            self.get_tilemap_entry_xy(2, x - tilesize, tilesize, opthofs, optvofs)
+                .as_opt(),
+        )
     }
 
     pub(super) fn get_layer_bpp(&self, bg: usize) -> BPP {

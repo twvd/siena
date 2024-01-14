@@ -97,6 +97,52 @@ impl PPUState {
         self.cgram_to_color(palette + idx)
     }
 
+    fn adjust_offsets_opt(
+        &self,
+        bg: usize,
+        x: usize,
+        bghofs: usize,
+        bgvofs: usize,
+    ) -> (usize, usize) {
+        match self.get_screen_mode() {
+            2 | 6 => {
+                // Both vertical and horizontal adjustments
+                let (opt_hentry, opt_ventry) = self.get_opt_entries(bg, x);
+                (
+                    if !opt_hentry.is_enabled(bg) {
+                        // Not enabled for this layer
+                        bghofs
+                    } else {
+                        opt_hentry.scrollh() | (bghofs & 0x07)
+                    },
+                    if !opt_ventry.is_enabled(bg) {
+                        // Not enabled for this layer
+                        bgvofs
+                    } else {
+                        opt_ventry.scrollv()
+                    },
+                )
+            }
+            4 => {
+                // Either horizontal OR vertical adjustment in mode 4
+                let (opt_entry, _) = self.get_opt_entries(bg, x);
+                if !opt_entry.is_enabled(bg) {
+                    // Not enabled for this layer
+                    (bghofs, bgvofs)
+                } else {
+                    if opt_entry.is_vertical() {
+                        // Vertical
+                        (bghofs, opt_entry.scrollv())
+                    } else {
+                        // Horizontal
+                        (opt_entry.scrollh() | (bghofs & 0x07), bgvofs)
+                    }
+                }
+            }
+            _ => (bghofs, bgvofs),
+        }
+    }
+
     fn render_scanline_bglayer(
         &mut self,
         scanline: usize,
@@ -114,7 +160,10 @@ impl PPUState {
 
         let mut x = 0;
         'line: while x < SCREEN_WIDTH {
-            let entry = self.get_tilemap_entry_xy(bg, x, scanline);
+            // Get adjusted offsets for offset-per-tile (if applicable)
+            let (thofs, tvofs) = self.adjust_offsets_opt(bg, x, bghofs, bgvofs);
+
+            let entry = self.get_tilemap_entry_xy(bg, x, scanline, thofs, tvofs);
             if entry.bgprio() != priority {
                 x += 1;
                 continue;
@@ -128,8 +177,8 @@ impl PPUState {
 
             // Determine coordinates within the tile. This is
             // a full tile (so either 8x8 or 16x16).
-            let px_x = (x + bghofs) % tilesize;
-            let px_y = (scanline + bgvofs) % tilesize;
+            let px_x = (x + thofs) % tilesize;
+            let px_y = (scanline + tvofs) % tilesize;
             // get_bg_tile will select the sub-tile (for 16x16).
             let tile = self.get_bg_tile(bg, &entry, px_x, px_y);
 
