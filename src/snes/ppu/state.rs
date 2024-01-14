@@ -21,6 +21,9 @@ pub const CGRAM_ADDRMASK: usize = CGRAM_WORDS - 1;
 
 const OAM_SIZE: usize = 512 + 32;
 
+/// BG3 contains offset-per-tile data for mode 2, 4, 6
+const OPT_BG: usize = 2;
+
 #[derive(FromPrimitive)]
 pub enum TilemapDimensions {
     D32x32 = 0,
@@ -322,21 +325,23 @@ impl PPUState {
         self.get_tilemap_entry(bg, idx)
     }
 
+    /// Retrieves offset data for offset-per-tile modes for a horizontal
+    /// coordinate.
     pub(super) fn get_opt_entries(&self, bg: usize, x: usize) -> (OptEntry, OptEntry) {
-        let tilesize = self.get_bg_tile_size(2);
+        // OPT affects subtiles, so this is always the subtile size.
+        let tilesize = 8;
         let bghofs = self.bgxhofs[bg] as usize;
-        let (opthofs, optvofs) = (self.bgxhofs[2] as usize, self.bgxvofs[2] as usize);
-        let tm_x = (bghofs + x) / tilesize;
+        let (opthofs, optvofs) = (self.bgxhofs[OPT_BG] as usize, self.bgxvofs[OPT_BG] as usize);
 
         // First column has no OPT. Index 0 = second column of tiles
-        if tm_x == 0 {
+        if (bghofs + x) / tilesize == 0 {
             return (OptEntry(0), OptEntry(0));
         }
 
         (
-            self.get_tilemap_entry_xy(2, x - tilesize, 0, opthofs, optvofs)
+            self.get_tilemap_entry_xy(OPT_BG, x - tilesize, 0, opthofs, optvofs)
                 .as_opt(),
-            self.get_tilemap_entry_xy(2, x - tilesize, tilesize, opthofs, optvofs)
+            self.get_tilemap_entry_xy(OPT_BG, x - tilesize, tilesize, opthofs, optvofs)
                 .as_opt(),
         )
     }
@@ -402,7 +407,6 @@ impl PPUState {
     }
 
     pub(super) fn get_bg_tile_size(&self, bg: usize) -> usize {
-        debug_assert!((0..4).contains(&bg));
         if self.bgmode & (1 << (4 + bg)) != 0 {
             16
         } else {

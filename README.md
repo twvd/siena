@@ -13,6 +13,7 @@ Current features and state:
  * Functional DMA and HDMA
  * PPU modes 0, 1, 2, 3, 4 and 7 functional
  * Color math
+ * Offset-per-tile
 
 ## Building and running
 
