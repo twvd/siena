@@ -264,6 +264,11 @@ impl RegisterFile {
     pub fn test_sr(&self, f: SR) -> bool {
         self.sr & (1u16 << f.to_u16().unwrap()) != 0
     }
+
+    /// Gets PC as an 8-bit index (to index code memory)
+    pub fn read_pc_8b(&self) -> usize {
+        self.pc as usize * 3
+    }
 }
 
 impl fmt::Display for RegisterFile {

@@ -53,14 +53,15 @@ impl CpuUpd77c25 {
 
     /// Fetches and decodes the next instruction at PC
     pub fn peek_next_instr(&self) -> Result<Instruction> {
-        let pc = self.regs.pc as usize;
-        Instruction::decode(&mut self.code[pc..].iter().copied())
+        // No read side-effects on this CPU so just use the same code
+        // as fetch.
+        self.fetch_next_instr()
     }
 
     /// Fetches and decodes the next instruction at PC
-    pub fn fetch_next_instr(&mut self) -> Result<Instruction> {
-        let pc = self.regs.pc as usize;
-        Instruction::decode(&mut self.code[pc..].iter().copied())
+    pub fn fetch_next_instr(&self) -> Result<Instruction> {
+        let pc8b = self.regs.read_pc_8b();
+        Instruction::decode(&mut self.code[pc8b..].iter().copied())
     }
 
     fn push(&mut self, val: u16) {
