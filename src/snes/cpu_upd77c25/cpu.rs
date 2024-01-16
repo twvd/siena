@@ -13,7 +13,7 @@ pub struct CpuUpd77c25 {
     pub cycles: Ticks,
     pub rodata: Vec<u8>,
     pub code: Vec<u8>,
-    pub ram: Vec<u8>,
+    pub ram: Vec<u16>,
     pub stack: Vec<u16>,
 }
 
@@ -64,10 +64,19 @@ impl CpuUpd77c25 {
         Instruction::decode(&mut self.code[pc8b..].iter().copied())
     }
 
+    /// Push 16-bits onto the stack
     fn push(&mut self, val: u16) {
         let sp = self.regs.read(Register::SP);
         self.stack[sp as usize] = val;
         self.regs.write(Register::SP, sp + 1);
+    }
+
+    /// Pop 16-bits from the stack
+    fn pop(&mut self) -> u16 {
+        let sp = self.regs.read(Register::SP);
+        let val = self.stack[sp as usize];
+        self.regs.write(Register::SP, sp.checked_sub(1).unwrap());
+        val
     }
 
     /// Executes one CPU step (one instruction).
@@ -77,11 +86,57 @@ impl CpuUpd77c25 {
         let start_cycles = self.cycles;
         let instr = self.fetch_next_instr()?;
 
-        self.regs
-            .write(Register::PC, self.regs.pc.wrapping_add(instr.len() as u16));
+        self.regs.write(Register::PC, self.regs.pc.wrapping_add(1));
         self.execute_instruction(&instr)?;
 
         Ok(self.cycles - start_cycles)
+    }
+
+    fn write_to_dst(&mut self, dst: DST, val: u16) {
+        match dst {
+            DST::NON => (),
+            DST::ACCA => self.regs.write(Register::ACCA, val),
+            DST::ACCB => self.regs.write(Register::ACCB, val),
+            DST::TR => self.regs.write(Register::TR, val),
+            DST::DP => self.regs.write(Register::DP, val),
+            DST::RP => self.regs.write(Register::RP, val),
+            DST::DR => self.regs.write(Register::DR, val),
+            DST::SR => self.regs.write(Register::SR, val),
+            DST::SIM => todo!(),
+            DST::SIL => todo!(),
+            DST::K => self.regs.write(Register::K, val),
+            DST::KLR => todo!(),
+            DST::KLM => todo!(),
+            DST::L => self.regs.write(Register::L, val),
+            DST::TRB => self.regs.write(Register::TRB, val),
+            DST::MEM => todo!(),
+        }
+    }
+
+    fn read_from_src(&self, src: SRC) -> u16 {
+        match src {
+            SRC::TRB => self.regs.read(Register::TRB),
+            SRC::ACCA => self.regs.read(Register::ACCA),
+            SRC::ACCB => self.regs.read(Register::ACCB),
+            SRC::TR => self.regs.read(Register::TR),
+            SRC::DP => self.regs.read(Register::DP),
+            SRC::RP => self.regs.read(Register::RP),
+            SRC::RO => todo!(),
+            SRC::SGN => self.regs.read(Register::SGN),
+            SRC::DR => self.regs.read(Register::DR),
+            SRC::DRNF => todo!(),
+            SRC::SR => self.regs.read(Register::SR),
+            SRC::SIM => todo!(),
+            SRC::SIL => todo!(),
+            SRC::K => self.regs.read(Register::K),
+            SRC::L => self.regs.read(Register::L),
+            SRC::MEM => todo!(),
+        }
+    }
+
+    fn read_from_ram(&self) -> u16 {
+        let dp = self.regs.read(Register::DP);
+        self.ram[dp as usize]
     }
 
     /// Executes an instruction.
@@ -95,7 +150,13 @@ impl CpuUpd77c25 {
             }
             Instruction::Jp(i) => self.op_jp(i),
             Instruction::Ld(i) => self.op_ld(i),
-            _ => todo!(),
+            Instruction::Rt(i) => {
+                self.op_op(i)?;
+                let pc = self.pop();
+                self.regs.write(Register::PC, pc);
+                Ok(())
+            }
+            Instruction::Op(i) => self.op_op(i),
         }
     }
 
@@ -153,25 +214,140 @@ impl CpuUpd77c25 {
     }
 
     fn op_ld(&mut self, instr: &InstructionLd) -> Result<()> {
-        let val = instr.imm16();
-        match instr.dst() {
-            DST::NON => (),
-            DST::ACCA => self.regs.write(Register::ACCA, val),
-            DST::ACCB => self.regs.write(Register::ACCB, val),
-            DST::TR => self.regs.write(Register::TR, val),
-            DST::DP => self.regs.write(Register::DP, val),
-            DST::RP => self.regs.write(Register::RP, val),
-            DST::DR => self.regs.write(Register::DR, val),
-            DST::SR => self.regs.write(Register::SR, val),
-            DST::SIM => todo!(),
-            DST::SIL => todo!(),
-            DST::K => self.regs.write(Register::K, val),
-            DST::KLR => todo!(),
-            DST::KLM => todo!(),
-            DST::L => self.regs.write(Register::L, val),
-            DST::TRB => self.regs.write(Register::TRB, val),
-            DST::MEM => todo!(),
+        self.write_to_dst(instr.dst(), instr.imm16());
+        Ok(())
+    }
+
+    /// (ALU) ops
+    fn op_op(&mut self, instr: &InstructionOpRt) -> Result<()> {
+        let idb_val = self.read_from_src(instr.src());
+        if instr.alu() != AluFunction::Nop {
+            self.op_op_alu(instr)?;
         }
+
+        self.write_to_dst(instr.dst(), idb_val);
+
+        // Update DP
+        if instr.dst() != DST::DP {
+            // DP action
+            let dp = self.regs.read(Register::DP);
+            let dplow = match instr.dpl() {
+                DPL::DPINC => dp.wrapping_add(1),
+                DPL::DPDEC => dp.wrapping_sub(1),
+                DPL::DPNOP => dp,
+                DPL::DPCLR => 0,
+            } & 0x0F;
+            let dphigh = (dp ^ (instr.dphm() << 4)) & 0xF0;
+            self.regs.write(Register::DP, dplow | dphigh);
+        }
+
+        // Update RP
+        if instr.dst() != DST::RP && instr.rpdcr() {
+            let rp = self.regs.read(Register::RP);
+            self.regs.write(Register::RP, rp.wrapping_sub(1));
+        }
+
+        Ok(())
+    }
+
+    fn op_op_alu(&mut self, instr: &InstructionOpRt) -> Result<()> {
+        // First operand
+        let (a, a_flags) = match instr.asl() {
+            ASL::ACCA => (self.regs.read(Register::ACCA), Flags::A),
+            ASL::ACCB => (self.regs.read(Register::ACCB), Flags::B),
+        };
+
+        // Second operand
+        let b = match instr.pselect() {
+            PSelect::RAM => self.read_from_ram(),
+            PSelect::IDB => self.read_from_src(instr.src()),
+            PSelect::M => self.regs.read(Register::M),
+            PSelect::N => self.regs.read(Register::N),
+        };
+
+        // Change INC/DEC to ADD/SUB of 1 for ease
+        let b = match instr.alu() {
+            AluFunction::Inc | AluFunction::Dec => 1,
+            _ => b,
+        };
+
+        let carry = if self.regs.test_flag(a_flags, Flag::C) {
+            1_u16
+        } else {
+            0_u16
+        };
+
+        let c = match instr.alu() {
+            AluFunction::Nop => unreachable!(),
+            AluFunction::Or => a | b,
+            AluFunction::And => a & b,
+            AluFunction::Xor => a ^ b,
+            AluFunction::Sub | AluFunction::Dec => a.wrapping_sub(b),
+            AluFunction::Add | AluFunction::Inc => a.wrapping_add(b),
+            AluFunction::Sbr => a.wrapping_sub(b).wrapping_sub(carry),
+            AluFunction::Adc => a.wrapping_add(b).wrapping_add(carry),
+            AluFunction::Cmp => !b,
+            AluFunction::Shr1 => b >> 1 | b & 0x8000,
+            AluFunction::Shl1 => b << 1 | carry,
+            AluFunction::Shl2 => b << 2 | 0x03,
+            AluFunction::Shl4 => b << 4 | 0x0F,
+            AluFunction::Xchg => b << 8 | b >> 8,
+        };
+
+        // Z, S0, S1 flags apply the same to all operations
+        self.regs.write_flags(
+            a_flags,
+            &[(Flag::Z, c == 0), (Flag::S0, c & 0x8000 == 0x8000)],
+        );
+        if self.regs.test_flag(a_flags, Flag::OV1) {
+            self.regs.write_flags(
+                a_flags,
+                &[(Flag::S1, self.regs.test_flag(a_flags, Flag::S0))],
+            );
+        }
+
+        self.regs.write_flags(
+            a_flags,
+            &match instr.alu() {
+                AluFunction::Nop => unreachable!(),
+                AluFunction::And | AluFunction::Cmp | AluFunction::Or | AluFunction::Xor => {
+                    [(Flag::C, false), (Flag::OV0, false), (Flag::OV1, false)]
+                }
+                AluFunction::Sub | AluFunction::Sbr | AluFunction::Dec => {
+                    let fcarry = a ^ b ^ c;
+                    let foverflow = (b ^ c) & (a ^ b);
+                    let ov0 = foverflow & 0x8000 == 0x8000;
+                    let ov1 = self.regs.test_flag(a_flags, Flag::OV1);
+                    let ov1 = if ov0 == ov1 {
+                        self.regs.test_flag(a_flags, Flag::S0)
+                            == self.regs.test_flag(a_flags, Flag::S1)
+                    } else {
+                        ov0 || ov1
+                    };
+                    [
+                        (Flag::C, (fcarry ^ foverflow) & 0x8000 == 0x8000),
+                        (Flag::OV0, ov0),
+                        (Flag::OV1, ov1),
+                    ]
+                }
+                AluFunction::Add | AluFunction::Adc | AluFunction::Inc => todo!(),
+                AluFunction::Shr1 => [
+                    (Flag::C, (b & 0x01) == 0x01),
+                    (Flag::OV0, false),
+                    (Flag::OV1, false),
+                ],
+                AluFunction::Shl1 => [
+                    (Flag::C, (b & 0x8000) == 0x8000),
+                    (Flag::OV0, false),
+                    (Flag::OV1, false),
+                ],
+                AluFunction::Shl2 | AluFunction::Shl4 => {
+                    [(Flag::C, false), (Flag::OV0, false), (Flag::OV1, false)]
+                }
+                AluFunction::Xchg => todo!(),
+            },
+        );
+
         Ok(())
     }
 }

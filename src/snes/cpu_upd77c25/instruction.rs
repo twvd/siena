@@ -28,7 +28,7 @@ pub enum PSelect {
     N = 0b11,
 }
 
-#[derive(EnumIter, FromPrimitive, Debug, Copy, Clone, Display)]
+#[derive(EnumIter, FromPrimitive, Debug, Copy, Clone, Display, Eq, PartialEq)]
 pub enum AluFunction {
     /// No ALU operation
     Nop = 0b0000,
@@ -123,7 +123,7 @@ pub enum SRC {
 }
 
 /// DST (destination) field
-#[derive(EnumIter, FromPrimitive, Debug, Copy, Clone, Display)]
+#[derive(EnumIter, FromPrimitive, Debug, Copy, Clone, Display, PartialEq, Eq)]
 pub enum DST {
     /// No destination
     NON = 0b0000,
@@ -241,8 +241,8 @@ impl InstructionOpRt {
             .expect(format!("Invalid DST in {:?}", self).as_str())
     }
 
-    pub fn dphm(&self) -> u8 {
-        ((self.opcode >> 9) & 0x0F) as u8
+    pub fn dphm(&self) -> u16 {
+        ((self.opcode >> 9) & 0x0F) as u16
     }
 
     pub fn rpdcr(&self) -> bool {
@@ -326,7 +326,8 @@ impl fmt::Display for InstructionLd {
 /// A decoded instruction
 #[derive(Debug, Copy, Clone)]
 pub enum Instruction {
-    OpRt(InstructionOpRt),
+    Op(InstructionOpRt),
+    Rt(InstructionOpRt),
     Jp(InstructionJp),
     Ld(InstructionLd),
 }
@@ -339,9 +340,8 @@ impl Instruction {
         opcode |= (stream.next().ok_or(DecodeErr::EndOfStream)? as u32) << 16;
 
         Ok(match InstructionType::from_u32(opcode >> 22).unwrap() {
-            InstructionType::Op | InstructionType::Rt => {
-                Instruction::OpRt(InstructionOpRt { opcode })
-            }
+            InstructionType::Op => Self::Op(InstructionOpRt { opcode }),
+            InstructionType::Rt => Self::Rt(InstructionOpRt { opcode }),
             InstructionType::Jp => Self::Jp(InstructionJp { opcode }),
             InstructionType::Ld => Self::Ld(InstructionLd { opcode }),
         })
@@ -357,7 +357,8 @@ impl fmt::Display for Instruction {
         match self {
             Instruction::Ld(i) => write!(f, "{}", i),
             Instruction::Jp(i) => write!(f, "{}", i),
-            Instruction::OpRt(i) => write!(f, "{}", i),
+            Instruction::Op(i) => write!(f, "{}", i),
+            Instruction::Rt(i) => write!(f, "{}", i),
         }
     }
 }
