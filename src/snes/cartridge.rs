@@ -88,9 +88,24 @@ impl Cartridge {
                 .copied()
                 .collect(),
         )
-        .unwrap_or("INVALID".to_string())
+        .unwrap_or("UNKNOWN".to_string())
         .trim()
         .to_owned()
+    }
+
+    /// Gets the title, cleaned up to be ASCII without whitespace
+    pub fn get_title_clean(&self) -> String {
+        self.get_title()
+            .chars()
+            .filter(|&c| c.is_ascii())
+            .map(|c| {
+                if c.is_whitespace() {
+                    '_'
+                } else {
+                    c.to_ascii_lowercase()
+                }
+            })
+            .collect()
     }
 
     pub fn is_hirom(&self) -> bool {

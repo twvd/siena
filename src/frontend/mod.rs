@@ -1,4 +1,5 @@
 pub mod channel;
+pub mod gif;
 pub mod sdl;
 pub mod test;
 

@@ -12,6 +12,7 @@ use serde::Deserialize;
 use serde_json::Deserializer;
 
 use siena::frontend::channel::ChannelRenderer;
+use siena::frontend::gif::Gif;
 use siena::frontend::sdl::{SDLAudioSink, SDLEventPump, SDLRenderer};
 use siena::frontend::Renderer;
 use siena::snes::bus::mainbus::{BusTrace, Mainbus};
@@ -144,6 +145,7 @@ fn main() -> Result<()> {
     } else {
         Cartridge::load_nohdr(&f, args.no_header_hirom)
     };
+    let fn_title = cartridge.get_title_clean();
 
     // Determine video format (PAL/NTSC)
     let videoformat = match args.videoformat {
@@ -244,9 +246,13 @@ fn main() -> Result<()> {
     });
 
     // Presentation / event thread below
+    let mut recording: Option<Gif> = None;
     'mainloop: loop {
         let frame = framereceiver.recv()?;
         display.update_from(Arc::clone(&frame))?;
+        if let Some(rec) = recording.as_mut() {
+            rec.add(&frame)?;
+        }
 
         while let Some(event) = eventpump.poll() {
             match event {
@@ -279,6 +285,34 @@ fn main() -> Result<()> {
                     ..
                 } => {
                     emuthread_tx.send(EmuThreadSignal::ToggleVerboseSPC)?;
+                }
+
+                // Start/stop recording
+                Event::KeyDown {
+                    keycode: Some(Keycode::Q),
+                    ..
+                } => {
+                    if recording.is_none() {
+                        fs::create_dir_all("recordings/")?;
+                        let filename = format!(
+                            "recordings/{}_{}.gif",
+                            fn_title,
+                            SystemTime::now()
+                                .duration_since(SystemTime::UNIX_EPOCH)
+                                .expect("Timetravel detected")
+                                .as_secs()
+                        );
+                        recording = Some(Gif::new(
+                            SCREEN_WIDTH,
+                            SCREEN_HEIGHT,
+                            fps,
+                            fs::File::create(&filename)?,
+                        )?);
+                        println!("Started recording to {}", filename);
+                    } else {
+                        recording = None;
+                        println!("Recording finished");
+                    }
                 }
 
                 // Controller input
