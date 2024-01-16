@@ -113,7 +113,7 @@ impl CpuUpd77c25 {
         }
     }
 
-    fn read_from_src(&self, src: SRC) -> u16 {
+    fn read_from_src(&mut self, src: SRC) -> u16 {
         match src {
             SRC::TRB => self.regs.read(Register::TRB),
             SRC::ACCA => self.regs.read(Register::ACCA),
@@ -123,8 +123,11 @@ impl CpuUpd77c25 {
             SRC::RP => self.regs.read(Register::RP),
             SRC::RO => todo!(),
             SRC::SGN => self.regs.read(Register::SGN),
-            SRC::DR => self.regs.read(Register::DR),
-            SRC::DRNF => todo!(),
+            SRC::DR => {
+                self.regs.write_sr(&[(SR::RQM, true)]);
+                self.regs.read(Register::DR)
+            }
+            SRC::DRNF => self.regs.read(Register::DR),
             SRC::SR => self.regs.read(Register::SR),
             SRC::SIM => todo!(),
             SRC::SIL => todo!(),

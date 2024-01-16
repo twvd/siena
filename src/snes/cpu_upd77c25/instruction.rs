@@ -103,7 +103,7 @@ pub enum SRC {
     RO = 0b0110,
     /// SGN sign register
     SGN = 0b0111,
-    /// DR register
+    /// DR register, set RQM
     DR = 0b1000,
     /// DR no flag
     /// FR to IDB, RQM not set. In DMA not set
