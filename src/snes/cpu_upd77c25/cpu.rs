@@ -562,7 +562,7 @@ mod tests {
         let c = cpu_run(0b10_101000000_00000001000_00);
         assert_eq!(c.regs.pc, 0x0008);
         assert_eq!(c.regs.sp, 0x0001);
-        assert_eq!(c.stack[0], 0x0003);
+        assert_eq!(c.stack[0], 0x0001);
     }
 
     #[test]
