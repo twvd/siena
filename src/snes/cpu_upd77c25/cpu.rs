@@ -81,8 +81,6 @@ impl CpuUpd77c25 {
 
     /// Executes one CPU step (one instruction).
     pub fn step(&mut self) -> Result<Ticks> {
-        println!("{}", self.dump_state());
-
         let start_cycles = self.cycles;
         let instr = self.fetch_next_instr()?;
 
