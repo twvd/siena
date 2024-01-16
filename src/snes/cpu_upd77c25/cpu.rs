@@ -88,8 +88,18 @@ impl CpuUpd77c25 {
 
         self.regs.write(Register::PC, self.regs.pc.wrapping_add(1));
         self.execute_instruction(&instr)?;
+        self.execute_mul();
 
         Ok(self.cycles - start_cycles)
+    }
+
+    /// Executes the multiplication at occurs after every instruction.
+    fn execute_mul(&mut self) {
+        let k = self.regs.read(Register::K) as i32;
+        let l = self.regs.read(Register::L) as i32;
+        let result = k * l;
+        self.regs.write(Register::M, (result >> 15) as i16 as u16);
+        self.regs.write(Register::N, (result << 1) as i16 as u16);
     }
 
     fn write_to_dst(&mut self, dst: DST, val: u16) {
