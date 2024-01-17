@@ -231,12 +231,15 @@ impl CpuUpd77c25 {
 
     /// (ALU) ops
     fn op_op(&mut self, instr: &InstructionOpRt) -> Result<()> {
-        let idb_val = self.read_from_src(instr.src());
+        let ld_val = self.read_from_src(instr.src());
+
+        // ALU stage
         if instr.alu() != AluFunction::Nop {
             self.op_op_alu(instr)?;
         }
 
-        self.write_to_dst(instr.dst(), idb_val);
+        // Load stage
+        self.write_to_dst(instr.dst(), ld_val);
 
         // Update DP
         if instr.dst() != DST::DP {
@@ -297,12 +300,12 @@ impl CpuUpd77c25 {
             AluFunction::Add | AluFunction::Inc => a.wrapping_add(b),
             AluFunction::Sbr => a.wrapping_sub(b).wrapping_sub(carry),
             AluFunction::Adc => a.wrapping_add(b).wrapping_add(carry),
-            AluFunction::Cmp => !b,
-            AluFunction::Shr1 => b >> 1 | b & 0x8000,
-            AluFunction::Shl1 => b << 1 | carry,
-            AluFunction::Shl2 => b << 2 | 0x03,
-            AluFunction::Shl4 => b << 4 | 0x0F,
-            AluFunction::Xchg => b << 8 | b >> 8,
+            AluFunction::Cmp => !a,
+            AluFunction::Shr1 => a >> 1 | a & 0x8000,
+            AluFunction::Shl1 => a << 1 | carry,
+            AluFunction::Shl2 => a << 2 | 0x03,
+            AluFunction::Shl4 => a << 4 | 0x0F,
+            AluFunction::Xchg => a << 8 | a >> 8,
         };
 
         // Z, S0, S1 flags apply the same to all operations
@@ -326,7 +329,7 @@ impl CpuUpd77c25 {
                 }
                 AluFunction::Sub | AluFunction::Sbr | AluFunction::Dec => {
                     let fcarry = a ^ b ^ c;
-                    let foverflow = (b ^ c) & (a ^ b);
+                    let foverflow = (a ^ c) & (a ^ b);
                     let ov0 = foverflow & 0x8000 == 0x8000;
                     let ov1 = self.regs.test_flag(a_flags, Flag::OV1);
                     let ov1 = if ov0 == ov1 {
@@ -343,12 +346,12 @@ impl CpuUpd77c25 {
                 }
                 AluFunction::Add | AluFunction::Adc | AluFunction::Inc => todo!(),
                 AluFunction::Shr1 => [
-                    (Flag::C, (b & 0x01) == 0x01),
+                    (Flag::C, (a & 0x01) == 0x01),
                     (Flag::OV0, false),
                     (Flag::OV1, false),
                 ],
                 AluFunction::Shl1 => [
-                    (Flag::C, (b & 0x8000) == 0x8000),
+                    (Flag::C, (a & 0x8000) == 0x8000),
                     (Flag::OV0, false),
                     (Flag::OV1, false),
                 ],
