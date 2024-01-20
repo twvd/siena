@@ -13,7 +13,7 @@ const SR_MASK: u16 = 0x907C;
 pub struct CpuUpd77c25 {
     pub regs: RegisterFile,
     pub cycles: Ticks,
-    pub rodata: Vec<u8>,
+    pub rodata: Vec<u16>,
     pub code: Vec<u8>,
     pub ram: Vec<u16>,
     pub stack: Vec<u16>,
@@ -25,7 +25,7 @@ impl CpuUpd77c25 {
             regs: RegisterFile::from_pc(0),
             cycles: 0,
             code: vec![0xFF; 16 * 1024],
-            rodata: vec![0; 2048],
+            rodata: vec![0; 1024],
             ram: vec![0; 2048],
             stack: vec![0; 16],
         }
@@ -36,7 +36,11 @@ impl CpuUpd77c25 {
         assert_eq!(self.regs.pc, 0);
 
         self.code[0..code.len()].copy_from_slice(code);
-        self.rodata.copy_from_slice(rodata);
+        self.rodata = Vec::from_iter(
+            rodata
+                .chunks_exact(2)
+                .map(|s| u16::from_le_bytes(s.try_into().unwrap())),
+        );
     }
 
     pub fn load_rom_combined(&mut self, rom: &[u8]) {
@@ -119,11 +123,20 @@ impl CpuUpd77c25 {
             DST::SIM => todo!(),
             DST::SIL => todo!(),
             DST::K => self.regs.write(Register::K, val),
-            DST::KLR => todo!(),
-            DST::KLM => todo!(),
+            DST::KLR => {
+                let rp = self.regs.read(Register::RP);
+                self.regs.write(Register::K, val);
+                self.regs.write(Register::L, self.rodata[rp as usize]);
+            }
+            DST::KLM => {
+                let dp = self.regs.read(Register::DP);
+                self.regs.write(Register::L, val);
+                self.regs
+                    .write(Register::K, self.ram[(dp | (1 << 6)) as usize]);
+            }
             DST::L => self.regs.write(Register::L, val),
             DST::TRB => self.regs.write(Register::TRB, val),
-            DST::MEM => todo!(),
+            DST::MEM => self.write_to_ram(val),
         }
     }
 
@@ -135,7 +148,10 @@ impl CpuUpd77c25 {
             SRC::TR => self.regs.read(Register::TR),
             SRC::DP => self.regs.read(Register::DP),
             SRC::RP => self.regs.read(Register::RP),
-            SRC::RO => todo!(),
+            SRC::RO => {
+                let rp = self.regs.read(Register::RP);
+                self.rodata[rp as usize]
+            }
             SRC::SGN => self.regs.read(Register::SGN),
             SRC::DR => {
                 self.regs.write_sr(&[(SR::RQM, true)]);
@@ -147,13 +163,18 @@ impl CpuUpd77c25 {
             SRC::SIL => todo!(),
             SRC::K => self.regs.read(Register::K),
             SRC::L => self.regs.read(Register::L),
-            SRC::MEM => todo!(),
+            SRC::MEM => self.read_from_ram(),
         }
     }
 
     fn read_from_ram(&self) -> u16 {
         let dp = self.regs.read(Register::DP);
         self.ram[dp as usize]
+    }
+
+    fn write_to_ram(&mut self, val: u16) {
+        let dp = self.regs.read(Register::DP);
+        self.ram[dp as usize] = val;
     }
 
     /// Executes an instruction.
