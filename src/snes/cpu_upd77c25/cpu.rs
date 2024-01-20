@@ -17,6 +17,8 @@ pub struct CpuUpd77c25 {
     pub code: Vec<u8>,
     pub ram: Vec<u16>,
     pub stack: Vec<u16>,
+
+    pub verbose: bool,
 }
 
 impl CpuUpd77c25 {
@@ -28,6 +30,8 @@ impl CpuUpd77c25 {
             rodata: vec![0; 1024],
             ram: vec![0; 2048],
             stack: vec![0; 16],
+
+            verbose: false,
         }
     }
 
@@ -89,6 +93,10 @@ impl CpuUpd77c25 {
     pub fn step(&mut self) -> Result<Ticks> {
         let start_cycles = self.cycles;
         let instr = self.fetch_next_instr()?;
+
+        if self.verbose {
+            println!("{}", self.dump_state());
+        }
 
         self.regs.write(Register::PC, self.regs.pc.wrapping_add(1));
         self.execute_instruction(&instr)?;
