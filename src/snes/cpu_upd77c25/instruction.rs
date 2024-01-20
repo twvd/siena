@@ -285,7 +285,7 @@ pub struct InstructionJp {
 
 impl InstructionJp {
     pub fn next_address(&self) -> u16 {
-        (((self.opcode & 0x03) << 11) | ((self.opcode >> 2) & 0x3FF)) as u16
+        ((self.opcode >> 2) & 0x7FF) as u16
     }
 
     pub fn branch_cond(&self) -> BrchCnd {
