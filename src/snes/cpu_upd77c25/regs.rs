@@ -302,7 +302,7 @@ impl fmt::Display for RegisterFile {
 
         write!(
             f,
-            "ACCA:{:04X} ACCB:{:04X} K:{:04X} L:{:04X} M:{:04X} N:{:04X} TR:{:04X} TRB:{:04X} SP:{:01X} PC:{:04X} DP:{:04X} RP:{:04X} SR:{:04X} ({}) Flg-A:{:02X} ({}) Flg-B:{:02X} ({})",
+            "ACCA:{:04X} ACCB:{:04X} K:{:04X} L:{:04X} M:{:04X} N:{:04X} TR:{:04X} TRB:{:04X} SP:{:01X} PC:{:04X} DP:{:04X} RP:{:04X} DR:{:04X} SR:{:04X} ({}) Flg-A:{:02X} ({}) Flg-B:{:02X} ({})",
             self.acca,
             self.accb,
             self.k,
@@ -315,6 +315,7 @@ impl fmt::Display for RegisterFile {
             self.pc,
             self.dp,
             self.rp,
+            self.dr,
             self.sr,
             sr,
             self.flags[0],

@@ -17,7 +17,7 @@ fn main() -> Result<()> {
     let mut pos = 0;
     while let Ok(ins) = Instruction::decode(&mut fiter) {
         println!("{:04X} {}", pos, ins);
-        pos += ins.len();
+        pos += 1;
     }
     Ok(())
 }

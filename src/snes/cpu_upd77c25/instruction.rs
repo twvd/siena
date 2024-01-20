@@ -222,12 +222,12 @@ impl InstructionOpRt {
     }
 
     pub fn pselect(&self) -> PSelect {
-        PSelect::from_u32((self.opcode >> 20) >> 0x03)
+        PSelect::from_u32((self.opcode >> 20) & 0x03)
             .expect(format!("Invalid PSelect in {:?}", self).as_str())
     }
 
     pub fn alu(&self) -> AluFunction {
-        AluFunction::from_u32((self.opcode >> 16) & 0x07)
+        AluFunction::from_u32((self.opcode >> 16) & 0x0F)
             .expect(format!("Invalid ALU in {:?}", self).as_str())
     }
 

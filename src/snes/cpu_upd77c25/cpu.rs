@@ -95,7 +95,7 @@ impl CpuUpd77c25 {
     fn execute_mul(&mut self) {
         let k = self.regs.read(Register::K) as i32;
         let l = self.regs.read(Register::L) as i32;
-        let result = k * l;
+        let result = k.wrapping_mul(l);
         self.regs.write(Register::M, (result >> 15) as i16 as u16);
         self.regs.write(Register::N, (result << 1) as i16 as u16);
     }
@@ -266,10 +266,11 @@ impl CpuUpd77c25 {
 
     fn op_op_alu(&mut self, instr: &InstructionOpRt) -> Result<()> {
         // First operand
-        let (a, a_flags) = match instr.asl() {
-            ASL::ACCA => (self.regs.read(Register::ACCA), Flags::A),
-            ASL::ACCB => (self.regs.read(Register::ACCB), Flags::B),
+        let (a_reg, a_flags) = match instr.asl() {
+            ASL::ACCA => (Register::ACCA, Flags::A),
+            ASL::ACCB => (Register::ACCB, Flags::B),
         };
+        let a = self.regs.read(a_reg);
 
         // Second operand
         let b = match instr.pselect() {
@@ -313,21 +314,28 @@ impl CpuUpd77c25 {
             a_flags,
             &[(Flag::Z, c == 0), (Flag::S0, c & 0x8000 == 0x8000)],
         );
-        if self.regs.test_flag(a_flags, Flag::OV1) {
+        if !self.regs.test_flag(a_flags, Flag::OV1) {
             self.regs.write_flags(
                 a_flags,
                 &[(Flag::S1, self.regs.test_flag(a_flags, Flag::S0))],
             );
         }
 
+        self.regs.write(a_reg, c);
+
         self.regs.write_flags(
             a_flags,
             &match instr.alu() {
                 AluFunction::Nop => unreachable!(),
-                AluFunction::And | AluFunction::Cmp | AluFunction::Or | AluFunction::Xor => {
-                    [(Flag::C, false), (Flag::OV0, false), (Flag::OV1, false)]
-                }
+                AluFunction::And
+                | AluFunction::Cmp
+                | AluFunction::Or
+                | AluFunction::Xor
+                | AluFunction::Shl2
+                | AluFunction::Shl4
+                | AluFunction::Xchg => [(Flag::C, false), (Flag::OV0, false), (Flag::OV1, false)],
                 AluFunction::Sub | AluFunction::Sbr | AluFunction::Dec => {
+                    todo!();
                     let fcarry = a ^ b ^ c;
                     let foverflow = (a ^ c) & (a ^ b);
                     let ov0 = foverflow & 0x8000 == 0x8000;
@@ -355,10 +363,6 @@ impl CpuUpd77c25 {
                     (Flag::OV0, false),
                     (Flag::OV1, false),
                 ],
-                AluFunction::Shl2 | AluFunction::Shl4 => {
-                    [(Flag::C, false), (Flag::OV0, false), (Flag::OV1, false)]
-                }
-                AluFunction::Xchg => todo!(),
             },
         );
 
