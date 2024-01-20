@@ -107,11 +107,11 @@ impl CpuUpd77c25 {
 
     /// Executes the multiplication at occurs after every instruction.
     fn execute_mul(&mut self) {
-        let k = self.regs.read(Register::K) as i32;
-        let l = self.regs.read(Register::L) as i32;
-        let result = k.wrapping_mul(l);
-        self.regs.write(Register::M, (result >> 15) as i16 as u16);
-        self.regs.write(Register::N, (result << 1) as i16 as u16);
+        let k = self.regs.read(Register::K) as i16 as i32;
+        let l = self.regs.read(Register::L) as i16 as i32;
+        let result = k * l;
+        self.regs.write(Register::M, (result >> 15) as u16);
+        self.regs.write(Register::N, (result << 1) as u16);
     }
 
     fn write_to_dst(&mut self, dst: DST, val: u16) {
@@ -304,9 +304,9 @@ impl CpuUpd77c25 {
 
     fn op_op_alu(&mut self, instr: &InstructionOpRt) -> Result<()> {
         // First operand
-        let (a_reg, a_flags) = match instr.asl() {
-            ASL::ACCA => (Register::ACCA, Flags::A),
-            ASL::ACCB => (Register::ACCB, Flags::B),
+        let (a_reg, a_flags, carry_flags) = match instr.asl() {
+            ASL::ACCA => (Register::ACCA, Flags::A, Flags::B),
+            ASL::ACCB => (Register::ACCB, Flags::B, Flags::A),
         };
         let a = self.regs.read(a_reg);
 
@@ -324,7 +324,7 @@ impl CpuUpd77c25 {
             _ => b,
         };
 
-        let carry = if self.regs.test_flag(a_flags, Flag::C) {
+        let carry = if self.regs.test_flag(carry_flags, Flag::C) {
             1_u16
         } else {
             0_u16
