@@ -365,12 +365,11 @@ impl CpuUpd77c25 {
                 | AluFunction::Shl4
                 | AluFunction::Xchg => [(Flag::C, false), (Flag::OV0, false), (Flag::OV1, false)],
                 AluFunction::Sub | AluFunction::Sbr | AluFunction::Dec => {
-                    todo!();
                     let fcarry = a ^ b ^ c;
-                    let foverflow = (a ^ c) & (a ^ b);
+                    let foverflow = (a ^ c) & (b ^ a);
                     let ov0 = foverflow & 0x8000 == 0x8000;
                     let ov1 = self.regs.test_flag(a_flags, Flag::OV1);
-                    let ov1 = if ov0 == ov1 {
+                    let ov1 = if ov0 && ov1 {
                         self.regs.test_flag(a_flags, Flag::S0)
                             == self.regs.test_flag(a_flags, Flag::S1)
                     } else {
@@ -382,7 +381,23 @@ impl CpuUpd77c25 {
                         (Flag::OV1, ov1),
                     ]
                 }
-                AluFunction::Add | AluFunction::Adc | AluFunction::Inc => todo!(),
+                AluFunction::Add | AluFunction::Adc | AluFunction::Inc => {
+                    let fcarry = a ^ b ^ c;
+                    let foverflow = (a ^ c) & (b ^ c);
+                    let ov0 = foverflow & 0x8000 == 0x8000;
+                    let ov1 = self.regs.test_flag(a_flags, Flag::OV1);
+                    let ov1 = if ov0 && ov1 {
+                        self.regs.test_flag(a_flags, Flag::S0)
+                            == self.regs.test_flag(a_flags, Flag::S1)
+                    } else {
+                        ov0 || ov1
+                    };
+                    [
+                        (Flag::C, (fcarry ^ foverflow) & 0x8000 == 0x8000),
+                        (Flag::OV0, ov0),
+                        (Flag::OV1, ov1),
+                    ]
+                }
                 AluFunction::Shr1 => [
                     (Flag::C, (a & 0x01) == 0x01),
                     (Flag::OV0, false),
