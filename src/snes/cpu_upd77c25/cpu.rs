@@ -79,9 +79,9 @@ impl CpuUpd77c25 {
 
     /// Pop 16-bits from the stack
     fn pop(&mut self) -> u16 {
-        let sp = self.regs.read(Register::SP);
+        let sp = self.regs.read(Register::SP).checked_sub(1).unwrap();
         let val = self.stack[sp as usize];
-        self.regs.write(Register::SP, sp.checked_sub(1).unwrap());
+        self.regs.write(Register::SP, sp);
         val
     }
 
