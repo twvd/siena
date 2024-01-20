@@ -114,7 +114,10 @@ impl CpuUpd77c25 {
             DST::TR => self.regs.write(Register::TR, val),
             DST::DP => self.regs.write(Register::DP, val),
             DST::RP => self.regs.write(Register::RP, val),
-            DST::DR => self.regs.write(Register::DR, val),
+            DST::DR => {
+                self.regs.write_sr(&[(SR::RQM, true)]);
+                self.regs.write(Register::DR, val)
+            }
             DST::SR => {
                 let sr = self.regs.read(Register::SR);
                 self.regs
@@ -611,8 +614,12 @@ mod tests {
     fn ld_regs() {
         let test = |op, reg| {
             let c = cpu_run(op);
+            println!("{}", c.dump_state());
             assert!(Register::iter()
-                .filter(|&r| r != Register::PC && r != Register::SGN && r != reg)
+                .filter(|&r| r != Register::PC
+                    && r != Register::SGN
+                    && r != reg
+                    && !(r == Register::SR && reg == Register::DR))
                 .all(|r| c.regs.read(r) == 0));
             assert_ne!(c.regs.read(reg), 0);
         };
