@@ -6,6 +6,8 @@ use crate::tickable::Ticks;
 use super::instruction::*;
 use super::regs::{Flag, Flags, Register, RegisterFile, SR};
 
+const SR_MASK: u16 = 0x907C;
+
 /// NEC uPD77C25
 #[derive(Serialize, Deserialize)]
 pub struct CpuUpd77c25 {
@@ -109,7 +111,11 @@ impl CpuUpd77c25 {
             DST::DP => self.regs.write(Register::DP, val),
             DST::RP => self.regs.write(Register::RP, val),
             DST::DR => self.regs.write(Register::DR, val),
-            DST::SR => self.regs.write(Register::SR, val),
+            DST::SR => {
+                let sr = self.regs.read(Register::SR);
+                self.regs
+                    .write(Register::SR, (sr & SR_MASK) | (val & !SR_MASK))
+            }
             DST::SIM => todo!(),
             DST::SIL => todo!(),
             DST::K => self.regs.write(Register::K, val),
