@@ -361,63 +361,73 @@ impl CpuUpd77c25 {
 
         self.regs.write(a_reg, c);
 
-        self.regs.write_flags(
-            a_flags,
-            &match instr.alu() {
-                AluFunction::Nop => unreachable!(),
-                AluFunction::And
-                | AluFunction::Cmp
-                | AluFunction::Or
-                | AluFunction::Xor
-                | AluFunction::Shl2
-                | AluFunction::Shl4
-                | AluFunction::Xchg => [(Flag::C, false), (Flag::OV0, false), (Flag::OV1, false)],
-                AluFunction::Sub | AluFunction::Sbr | AluFunction::Dec => {
-                    let fcarry = a ^ b ^ c;
-                    let foverflow = (a ^ c) & (b ^ a);
-                    let ov0 = foverflow & 0x8000 == 0x8000;
-                    let ov1 = self.regs.test_flag(a_flags, Flag::OV1);
-                    let ov1 = if ov0 && ov1 {
-                        self.regs.test_flag(a_flags, Flag::S0)
-                            == self.regs.test_flag(a_flags, Flag::S1)
-                    } else {
-                        ov0 || ov1
-                    };
-                    [
+        match instr.alu() {
+            AluFunction::Nop => unreachable!(),
+            AluFunction::And
+            | AluFunction::Cmp
+            | AluFunction::Or
+            | AluFunction::Xor
+            | AluFunction::Shl2
+            | AluFunction::Shl4
+            | AluFunction::Xchg => self.regs.write_flags(
+                a_flags,
+                &[(Flag::C, false), (Flag::OV0, false), (Flag::OV1, false)],
+            ),
+            AluFunction::Sub | AluFunction::Sbr | AluFunction::Dec => {
+                let fcarry = a ^ b ^ c;
+                let foverflow = (a ^ c) & (b ^ a);
+                let ov0 = foverflow & 0x8000 == 0x8000;
+                let ov1 = self.regs.test_flag(a_flags, Flag::OV1);
+                let ov1 = if ov0 && ov1 {
+                    self.regs.test_flag(a_flags, Flag::S0) == self.regs.test_flag(a_flags, Flag::S1)
+                } else {
+                    ov0 || ov1
+                };
+                self.regs.write_flags(
+                    a_flags,
+                    &[
                         (Flag::C, (fcarry ^ foverflow) & 0x8000 == 0x8000),
                         (Flag::OV0, ov0),
                         (Flag::OV1, ov1),
-                    ]
-                }
-                AluFunction::Add | AluFunction::Adc | AluFunction::Inc => {
-                    let fcarry = a ^ b ^ c;
-                    let foverflow = (a ^ c) & (b ^ c);
-                    let ov0 = foverflow & 0x8000 == 0x8000;
-                    let ov1 = self.regs.test_flag(a_flags, Flag::OV1);
-                    let ov1 = if ov0 && ov1 {
-                        self.regs.test_flag(a_flags, Flag::S0)
-                            == self.regs.test_flag(a_flags, Flag::S1)
-                    } else {
-                        ov0 || ov1
-                    };
-                    [
+                    ],
+                )
+            }
+            AluFunction::Add | AluFunction::Adc | AluFunction::Inc => {
+                let fcarry = a ^ b ^ c;
+                let foverflow = (a ^ c) & (b ^ c);
+                let ov0 = foverflow & 0x8000 == 0x8000;
+                let ov1 = self.regs.test_flag(a_flags, Flag::OV1);
+                let ov1 = if ov0 && ov1 {
+                    self.regs.test_flag(a_flags, Flag::S0) == self.regs.test_flag(a_flags, Flag::S1)
+                } else {
+                    ov0 || ov1
+                };
+                self.regs.write_flags(
+                    a_flags,
+                    &[
                         (Flag::C, (fcarry ^ foverflow) & 0x8000 == 0x8000),
                         (Flag::OV0, ov0),
                         (Flag::OV1, ov1),
-                    ]
-                }
-                AluFunction::Shr1 => [
+                    ],
+                )
+            }
+            AluFunction::Shr1 => self.regs.write_flags(
+                a_flags,
+                &[
                     (Flag::C, (a & 0x01) == 0x01),
                     (Flag::OV0, false),
                     (Flag::OV1, false),
                 ],
-                AluFunction::Shl1 => [
+            ),
+            AluFunction::Shl1 => self.regs.write_flags(
+                a_flags,
+                &[
                     (Flag::C, (a & 0x8000) == 0x8000),
                     (Flag::OV0, false),
                     (Flag::OV1, false),
                 ],
-            },
-        );
+            ),
+        }
 
         Ok(())
     }

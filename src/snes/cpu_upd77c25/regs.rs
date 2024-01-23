@@ -210,8 +210,13 @@ impl RegisterFile {
             Register::SP => self.sp.into(),
 
             // Virtual register
-            Register::SGN if self.test_flag(Flags::A, Flag::S1) => 0x7FFF,
-            Register::SGN => 0x8000,
+            Register::SGN => {
+                if self.test_flag(Flags::A, Flag::S1) {
+                    0x7FFF
+                } else {
+                    0x8000
+                }
+            }
         }
     }
 
