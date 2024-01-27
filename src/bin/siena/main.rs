@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::SystemTime;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use colored::*;
 use sdl2::event::Event;
@@ -114,6 +114,10 @@ struct Args {
     /// Co-processor ROM to load (if needed)
     #[arg(short, long)]
     corom: Option<String>,
+
+    /// SPC700 (APU) IPL to load
+    #[arg(long, default_value = "spc700.rom")]
+    spc_ipl: String,
 }
 
 fn main() -> Result<()> {
@@ -163,12 +167,17 @@ fn main() -> Result<()> {
         Some(fps) => fps,
     };
 
+    // Load SPC700 IPL ROM
+    let apu_ipl = fs::read(&args.spc_ipl)
+        .with_context(|| format!("Failed to load SPC700 IPL ROM from {}", &args.spc_ipl))?;
+
     // Initialize S-CPU bus
     let mut bus = Mainbus::<ChannelRenderer>::new(
         cartridge,
         args.trace_bus,
         displaychannel,
         joypads,
+        &apu_ipl,
         args.verbose,
         fps,
         videoformat,

@@ -240,6 +240,7 @@ where
         trace: BusTrace,
         renderer: TRenderer,
         joypads: [Joypad; JOYPAD_COUNT],
+        apu_ipl: &[u8],
         apu_verbose: bool,
         fps: u64,
         videoformat: VideoFormat,
@@ -253,7 +254,7 @@ where
             joypads: Some(joypads),
 
             ppu: PPU::<TRenderer>::new(renderer, fps, videoformat),
-            apu: Arc::new(Mutex::new(Apu::new(apu_verbose))),
+            apu: Arc::new(Mutex::new(Apu::new(apu_ipl, apu_verbose))),
 
             memsel: 0,
             wmadd: Cell::new(0),
@@ -879,6 +880,7 @@ mod tests {
             BusTrace::All,
             NullRenderer::new(0, 0).unwrap(),
             joypads,
+            &[0; 64],
             false,
             0,
             VideoFormat::PAL,

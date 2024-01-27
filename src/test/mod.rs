@@ -24,6 +24,7 @@ fn test_display(rom: &[u8], pass_hash: &[u8], time_limit: u128, stable: bool, hi
         BusTrace::None,
         display,
         joypads,
+        &[0; 64],
         false,
         0,
         VideoFormat::PAL,
