@@ -56,6 +56,13 @@ pub enum MapMode {
     ExHiROM = 5,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq, FromPrimitive, Serialize, Deserialize, Display)]
+pub enum Mapper {
+    LoROM,
+    HiROM,
+    HiROMDSP1,
+}
+
 /// A mounted SNES cartridge
 #[derive(Serialize, Deserialize)]
 pub struct Cartridge {
@@ -63,8 +70,8 @@ pub struct Cartridge {
     ram: Vec<u8>,
     header_offset: usize,
 
-    /// True if HiROM. Cache this for performance reasons.
-    hirom: bool,
+    /// Mapper implementation to use
+    mapper: Mapper,
 
     /// RAM address mask, to properly emulate mirroring
     /// 0 == no RAM
@@ -106,10 +113,6 @@ impl Cartridge {
                 }
             })
             .collect()
-    }
-
-    pub fn is_hirom(&self) -> bool {
-        self.hirom
     }
 
     fn get_map(&self) -> MapMode {
@@ -198,11 +201,11 @@ impl Cartridge {
         let mut c = Self {
             rom: Vec::from(rom),
             ram: vec![0; RAM_SIZE],
-            hirom: false,
             header_offset: header_offset.expect("Could not locate header"),
             ram_mask: 0,
             rom_mask: (rom.len() - load_offset - 1),
             co_dsp1: None,
+            mapper: Mapper::LoROM,
         };
 
         // Detect / initialize co-processor
@@ -222,10 +225,13 @@ impl Cartridge {
         }
 
         // TODO refactor header to its own struct
-        c.hirom = match c.get_map() {
-            MapMode::HiROM => true,
-            _ => false,
+        c.mapper = match (c.get_map(), c.get_coprocessor()) {
+            (MapMode::LoROM, None) => Mapper::LoROM,
+            (MapMode::HiROM, None) => Mapper::HiROM,
+            (MapMode::HiROM, Some(CoProcessor::DSPx)) => Mapper::HiROMDSP1,
+            _ => panic!("Cannot determine mapper"),
         };
+        println!("Selected mapper: {}", c.mapper);
         if c.get_ram_size() > 0 {
             c.ram_mask = c.get_ram_size() - 1;
         }
@@ -237,7 +243,7 @@ impl Cartridge {
         Self {
             rom: Vec::from(rom),
             ram: vec![0; RAM_SIZE],
-            hirom,
+            mapper: if hirom { Mapper::HiROM } else { Mapper::LoROM },
             header_offset: 0,
             ram_mask: RAM_SIZE - 1,
             rom_mask: rom.len() - 1,
@@ -251,11 +257,115 @@ impl Cartridge {
         Self {
             rom: vec![],
             ram: vec![0; RAM_SIZE],
-            hirom: false,
+            mapper: Mapper::LoROM,
             header_offset: 0,
             ram_mask: RAM_SIZE - 1,
             rom_mask: usize::MAX,
             co_dsp1: None,
+        }
+    }
+
+    fn read_lorom(&self, fulladdr: Address) -> Option<u8> {
+        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+        match (bank, addr) {
+            (0x00..=0x3F | 0x80..=0xFF, 0x8000..=0xFFFF) => {
+                Some(self.rom[addr - 0x8000 + (bank & !0x80) * 0x8000])
+            }
+            (0x70..=0x7D, 0x0000..=0x7FFF) if self.has_ram() => {
+                Some(self.ram[(bank - 0x70) * 0x8000 + addr & self.ram_mask])
+            }
+            _ => None,
+        }
+    }
+
+    fn write_lorom(&mut self, fulladdr: Address, val: u8) -> Option<()> {
+        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+        match (bank, addr) {
+            // LoROM SRAM
+            (0x70..=0x7D, 0x0000..=0x7FFF) if self.has_ram() => {
+                Some(self.ram[(bank - 0x70) * 0x8000 + addr & self.ram_mask] = val)
+            }
+
+            _ => None,
+        }
+    }
+
+    fn read_hirom(&self, fulladdr: Address) -> Option<u8> {
+        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+        match (bank, addr) {
+            // HiROM (mirrors in LoROM banks)
+            (0x00..=0x3F | 0x80..=0xBF, 0x8000..=0xFFFF) => {
+                Some(self.rom[(addr - 0x0000 + (bank & !0x80) * 0x10000) & self.rom_mask])
+            }
+
+            // HiROM SRAM
+            (0x30..=0x3F | 0x80..=0xBF, 0x6000..=0x6FFF) if self.has_ram() => {
+                Some(self.ram[(bank - 0x30) * 0x1000 + (addr - 0x6000) & self.ram_mask])
+            }
+
+            // HiROM
+            (0x40..=0x6F, _) => Some(self.rom[(addr + ((bank - 0x40) * 0x10000)) & self.rom_mask]),
+
+            // HiROM
+            (0xC0..=0xFF, _) => Some(self.rom[(addr + ((bank - 0xC0) * 0x10000)) & self.rom_mask]),
+            _ => None,
+        }
+    }
+
+    fn write_hirom(&mut self, fulladdr: Address, val: u8) -> Option<()> {
+        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+        match (bank, addr) {
+            // HiROM SRAM
+            (0x30..=0x3F | 0x80..=0xBF, 0x6000..=0x6FFF) if self.has_ram() => {
+                Some(self.ram[(bank - 0x30) * 0x1000 + (addr - 0x6000) & self.ram_mask] = val)
+            }
+
+            _ => None,
+        }
+    }
+
+    fn read_hirom_dsp(&self, fulladdr: Address) -> Option<u8> {
+        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+        match (bank, addr) {
+            // HiROM (mirrors in LoROM banks)
+            (0x00..=0x3F | 0x80..=0xBF, 0x8000..=0xFFFF) => {
+                Some(self.rom[(addr - 0x0000 + (bank & !0x80) * 0x10000) & self.rom_mask])
+            }
+
+            // HiROM SRAM
+            (0x30..=0x3F | 0x80..=0xBF, 0x6000..=0x6FFF) if self.has_ram() => {
+                Some(self.ram[(bank - 0x30) * 0x1000 + (addr - 0x6000) & self.ram_mask])
+            }
+
+            // HiROM
+            (0x40..=0x6F, _) => Some(self.rom[(addr + ((bank - 0x40) * 0x10000)) & self.rom_mask]),
+
+            // HiROM
+            (0xC0..=0xFF, _) => Some(self.rom[(addr + ((bank - 0xC0) * 0x10000)) & self.rom_mask]),
+
+            // DSP-1 co-processor
+            (0x00..=0xDF, 0x6000..=0x7FFF) => {
+                let dsp = self.co_dsp1.as_ref().unwrap();
+                dsp.read(fulladdr)
+            }
+            _ => None,
+        }
+    }
+
+    fn write_hirom_dsp(&mut self, fulladdr: Address, val: u8) -> Option<()> {
+        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+        match (bank, addr) {
+            // HiROM SRAM
+            (0x30..=0x3F | 0x80..=0xBF, 0x6000..=0x6FFF) if self.has_ram() => {
+                Some(self.ram[(bank - 0x30) * 0x1000 + (addr - 0x6000) & self.ram_mask] = val)
+            }
+
+            // DSP-1 co-processor
+            (0x00..=0xDF, 0x6000..=0x7FFF) => {
+                let dsp = self.co_dsp1.as_mut().unwrap();
+                dsp.write(fulladdr, val)
+            }
+            _ => None,
         }
     }
 }
@@ -277,70 +387,18 @@ impl fmt::Display for Cartridge {
 
 impl BusMember<Address> for Cartridge {
     fn read(&self, fulladdr: Address) -> Option<u8> {
-        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
-
-        match (bank, addr) {
-            // HiROM (mirrors in LoROM banks)
-            (0x00..=0x3F | 0x80..=0xBF, 0x8000..=0xFFFF) if self.hirom => {
-                Some(self.rom[(addr - 0x0000 + (bank & !0x80) * 0x10000) & self.rom_mask])
-            }
-
-            // LoROM
-            (0x00..=0x3F | 0x80..=0xFF, 0x8000..=0xFFFF) if !self.hirom => {
-                Some(self.rom[addr - 0x8000 + (bank & !0x80) * 0x8000])
-            }
-
-            // HiROM SRAM
-            (0x30..=0x3F | 0x80..=0xBF, 0x6000..=0x6FFF) if self.hirom && self.has_ram() => {
-                Some(self.ram[(bank - 0x30) * 0x1000 + (addr - 0x6000) & self.ram_mask])
-            }
-
-            // HiROM
-            (0x40..=0x6F, _) if self.hirom => {
-                Some(self.rom[(addr + ((bank - 0x40) * 0x10000)) & self.rom_mask])
-            }
-
-            // LoROM SRAM
-            (0x70..=0x7D, 0x0000..=0x7FFF) if !self.hirom && self.has_ram() => {
-                Some(self.ram[(bank - 0x70) * 0x8000 + addr & self.ram_mask])
-            }
-
-            // HiROM
-            (0xC0..=0xFF, _) if self.hirom => {
-                Some(self.rom[(addr + ((bank - 0xC0) * 0x10000)) & self.rom_mask])
-            }
-
-            // DSP-1 co-processor
-            (0x00..=0xDF, 0x6000..=0x7FFF) if self.co_dsp1.is_some() => {
-                let dsp = self.co_dsp1.as_ref().unwrap();
-                dsp.read(fulladdr)
-            }
-
-            _ => None,
+        match self.mapper {
+            Mapper::LoROM => self.read_lorom(fulladdr),
+            Mapper::HiROM => self.read_hirom(fulladdr),
+            Mapper::HiROMDSP1 => self.read_hirom_dsp(fulladdr),
         }
     }
 
     fn write(&mut self, fulladdr: Address, val: u8) -> Option<()> {
-        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
-
-        match (bank, addr) {
-            // HiROM SRAM
-            (0x30..=0x3F | 0x80..=0xBF, 0x6000..=0x6FFF) if self.hirom && self.has_ram() => {
-                Some(self.ram[(bank - 0x30) * 0x1000 + (addr - 0x6000) & self.ram_mask] = val)
-            }
-
-            // LoROM SRAM
-            (0x70..=0x7D, 0x0000..=0x7FFF) if !self.hirom && self.has_ram() => {
-                Some(self.ram[(bank - 0x70) * 0x8000 + addr & self.ram_mask] = val)
-            }
-
-            // DSP-1 co-processor
-            (0x00..=0xDF, 0x6000..=0x7FFF) if self.co_dsp1.is_some() => {
-                let dsp = self.co_dsp1.as_mut().unwrap();
-                dsp.write(fulladdr, val)
-            }
-
-            _ => None,
+        match self.mapper {
+            Mapper::LoROM => self.write_lorom(fulladdr, val),
+            Mapper::HiROM => self.write_hirom(fulladdr, val),
+            Mapper::HiROMDSP1 => self.write_hirom_dsp(fulladdr, val),
         }
     }
 }
