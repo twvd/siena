@@ -344,7 +344,7 @@ impl Cartridge {
             (0xC0..=0xFF, _) => Some(self.rom[(addr + ((bank - 0xC0) * 0x10000)) & self.rom_mask]),
 
             // DSP-1 co-processor
-            (0x00..=0xDF, 0x6000..=0x7FFF) => {
+            (0x00..=0x1F | 0x80..=0x9F, 0x6000..=0x7FFF) => {
                 let dsp = self.co_dsp1.as_ref().unwrap();
                 dsp.read(fulladdr)
             }
@@ -361,7 +361,7 @@ impl Cartridge {
             }
 
             // DSP-1 co-processor
-            (0x00..=0xDF, 0x6000..=0x7FFF) => {
+            (0x00..=0x1F | 0x80..=0x9F, 0x6000..=0x7FFF) => {
                 let dsp = self.co_dsp1.as_mut().unwrap();
                 dsp.write(fulladdr, val)
             }
