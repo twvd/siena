@@ -203,7 +203,7 @@ impl Cartridge {
             ram: vec![0; RAM_SIZE],
             header_offset: header_offset.expect("Could not locate header"),
             ram_mask: 0,
-            rom_mask: (rom.len() - load_offset - 1),
+            rom_mask: (rom.len() - 1),
             co_dsp1: None,
             mapper: Mapper::LoROM,
         };
