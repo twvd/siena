@@ -690,13 +690,6 @@ where
                         // TIMEUP gets cleared when disabling H/V interrupts
                         self.timeup.set(false);
                     }
-                    if val & 0x80 != self.nmitimen & 0x80 {
-                        if val & 0x80 != 0 {
-                            println!("VBlank NMIs enabled");
-                        } else {
-                            println!("VBlank NMIs disabled");
-                        }
-                    }
                     Some(self.nmitimen = val)
                 }
                 // WRMPYA - Set unsigned 8bit Multiplicand (W)

@@ -60,6 +60,7 @@ pub enum MapMode {
 pub enum Mapper {
     LoROM,
     HiROM,
+    LoROMDSP1,
     HiROMDSP1,
 }
 
@@ -228,6 +229,7 @@ impl Cartridge {
         c.mapper = match (c.get_map(), c.get_coprocessor()) {
             (MapMode::LoROM, None) => Mapper::LoROM,
             (MapMode::HiROM, None) => Mapper::HiROM,
+            (MapMode::LoROM, Some(CoProcessor::DSPx)) => Mapper::LoROMDSP1,
             (MapMode::HiROM, Some(CoProcessor::DSPx)) => Mapper::HiROMDSP1,
             _ => panic!("Cannot determine mapper"),
         };
@@ -278,12 +280,54 @@ impl Cartridge {
         }
     }
 
+    fn read_lorom_dsp(&self, fulladdr: Address) -> Option<u8> {
+        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+        match (bank, addr) {
+            (0x00..=0x1F | 0x80..=0x9F, 0x8000..=0xFFFF) => {
+                Some(self.rom[addr - 0x8000 + (bank & !0x80) * 0x8000])
+            }
+            (0x70..=0x7D, 0x0000..=0x7FFF) if self.has_ram() => {
+                Some(self.ram[(bank - 0x70) * 0x8000 + addr & self.ram_mask])
+            }
+
+            // DSP-1 co-processor
+            (0x30..=0x3F | 0xB0..=0xBF, 0x8000..=0xBFFF) => {
+                let dsp = self.co_dsp1.as_ref().unwrap();
+                Some(dsp.read_dr())
+            }
+            (0x30..=0x3F | 0xB0..=0xBF, 0xC000..=0xFFFF) => {
+                let dsp = self.co_dsp1.as_ref().unwrap();
+                Some(dsp.read_sr())
+            }
+
+            _ => None,
+        }
+    }
+
     fn write_lorom(&mut self, fulladdr: Address, val: u8) -> Option<()> {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
         match (bank, addr) {
             // LoROM SRAM
             (0x70..=0x7D, 0x0000..=0x7FFF) if self.has_ram() => {
                 Some(self.ram[(bank - 0x70) * 0x8000 + addr & self.ram_mask] = val)
+            }
+
+            _ => None,
+        }
+    }
+
+    fn write_lorom_dsp(&mut self, fulladdr: Address, val: u8) -> Option<()> {
+        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+        match (bank, addr) {
+            // LoROM SRAM
+            (0x70..=0x7D, 0x0000..=0x7FFF) if self.has_ram() => {
+                Some(self.ram[(bank - 0x70) * 0x8000 + addr & self.ram_mask] = val)
+            }
+
+            // DSP-1 co-processor
+            (0x30..=0x3F | 0xB0..=0xBF, 0x8000..=0xBFFF) => {
+                let dsp = self.co_dsp1.as_mut().unwrap();
+                Some(dsp.write_dr(val))
             }
 
             _ => None,
@@ -344,10 +388,15 @@ impl Cartridge {
             (0xC0..=0xFF, _) => Some(self.rom[(addr + ((bank - 0xC0) * 0x10000)) & self.rom_mask]),
 
             // DSP-1 co-processor
-            (0x00..=0x1F | 0x80..=0x9F, 0x6000..=0x7FFF) => {
+            (0x00..=0x1F | 0x80..=0x9F, 0x6000..=0x6FFF) => {
                 let dsp = self.co_dsp1.as_ref().unwrap();
-                dsp.read(fulladdr)
+                Some(dsp.read_dr())
             }
+            (0x00..=0x1F | 0x80..=0x9F, 0x7000..=0x7FFF) => {
+                let dsp = self.co_dsp1.as_ref().unwrap();
+                Some(dsp.read_sr())
+            }
+
             _ => None,
         }
     }
@@ -361,9 +410,9 @@ impl Cartridge {
             }
 
             // DSP-1 co-processor
-            (0x00..=0x1F | 0x80..=0x9F, 0x6000..=0x7FFF) => {
+            (0x00..=0x1F | 0x80..=0x9F, 0x6000..=0x6FFF) => {
                 let dsp = self.co_dsp1.as_mut().unwrap();
-                dsp.write(fulladdr, val)
+                Some(dsp.write_dr(val))
             }
             _ => None,
         }
@@ -390,6 +439,7 @@ impl BusMember<Address> for Cartridge {
         match self.mapper {
             Mapper::LoROM => self.read_lorom(fulladdr),
             Mapper::HiROM => self.read_hirom(fulladdr),
+            Mapper::LoROMDSP1 => self.read_lorom_dsp(fulladdr),
             Mapper::HiROMDSP1 => self.read_hirom_dsp(fulladdr),
         }
     }
@@ -398,6 +448,7 @@ impl BusMember<Address> for Cartridge {
         match self.mapper {
             Mapper::LoROM => self.write_lorom(fulladdr, val),
             Mapper::HiROM => self.write_hirom(fulladdr, val),
+            Mapper::LoROMDSP1 => self.write_lorom_dsp(fulladdr, val),
             Mapper::HiROMDSP1 => self.write_hirom_dsp(fulladdr, val),
         }
     }
