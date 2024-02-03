@@ -10,7 +10,11 @@ use crate::tickable::{Tickable, Ticks};
 /// DSP-1 co-processor
 #[derive(Serialize, Deserialize)]
 pub struct DSP1 {
+    /// uPD77C25 CPU core
     cpu: RefCell<CpuUpd77c25>,
+
+    /// Last seen CPU PC register (for busy loop detection)
+    last_pc: u16,
 
     /// Flip-flop to switch reading LSB/MSB of SR
     sr_read_msb: Cell<bool>,
@@ -19,6 +23,7 @@ pub struct DSP1 {
 impl DSP1 {
     pub fn new() -> Self {
         Self {
+            last_pc: 0,
             cpu: RefCell::new(CpuUpd77c25::new()),
             sr_read_msb: Cell::new(false),
         }
@@ -86,9 +91,14 @@ impl DSP1 {
 
 impl Tickable for DSP1 {
     fn tick(&mut self, _ticks: Ticks) -> Result<()> {
-        // TODO more granular or only as much as needed based on comms?
         let mut cpu = self.cpu.borrow_mut();
-        cpu.step()?;
+
+        // Detect busy loops (JRQM $PC)
+        if !cpu.regs.test_sr(SR::RQM) || (cpu.regs.pc != self.last_pc) {
+            self.last_pc = cpu.regs.pc;
+            cpu.step()?;
+        }
+
         Ok(())
     }
 }
