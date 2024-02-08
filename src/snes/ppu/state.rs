@@ -370,6 +370,15 @@ impl PPUState {
                 1 => BPP::Two,
                 _ => unreachable!(),
             },
+            5 => match bg {
+                0 => BPP::Four,
+                1 => BPP::Two,
+                _ => unreachable!(),
+            },
+            6 => match bg {
+                0 => BPP::Four,
+                _ => unreachable!(),
+            },
             _ => todo!(),
         }
     }
