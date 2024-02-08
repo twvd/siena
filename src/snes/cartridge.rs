@@ -1,6 +1,6 @@
 use std::fmt;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -86,15 +86,16 @@ pub struct Cartridge {
 }
 
 impl Cartridge {
+    fn parse_title(s: &[u8]) -> Result<String> {
+        String::from_utf8(s.into_iter().take_while(|&&c| c != 0).copied().collect())
+            .map_err(|e| anyhow!(e))
+    }
+
     /// Returns the title of the cartridge as set in the header.
     pub fn get_title(&self) -> String {
-        String::from_utf8(
-            self.rom[(self.header_offset + HDR_TITLE_OFFSET)
-                ..(self.header_offset + HDR_TITLE_OFFSET + HDR_TITLE_SIZE)]
-                .into_iter()
-                .take_while(|&&c| c != 0)
-                .copied()
-                .collect(),
+        Self::parse_title(
+            &self.rom[(self.header_offset + HDR_TITLE_OFFSET)
+                ..(self.header_offset + HDR_TITLE_OFFSET + HDR_TITLE_SIZE)],
         )
         .unwrap_or("UNKNOWN".to_string())
         .trim()
@@ -165,7 +166,9 @@ impl Cartridge {
             (hdr[HDR_CHECKSUM_OFFSET + 0] as u16) | (hdr[HDR_CHECKSUM_OFFSET + 1] as u16) << 8;
         let csum2: u16 =
             (hdr[HDR_ICHECKSUM_OFFSET + 0] as u16) | (hdr[HDR_ICHECKSUM_OFFSET + 1] as u16) << 8;
-        return csum1 == (csum2 ^ 0xFFFF);
+        return csum1 == (csum2 ^ 0xFFFF)
+            && Self::parse_title(&hdr[HDR_TITLE_OFFSET..(HDR_TITLE_OFFSET + HDR_TITLE_SIZE)])
+                .is_ok();
     }
 
     /// Loads a cartridge.
