@@ -14,23 +14,24 @@ impl PPUState {
             return 0;
         }
 
-        let (tile_x, tile_y) = if overflow && (screenover == 3) {
+        let tileidx = if overflow && (screenover == 3) {
             // Overflow -> Tile 0
-            (0, 0)
+            0
         } else {
-            // Overflow -> Wrap
-            (
-                ((vram_x as u32 >> 11) & 0x7f) as u16,
-                ((vram_y as u32 >> 11) & 0x7f) as u16,
-            )
+            let (tile_x, tile_y) = {
+                // Overflow -> Wrap
+                (
+                    ((vram_x as u32 >> 11) & 0x7f) as u16,
+                    ((vram_y as u32 >> 11) & 0x7f) as u16,
+                )
+            };
+            let tilemap_addr = ((tile_y << 7) + tile_x) as usize;
+            self.vram[tilemap_addr & VRAM_ADDRMASK] & 0xFF
         };
+
         let pixel_x = ((vram_x >> 8) & 0x07) as u16;
         let pixel_y = ((vram_y >> 8) & 0x07) as u16;
-
-        let tilemap_addr = ((tile_y << 7) + tile_x) as usize;
-        let tileidx = self.vram[tilemap_addr & VRAM_ADDRMASK] & 0xFF;
         let pixel_addr = ((tileidx << 6) + (pixel_y << 3) + pixel_x) as usize;
-
         (self.vram[pixel_addr & VRAM_ADDRMASK] >> 8) as u8
     }
 
