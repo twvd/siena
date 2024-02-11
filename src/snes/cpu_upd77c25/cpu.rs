@@ -28,7 +28,7 @@ impl CpuUpd77c25 {
             cycles: 0,
             code: vec![0xFF; 16 * 1024],
             rodata: vec![0; 1024],
-            ram: vec![0; 2048],
+            ram: vec![0; 256],
             stack: vec![0; 16],
 
             verbose: false,
@@ -107,8 +107,8 @@ impl CpuUpd77c25 {
 
     /// Executes the multiplication at occurs after every instruction.
     fn execute_mul(&mut self) {
-        let k = self.regs.read(Register::K) as i16 as i32;
-        let l = self.regs.read(Register::L) as i16 as i32;
+        let k = (self.regs.read(Register::K) as i16) as i32;
+        let l = (self.regs.read(Register::L) as i16) as i32;
         let result = k * l;
         self.regs.write(Register::M, (result >> 15) as u16);
         self.regs.write(Register::N, (result << 1) as u16);
@@ -348,10 +348,8 @@ impl CpuUpd77c25 {
         };
 
         // Z, S0, S1 flags apply the same to all operations
-        self.regs.write_flags(
-            a_flags,
-            &[(Flag::Z, c == 0), (Flag::S0, c & 0x8000 == 0x8000)],
-        );
+        self.regs
+            .write_flags(a_flags, &[(Flag::Z, c == 0), (Flag::S0, c & 0x8000 != 0)]);
         if !self.regs.test_flag(a_flags, Flag::OV1) {
             self.regs.write_flags(
                 a_flags,
@@ -376,7 +374,7 @@ impl CpuUpd77c25 {
             AluFunction::Sub | AluFunction::Sbr | AluFunction::Dec => {
                 let fcarry = a ^ b ^ c;
                 let foverflow = (a ^ c) & (b ^ a);
-                let ov0 = foverflow & 0x8000 == 0x8000;
+                let ov0 = foverflow & 0x8000 != 0;
                 let ov1 = self.regs.test_flag(a_flags, Flag::OV1);
                 let ov1 = if ov0 && ov1 {
                     self.regs.test_flag(a_flags, Flag::S0) == self.regs.test_flag(a_flags, Flag::S1)
@@ -386,7 +384,7 @@ impl CpuUpd77c25 {
                 self.regs.write_flags(
                     a_flags,
                     &[
-                        (Flag::C, (fcarry ^ foverflow) & 0x8000 == 0x8000),
+                        (Flag::C, (fcarry ^ foverflow) & 0x8000 != 0),
                         (Flag::OV0, ov0),
                         (Flag::OV1, ov1),
                     ],
@@ -395,7 +393,7 @@ impl CpuUpd77c25 {
             AluFunction::Add | AluFunction::Adc | AluFunction::Inc => {
                 let fcarry = a ^ b ^ c;
                 let foverflow = (a ^ c) & (b ^ c);
-                let ov0 = foverflow & 0x8000 == 0x8000;
+                let ov0 = foverflow & 0x8000 != 0;
                 let ov1 = self.regs.test_flag(a_flags, Flag::OV1);
                 let ov1 = if ov0 && ov1 {
                     self.regs.test_flag(a_flags, Flag::S0) == self.regs.test_flag(a_flags, Flag::S1)
@@ -405,7 +403,7 @@ impl CpuUpd77c25 {
                 self.regs.write_flags(
                     a_flags,
                     &[
-                        (Flag::C, (fcarry ^ foverflow) & 0x8000 == 0x8000),
+                        (Flag::C, (fcarry ^ foverflow) & 0x8000 != 0),
                         (Flag::OV0, ov0),
                         (Flag::OV1, ov1),
                     ],
@@ -414,7 +412,7 @@ impl CpuUpd77c25 {
             AluFunction::Shr1 => self.regs.write_flags(
                 a_flags,
                 &[
-                    (Flag::C, (a & 0x01) == 0x01),
+                    (Flag::C, (a & 0x01) != 0),
                     (Flag::OV0, false),
                     (Flag::OV1, false),
                 ],
@@ -422,7 +420,7 @@ impl CpuUpd77c25 {
             AluFunction::Shl1 => self.regs.write_flags(
                 a_flags,
                 &[
-                    (Flag::C, (a & 0x8000) == 0x8000),
+                    (Flag::C, (a & 0x8000) != 0),
                     (Flag::OV0, false),
                     (Flag::OV1, false),
                 ],
