@@ -3,8 +3,8 @@ use colored::*;
 use serbia::serbia;
 use serde::{Deserialize, Serialize};
 
-use crate::snes::bus::Bus;
-use crate::snes::cpu_spc700::cpu::{SpcAddress, SPC_ADDRESS_MASK};
+use crate::bus::Bus;
+use crate::cpu_spc700::cpu::{SpcAddress, SPC_ADDRESS_MASK};
 use crate::tickable::{Tickable, Ticks};
 
 use super::apu::ApuPorts;

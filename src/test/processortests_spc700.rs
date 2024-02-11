@@ -3,10 +3,10 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 
-use crate::snes::bus::testbus::{Access, Testbus};
-use crate::snes::bus::Bus;
-use crate::snes::cpu_spc700::cpu::{CpuSpc700, SpcAddress, SPC_ADDRESS_MASK};
-use crate::snes::cpu_spc700::regs::RegisterFile;
+use crate::bus::testbus::{Access, Testbus};
+use crate::bus::Bus;
+use crate::cpu_spc700::cpu::{CpuSpc700, SpcAddress, SPC_ADDRESS_MASK};
+use crate::cpu_spc700::regs::RegisterFile;
 
 macro_rules! _cpu_test {
     ($testfn:ident, $instr:expr, $trace:expr, $steps:expr) => {

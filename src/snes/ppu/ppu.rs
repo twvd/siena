@@ -4,8 +4,8 @@ use anyhow::Result;
 use rusty_pool::ThreadPool;
 use serde::{Deserialize, Serialize};
 
+use crate::bus::{Address, BusMember};
 use crate::frontend::Renderer;
-use crate::snes::bus::{Address, BusMember};
 use crate::snes::cartridge::VideoFormat;
 use crate::tickable::{Tickable, Ticks};
 

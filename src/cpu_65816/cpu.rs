@@ -4,7 +4,7 @@ use lrumap::LruBTreeMap;
 use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
-use crate::snes::bus::{Address, Bus, BusIterator, ADDRESS_MASK};
+use crate::bus::{Address, Bus, BusIterator, ADDRESS_MASK};
 use crate::tickable::Ticks;
 
 use super::alu;

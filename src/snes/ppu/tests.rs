@@ -1,5 +1,5 @@
+use crate::bus::BusMember;
 use crate::frontend::NullRenderer;
-use crate::snes::bus::BusMember;
 use crate::snes::cartridge::VideoFormat;
 
 use super::ppu::PPU;

@@ -1,6 +1,6 @@
 use super::state::*;
 
-use crate::snes::bus::{Address, BusMember};
+use crate::bus::{Address, BusMember};
 use crate::util::sign_extend;
 
 macro_rules! write_m7x {

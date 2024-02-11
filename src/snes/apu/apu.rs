@@ -4,9 +4,9 @@ use anyhow::Result;
 use colored::*;
 use serde::{Deserialize, Serialize};
 
-use crate::snes::bus::{Address, BusMember};
-use crate::snes::cpu_spc700::cpu::{CpuSpc700, SpcAddress};
-use crate::snes::cpu_spc700::regs::Register;
+use crate::bus::{Address, BusMember};
+use crate::cpu_spc700::cpu::{CpuSpc700, SpcAddress};
+use crate::cpu_spc700::regs::Register;
 use crate::tickable::{Tickable, Ticks};
 
 use super::apubus::Apubus;

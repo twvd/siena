@@ -7,11 +7,11 @@ pub mod processortests_spc700;
 use itertools::Itertools;
 use std::time::Instant;
 
+use crate::bus::Bus;
+use crate::cpu_65816::cpu::Cpu65816;
 use crate::frontend::test::TestRenderer;
 use crate::snes::bus::mainbus::{BusTrace, Mainbus};
-use crate::snes::bus::Bus;
 use crate::snes::cartridge::{Cartridge, VideoFormat};
-use crate::snes::cpu_65816::cpu::Cpu65816;
 use crate::snes::joypad::Joypad;
 use crate::snes::ppu::ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
 

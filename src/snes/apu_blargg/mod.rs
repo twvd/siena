@@ -4,7 +4,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use snes_spc::{SnesSpc, SpcTime};
 
-use crate::snes::bus::{Address, BusMember};
+use crate::bus::{Address, BusMember};
 use crate::tickable::{Tickable, Ticks};
 
 /// The SNES Audio Processing Unit

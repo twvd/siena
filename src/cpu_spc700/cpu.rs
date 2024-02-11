@@ -2,7 +2,7 @@ use anyhow::Result;
 use arrayvec::ArrayVec;
 use serde::{Deserialize, Serialize};
 
-use crate::snes::bus::{Bus, BusIterator};
+use crate::bus::{Bus, BusIterator};
 use crate::tickable::Ticks;
 
 use super::instruction::{Instruction, InstructionType, Operand, MAX_INSTRUCTION_LEN};

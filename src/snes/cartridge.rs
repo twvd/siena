@@ -6,8 +6,9 @@ use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use strum::Display;
 
-use super::bus::{Address, BusMember};
 use super::coprocessor::dsp1::DSP1;
+
+use crate::bus::{Address, BusMember};
 use crate::tickable::{Tickable, Ticks};
 
 const HDR_TITLE_OFFSET: usize = 0x00;

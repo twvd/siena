@@ -11,14 +11,14 @@ use sdl2::keyboard::Keycode;
 use serde::Deserialize;
 use serde_json::Deserializer;
 
+use siena::bus::Bus;
+use siena::cpu_65816::cpu::Cpu65816;
 use siena::frontend::channel::ChannelRenderer;
 use siena::frontend::gif::Gif;
 use siena::frontend::sdl::{SDLAudioSink, SDLEventPump, SDLRenderer};
 use siena::frontend::Renderer;
 use siena::snes::bus::mainbus::{BusTrace, Mainbus};
-use siena::snes::bus::Bus;
 use siena::snes::cartridge::{Cartridge, VideoFormat};
-use siena::snes::cpu_65816::cpu::Cpu65816;
 use siena::snes::joypad::{Button, Joypad, JoypadEvent};
 use siena::snes::ppu::ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
 

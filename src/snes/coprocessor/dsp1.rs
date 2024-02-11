@@ -3,8 +3,8 @@ use std::cell::{Cell, RefCell};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use crate::snes::cpu_upd77c25::cpu::CpuUpd77c25;
-use crate::snes::cpu_upd77c25::regs::{Register, SR};
+use crate::cpu_upd77c25::cpu::CpuUpd77c25;
+use crate::cpu_upd77c25::regs::{Register, SR};
 use crate::tickable::{Tickable, Ticks};
 
 /// DSP-1 co-processor
