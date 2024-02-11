@@ -380,8 +380,11 @@ impl Cartridge {
             }
 
             // HiROM SRAM
-            (0x30..=0x3F | 0x80..=0xBF, 0x6000..=0x6FFF) if self.has_ram() => {
-                Some(self.ram[(bank - 0x30) * 0x1000 + (addr - 0x6000) & self.ram_mask])
+            (0x20..=0x3F, 0x6000..=0x7FFF) if self.has_ram() => {
+                Some(self.ram[((bank - 0x20) * 0x2000 + (addr - 0x6000)) & self.ram_mask])
+            }
+            (0xA0..=0xBF, 0x6000..=0x7FFF) if self.has_ram() => {
+                Some(self.ram[(((bank - 0xA0) + 0x20) * 0x2000 + (addr - 0x6000)) & self.ram_mask])
             }
 
             // HiROM
@@ -408,9 +411,12 @@ impl Cartridge {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
         match (bank, addr) {
             // HiROM SRAM
-            (0x30..=0x3F | 0x80..=0xBF, 0x6000..=0x6FFF) if self.has_ram() => {
-                Some(self.ram[(bank - 0x30) * 0x1000 + (addr - 0x6000) & self.ram_mask] = val)
+            (0x20..=0x3F, 0x6000..=0x7FFF) if self.has_ram() => {
+                Some(self.ram[((bank - 0x20) * 0x2000 + (addr - 0x6000)) & self.ram_mask] = val)
             }
+            (0xA0..=0xBF, 0x6000..=0x7FFF) if self.has_ram() => Some(
+                self.ram[(((bank - 0xA0) + 0x20) * 0x2000 + (addr - 0x6000)) & self.ram_mask] = val,
+            ),
 
             // DSP-1 co-processor
             (0x00..=0x1F | 0x80..=0x9F, 0x6000..=0x6FFF) => {
