@@ -208,7 +208,7 @@ impl Cartridge {
             ram: vec![0; RAM_SIZE],
             header_offset: header_offset.expect("Could not locate header"),
             ram_mask: 0,
-            rom_mask: (rom.len() - 1),
+            rom_mask: 0,
             co_dsp1: None,
             mapper: Mapper::LoROM,
         };
@@ -241,6 +241,11 @@ impl Cartridge {
         if c.get_ram_size() > 0 {
             c.ram_mask = c.get_ram_size() - 1;
         }
+        c.rom_mask = c.get_rom_size() - 1;
+        println!(
+            "ROM mask: {:06X} - RAM mask: {:06X}",
+            c.rom_mask, c.ram_mask
+        );
         c
     }
 
@@ -347,8 +352,11 @@ impl Cartridge {
             }
 
             // HiROM SRAM
-            (0x30..=0x3F | 0x80..=0xBF, 0x6000..=0x6FFF) if self.has_ram() => {
-                Some(self.ram[(bank - 0x30) * 0x1000 + (addr - 0x6000) & self.ram_mask])
+            (0x30..=0x3F, 0x6000..=0x7FFF) if self.has_ram() => {
+                Some(self.ram[((bank - 0x30) * 0x2000 + (addr - 0x6000)) & self.ram_mask])
+            }
+            (0x80..=0xBF, 0x6000..=0x7FFF) if self.has_ram() => {
+                Some(self.ram[(((bank - 0x80) + 0x20) * 0x2000 + (addr - 0x6000)) & self.ram_mask])
             }
 
             // HiROM
@@ -364,9 +372,12 @@ impl Cartridge {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
         match (bank, addr) {
             // HiROM SRAM
-            (0x30..=0x3F | 0x80..=0xBF, 0x6000..=0x6FFF) if self.has_ram() => {
-                Some(self.ram[(bank - 0x30) * 0x1000 + (addr - 0x6000) & self.ram_mask] = val)
+            (0x30..=0x3F, 0x6000..=0x7FFF) if self.has_ram() => {
+                Some(self.ram[(bank - 0x30) * 0x2000 + (addr - 0x6000) & self.ram_mask] = val)
             }
+            (0x80..=0xBF, 0x6000..=0x7FFF) if self.has_ram() => Some(
+                self.ram[((bank - 0x80) + 0x20) * 0x2000 + (addr - 0x6000) & self.ram_mask] = val,
+            ),
 
             _ => None,
         }
