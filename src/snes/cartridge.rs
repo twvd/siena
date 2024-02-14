@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use strum::Display;
 
 use super::coprocessor::dsp1::DSP1;
+use super::coprocessor::superfx::SuperFX;
 
 use crate::bus::{Address, BusMember};
 use crate::tickable::{Tickable, Ticks};
@@ -63,6 +64,7 @@ pub enum Mapper {
     HiROM,
     LoROMDSP1,
     HiROMDSP1,
+    LoROMSuperFX,
 }
 
 /// A mounted SNES cartridge
@@ -84,6 +86,9 @@ pub struct Cartridge {
 
     /// DSP-1 co-processor
     co_dsp1: Option<DSP1>,
+
+    /// SuperFX co-processor
+    co_superfx: Option<SuperFX>,
 }
 
 impl Cartridge {
@@ -140,7 +145,7 @@ impl Cartridge {
     fn get_coprocessor(&self) -> Option<CoProcessor> {
         match self.get_chipset() {
             Chipset::RomCo | Chipset::RomRamCo | Chipset::RomRamCoBat | Chipset::RomCoBat => Some(
-                CoProcessor::from_u8(self.rom[self.header_offset + HDR_CHIPSET_OFFSET] & 0xF0)
+                CoProcessor::from_u8(self.rom[self.header_offset + HDR_CHIPSET_OFFSET] >> 4)
                     .unwrap(),
             ),
             _ => None,
@@ -210,6 +215,7 @@ impl Cartridge {
             ram_mask: 0,
             rom_mask: 0,
             co_dsp1: None,
+            co_superfx: None,
             mapper: Mapper::LoROM,
         };
 
@@ -225,6 +231,10 @@ impl Cartridge {
                 }
                 // TODO detect DSP-2, DSP-3, DSP-4
             }
+            Some(CoProcessor::SuperFX) => {
+                println!("SuperFX co-processor detected");
+                c.co_superfx = Some(SuperFX::new());
+            }
             Some(c) => println!("Warning: unimplemented co-processor: {:?}", c),
             None => (),
         }
@@ -235,6 +245,7 @@ impl Cartridge {
             (MapMode::HiROM, None) => Mapper::HiROM,
             (MapMode::LoROM, Some(CoProcessor::DSPx)) => Mapper::LoROMDSP1,
             (MapMode::HiROM, Some(CoProcessor::DSPx)) => Mapper::HiROMDSP1,
+            (MapMode::LoROM, Some(CoProcessor::SuperFX)) => Mapper::LoROMSuperFX,
             _ => panic!("Cannot determine mapper"),
         };
         println!("Selected mapper: {}", c.mapper);
@@ -259,6 +270,7 @@ impl Cartridge {
             ram_mask: RAM_SIZE - 1,
             rom_mask: rom.len() - 1,
             co_dsp1: None,
+            co_superfx: None,
         }
     }
 
@@ -273,6 +285,7 @@ impl Cartridge {
             ram_mask: RAM_SIZE - 1,
             rom_mask: usize::MAX,
             co_dsp1: None,
+            co_superfx: None,
         }
     }
 
@@ -313,6 +326,25 @@ impl Cartridge {
         }
     }
 
+    fn read_lorom_superfx(&self, fulladdr: Address) -> Option<u8> {
+        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+        match (bank, addr) {
+            (0x00..=0x3F | 0x80..=0xFF, 0x8000..=0xFFFF) => {
+                Some(self.rom[addr - 0x8000 + (bank & !0x80) * 0x8000])
+            }
+            (0x70..=0x7D, 0x0000..=0x7FFF) if self.has_ram() => {
+                Some(self.ram[(bank - 0x70) * 0x8000 + addr & self.ram_mask])
+            }
+
+            // SuperFX co-processor
+            (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x32FF) => {
+                let sfx = self.co_superfx.as_ref().unwrap();
+                sfx.read(fulladdr)
+            }
+            _ => None,
+        }
+    }
+
     fn write_lorom(&mut self, fulladdr: Address, val: u8) -> Option<()> {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
         match (bank, addr) {
@@ -337,6 +369,23 @@ impl Cartridge {
             (0x30..=0x3F | 0xB0..=0xBF, 0x8000..=0xBFFF) => {
                 let dsp = self.co_dsp1.as_mut().unwrap();
                 Some(dsp.write_dr(val))
+            }
+
+            _ => None,
+        }
+    }
+
+    fn write_lorom_superfx(&mut self, fulladdr: Address, val: u8) -> Option<()> {
+        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+        match (bank, addr) {
+            // LoROM SRAM
+            (0x70..=0x7D, 0x0000..=0x7FFF) if self.has_ram() => {
+                Some(self.ram[(bank - 0x70) * 0x8000 + addr & self.ram_mask] = val)
+            }
+            // SuperFX co-processor
+            (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x32FF) => {
+                let sfx = self.co_superfx.as_mut().unwrap();
+                sfx.write(fulladdr, val)
             }
 
             _ => None,
@@ -462,6 +511,7 @@ impl BusMember<Address> for Cartridge {
             Mapper::HiROM => self.read_hirom(fulladdr),
             Mapper::LoROMDSP1 => self.read_lorom_dsp(fulladdr),
             Mapper::HiROMDSP1 => self.read_hirom_dsp(fulladdr),
+            Mapper::LoROMSuperFX => self.read_lorom_superfx(fulladdr),
         }
     }
 
@@ -471,6 +521,7 @@ impl BusMember<Address> for Cartridge {
             Mapper::HiROM => self.write_hirom(fulladdr, val),
             Mapper::LoROMDSP1 => self.write_lorom_dsp(fulladdr, val),
             Mapper::HiROMDSP1 => self.write_hirom_dsp(fulladdr, val),
+            Mapper::LoROMSuperFX => self.write_lorom_superfx(fulladdr, val),
         }
     }
 }
