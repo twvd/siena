@@ -9,6 +9,7 @@ use crate::tickable::Ticks;
 pub struct CpuGsu {
     pub regs: RegisterFile,
     pub cycles: Ticks,
+    pub cache: Vec<u8>,
 }
 
 impl CpuGsu {
@@ -16,6 +17,7 @@ impl CpuGsu {
         Self {
             regs: RegisterFile::new(),
             cycles: 0,
+            cache: vec![0; 512],
         }
     }
 }

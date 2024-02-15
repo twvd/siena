@@ -255,10 +255,26 @@ impl RegisterFile {
         self.read(reg) as u8
     }
 
+    /// Writes an 8-bit register
+    pub fn write8(&mut self, reg: Register, val: u8) {
+        assert_eq!(reg.width(), RegisterWidth::EightBit);
+        self.write(reg, val as u16)
+    }
+
     /// Reads an 16-bit register
     pub fn read16(&self, reg: Register) -> u16 {
         assert_eq!(reg.width(), RegisterWidth::SixteenBit);
         self.read(reg)
+    }
+
+    /// Read an Rxx register
+    pub fn read_r(&self, r: usize) -> u16 {
+        self.r[r]
+    }
+
+    /// Write an Rxx register
+    pub fn write_r(&mut self, r: usize, val: u16) {
+        self.r[r] = val;
     }
 
     /// Read register and post-increment.

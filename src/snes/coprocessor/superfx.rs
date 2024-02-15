@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::bus::{Address, BusMember};
 use crate::cpu_gsu::cpu::CpuGsu;
+use crate::cpu_gsu::regs::Register;
 use crate::tickable::{Tickable, Ticks};
 
 /// SuperFX co-processor
@@ -33,14 +34,110 @@ impl Tickable for SuperFX {
 impl BusMember<Address> for SuperFX {
     fn read(&self, fulladdr: Address) -> Option<u8> {
         let (_bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
-        println!("SuperFX read: {:04X}", addr);
+        let cpu = self.cpu.borrow();
 
-        None
+        println!("SuperFX read: {:04X}", addr);
+        match addr {
+            0x3000..=0x301F => {
+                // Rxx registers
+                let r = (addr & 0x1F) >> 1;
+                if addr & 1 == 0 {
+                    // LSB
+                    Some(cpu.regs.read_r(r) as u8)
+                } else {
+                    // MSB
+                    Some((cpu.regs.read_r(r) >> 8) as u8)
+                }
+            }
+            0x3030 => Some(cpu.regs.read(Register::SFR) as u8),
+            0x3031 => Some((cpu.regs.read(Register::SFR) >> 8) as u8),
+            // 0x3032 unused
+            0x3033 => Some(cpu.regs.read8(Register::BRAMBR)),
+            0x3034 => Some(cpu.regs.read8(Register::PBR)),
+            // 0x3035 unused
+            0x3036 => Some(cpu.regs.read8(Register::ROMBR)),
+            0x3037 => Some(cpu.regs.read8(Register::CFGR)),
+            0x3038 => Some(cpu.regs.read8(Register::SCBR)),
+            0x3039 => Some(cpu.regs.read8(Register::CLSR)),
+            0x303A => Some(cpu.regs.read8(Register::SCMR)),
+            0x303B => Some(cpu.regs.read8(Register::VCR)),
+            0x303C => Some(cpu.regs.read8(Register::RAMBR)),
+            // 0x303D unused
+            0x303E => Some(cpu.regs.read(Register::CBR) as u8),
+            0x303F => Some((cpu.regs.read(Register::CBR) >> 8) as u8),
+
+            // Instruction cache
+            0x3100..=0x32FF => Some(cpu.cache[addr - 0x3100]),
+
+            _ => None,
+        }
     }
 
     fn write(&mut self, fulladdr: Address, val: u8) -> Option<()> {
         let (_bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+        let mut cpu = self.cpu.borrow_mut();
+
         println!("SuperFX write: {:04X} {:02X}", addr, val);
-        None
+
+        match addr {
+            0x3000..=0x301F => {
+                // Rxx registers
+                let r = (addr & 0x1F) >> 1;
+                let curval = cpu.regs.read_r(r);
+                let newval = if addr & 1 == 0 {
+                    // LSB
+                    (curval & 0xFF00) | (val as u16)
+                } else {
+                    // MSB
+                    (curval & 0xFF) | ((val as u16) << 8)
+                };
+                Some(cpu.regs.write_r(r, newval))
+            }
+            0x3030 => {
+                let curval = cpu.regs.read(Register::SFR);
+                Some(
+                    cpu.regs
+                        .write(Register::SFR, (curval & 0xFF00) | (val as u16)),
+                )
+            }
+            0x3031 => {
+                let curval = cpu.regs.read(Register::SFR);
+                Some(
+                    cpu.regs
+                        .write(Register::SFR, (curval & 0xFF) | ((val as u16) << 8)),
+                )
+            }
+            // 0x3032 unused
+            0x3033 => Some(cpu.regs.write8(Register::BRAMBR, val)),
+            0x3034 => Some(cpu.regs.write8(Register::PBR, val)),
+            // 0x3035 unused
+            0x3036 => Some(cpu.regs.write8(Register::ROMBR, val)),
+            0x3037 => Some(cpu.regs.write8(Register::CFGR, val)),
+            0x3038 => Some(cpu.regs.write8(Register::SCBR, val)),
+            0x3039 => Some(cpu.regs.write8(Register::CLSR, val)),
+            0x303A => Some(cpu.regs.write8(Register::SCMR, val)),
+            0x303B => Some(cpu.regs.write8(Register::VCR, val)),
+            0x303C => Some(cpu.regs.write8(Register::RAMBR, val)),
+            // 0x303D unused
+            0x303E => {
+                let curval = cpu.regs.read(Register::CBR);
+                Some(
+                    cpu.regs
+                        .write(Register::CBR, (curval & 0xFF00) | (val as u16)),
+                )
+            }
+            0x303F => {
+                let curval = cpu.regs.read(Register::CBR);
+                Some(
+                    cpu.regs
+                        .write(Register::CBR, (curval & 0xFF00) | (val as u16)),
+                )
+            }
+
+            // Instruction cache
+            0x3100..=0x32FF => Some(cpu.cache[addr - 0x3100] = val),
+
+            _ => None,
+        }
     }
 }
