@@ -18,7 +18,7 @@ use siena::frontend::gif::Gif;
 use siena::frontend::sdl::{SDLAudioSink, SDLEventPump, SDLRenderer};
 use siena::frontend::Renderer;
 use siena::snes::bus::mainbus::{BusTrace, Mainbus};
-use siena::snes::cartridge::{Cartridge, VideoFormat};
+use siena::snes::cartridge::{Cartridge, Mapper, VideoFormat};
 use siena::snes::joypad::{Button, Joypad, JoypadEvent};
 use siena::snes::ppu::ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
@@ -95,13 +95,9 @@ struct Args {
     #[arg(long)]
     state: Option<String>,
 
-    /// Skip cartridge header detection, load as LoROM (mostly for test ROMs)
+    /// Skip cartridge header detection, load with specified mapper (mostly for test ROMs)
     #[arg(long)]
-    no_header: bool,
-
-    /// Skip cartridge header detection, load as HiROM (mostly for test ROMs)
-    #[arg(long)]
-    no_header_hirom: bool,
+    mapper: Option<Mapper>,
 
     /// Override frame rate limit (0 = unlimited)
     #[arg(long)]
@@ -142,12 +138,12 @@ fn main() -> Result<()> {
     } else {
         None
     };
-    let cartridge = if !args.no_header && !args.no_header_hirom {
+    let cartridge = if args.mapper.is_none() {
         let c = Cartridge::load(&f, f_co.as_deref());
         println!("Cartridge: {}", &c);
         c
     } else {
-        Cartridge::load_nohdr(&f, args.no_header_hirom)
+        Cartridge::load_nohdr(&f, args.mapper.unwrap())
     };
     let fn_title = cartridge.get_title_clean();
 

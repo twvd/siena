@@ -58,7 +58,18 @@ pub enum MapMode {
     ExHiROM = 5,
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, FromPrimitive, Serialize, Deserialize, Display)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Eq,
+    PartialEq,
+    FromPrimitive,
+    Serialize,
+    Deserialize,
+    Display,
+    clap::ValueEnum,
+)]
 pub enum Mapper {
     LoROM,
     HiROM,
@@ -261,16 +272,20 @@ impl Cartridge {
     }
 
     /// Loads a cartridge but does not do header detection
-    pub fn load_nohdr(rom: &[u8], hirom: bool) -> Self {
+    pub fn load_nohdr(rom: &[u8], mapper: Mapper) -> Self {
         Self {
             rom: Vec::from(rom),
             ram: vec![0; RAM_SIZE],
-            mapper: if hirom { Mapper::HiROM } else { Mapper::LoROM },
+            mapper: mapper,
             header_offset: 0,
             ram_mask: RAM_SIZE - 1,
             rom_mask: rom.len() - 1,
             co_dsp1: None,
-            co_superfx: None,
+            co_superfx: if mapper == Mapper::LoROMSuperFX {
+                Some(SuperFX::new())
+            } else {
+                None
+            },
         }
     }
 
