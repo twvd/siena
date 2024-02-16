@@ -75,7 +75,7 @@ pub enum Mapper {
     HiROM,
     LoROMDSP1,
     HiROMDSP1,
-    LoROMSuperFX,
+    SuperFX,
 }
 
 /// A mounted SNES cartridge
@@ -256,7 +256,7 @@ impl Cartridge {
             (MapMode::HiROM, None) => Mapper::HiROM,
             (MapMode::LoROM, Some(CoProcessor::DSPx)) => Mapper::LoROMDSP1,
             (MapMode::HiROM, Some(CoProcessor::DSPx)) => Mapper::HiROMDSP1,
-            (MapMode::LoROM, Some(CoProcessor::SuperFX)) => Mapper::LoROMSuperFX,
+            (MapMode::LoROM, Some(CoProcessor::SuperFX)) => Mapper::SuperFX,
             _ => panic!("Cannot determine mapper"),
         };
         println!("Selected mapper: {}", c.mapper);
@@ -281,7 +281,7 @@ impl Cartridge {
             ram_mask: RAM_SIZE - 1,
             rom_mask: rom.len() - 1,
             co_dsp1: None,
-            co_superfx: if mapper == Mapper::LoROMSuperFX {
+            co_superfx: if mapper == Mapper::SuperFX {
                 Some(SuperFX::new(rom))
             } else {
                 None
@@ -341,15 +341,28 @@ impl Cartridge {
         }
     }
 
-    fn read_lorom_superfx(&self, fulladdr: Address) -> Option<u8> {
+    fn read_superfx(&self, fulladdr: Address) -> Option<u8> {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+
         match (bank, addr) {
+            // LoROM
             (0x00..=0x3F | 0x80..=0xFF, 0x8000..=0xFFFF) => {
                 Some(self.rom[addr - 0x8000 + (bank & !0x80) * 0x8000])
             }
-            (0x70..=0x7D, 0x0000..=0x7FFF) if self.has_ram() => {
-                Some(self.ram[(bank - 0x70) * 0x8000 + addr & self.ram_mask])
+
+            // HiROM
+            (0x40..=0x6F, _) => Some(self.rom[(addr + ((bank - 0x40) * 0x10000)) & self.rom_mask]),
+            (0xC0..=0xFF, _) => Some(self.rom[(addr + ((bank - 0xC0) * 0x10000)) & self.rom_mask]),
+
+            // Shared SRAM
+            (0x70..=0x71, 0x0000..=0xFFFF) => {
+                let sfx = self.co_superfx.as_ref().unwrap();
+                let cpu = sfx.cpu.borrow();
+                Some(cpu.ram[(bank - 0x70) * 0x10000 + addr])
             }
+
+            // Backup RAM
+            (0x7C..=0x7D, 0x0000..=0xFFFF) => Some(self.ram[(bank - 0x7C) * 0x10000 + addr]),
 
             // SuperFX co-processor
             (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x32FF) => {
@@ -390,13 +403,19 @@ impl Cartridge {
         }
     }
 
-    fn write_lorom_superfx(&mut self, fulladdr: Address, val: u8) -> Option<()> {
+    fn write_superfx(&mut self, fulladdr: Address, val: u8) -> Option<()> {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
         match (bank, addr) {
-            // LoROM SRAM
-            (0x70..=0x7D, 0x0000..=0x7FFF) if self.has_ram() => {
-                Some(self.ram[(bank - 0x70) * 0x8000 + addr & self.ram_mask] = val)
+            // Shared SRAM
+            (0x70..=0x71, 0x0000..=0xFFFF) => {
+                let sfx = self.co_superfx.as_ref().unwrap();
+                let mut cpu = sfx.cpu.borrow_mut();
+                Some(cpu.ram[(bank - 0x70) * 0x10000 + addr] = val)
             }
+
+            // Backup RAM
+            (0x7C..=0x7D, 0x0000..=0xFFFF) => Some(self.ram[(bank - 0x7C) * 0x10000 + addr] = val),
+
             // SuperFX co-processor
             (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x32FF) => {
                 let sfx = self.co_superfx.as_mut().unwrap();
@@ -526,7 +545,7 @@ impl BusMember<Address> for Cartridge {
             Mapper::HiROM => self.read_hirom(fulladdr),
             Mapper::LoROMDSP1 => self.read_lorom_dsp(fulladdr),
             Mapper::HiROMDSP1 => self.read_hirom_dsp(fulladdr),
-            Mapper::LoROMSuperFX => self.read_lorom_superfx(fulladdr),
+            Mapper::SuperFX => self.read_superfx(fulladdr),
         }
     }
 
@@ -536,7 +555,7 @@ impl BusMember<Address> for Cartridge {
             Mapper::HiROM => self.write_hirom(fulladdr, val),
             Mapper::LoROMDSP1 => self.write_lorom_dsp(fulladdr, val),
             Mapper::HiROMDSP1 => self.write_hirom_dsp(fulladdr, val),
-            Mapper::LoROMSuperFX => self.write_lorom_superfx(fulladdr, val),
+            Mapper::SuperFX => self.write_superfx(fulladdr, val),
         }
     }
 }

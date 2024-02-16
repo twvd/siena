@@ -12,7 +12,7 @@ use crate::tickable::{Tickable, Ticks};
 #[derive(Serialize, Deserialize)]
 pub struct SuperFX {
     /// GSU CPU core
-    cpu: RefCell<CpuGsu>,
+    pub cpu: RefCell<CpuGsu>,
 }
 
 impl SuperFX {
