@@ -565,6 +565,9 @@ impl Tickable for Cartridge {
         if let Some(dsp) = self.co_dsp1.as_mut() {
             dsp.tick(ticks)?;
         }
+        if let Some(sfx) = self.co_superfx.as_mut() {
+            sfx.tick(ticks)?;
+        }
         Ok(())
     }
 }

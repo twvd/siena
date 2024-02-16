@@ -24,10 +24,10 @@ impl SuperFX {
 }
 
 impl Tickable for SuperFX {
-    fn tick(&mut self, _ticks: Ticks) -> Result<()> {
+    fn tick(&mut self, ticks: Ticks) -> Result<()> {
         let mut cpu = self.cpu.borrow_mut();
 
-        Ok(())
+        cpu.tick(ticks)
     }
 }
 
