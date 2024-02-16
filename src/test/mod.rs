@@ -1,5 +1,6 @@
 pub mod peterlemon_65816;
 pub mod peterlemon_bank;
+pub mod peterlemon_gsu;
 pub mod peterlemon_ppu;
 pub mod processortests_65816;
 pub mod processortests_spc700;
@@ -15,10 +16,10 @@ use crate::snes::cartridge::{Cartridge, Mapper, VideoFormat};
 use crate::snes::joypad::Joypad;
 use crate::snes::ppu::ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
-fn test_display(rom: &[u8], pass_hash: &[u8], time_limit: u128, stable: bool, hirom: bool) {
+fn test_display(rom: &[u8], pass_hash: &[u8], time_limit: u128, stable: bool, mapper: Mapper) {
     let (display, dispstatus) = TestRenderer::new_test(SCREEN_WIDTH, SCREEN_HEIGHT);
     let (joypads, _) = Joypad::new_channel_all();
-    let cart = Cartridge::load_nohdr(rom, if hirom { Mapper::HiROM } else { Mapper::LoROM });
+    let cart = Cartridge::load_nohdr(rom, mapper);
     let bus = Mainbus::<TestRenderer>::new(
         cart,
         BusTrace::None,

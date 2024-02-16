@@ -7,6 +7,9 @@ use crate::tickable::{Tickable, Ticks};
 
 pub type GsuAddress = u32;
 pub const GSU_ADDRESS_MASK: GsuAddress = 0xFFFFFF;
+fn gsu_addr_add(addr: GsuAddress, i: GsuAddress) -> GsuAddress {
+    (addr & 0xFF0000) | (addr.wrapping_add(i) & 0xFFFF)
+}
 
 #[derive(Serialize, Deserialize)]
 pub enum GsuBus {
@@ -65,14 +68,52 @@ impl CpuGsu {
         }
     }
 
+    pub fn read16_bus(&self, fulladdr: GsuAddress) -> u16 {
+        (self.read_bus(fulladdr) as u16) | ((self.read_bus(gsu_addr_add(fulladdr, 1)) as u16) << 8)
+    }
+
     pub fn step(&mut self) -> Result<()> {
-        let pc = (GsuAddress::from(self.regs.read(Register::PBR)) << 16)
-            | GsuAddress::from(self.regs.read(Register::R15));
-        let instr = self.read_bus(pc);
+        let pc_bank = GsuAddress::from(self.regs.read(Register::PBR)) << 16;
+        let pc_addr = GsuAddress::from(self.regs.read(Register::R15));
+        let pc_plus = |i| gsu_addr_add(pc_bank | pc_addr, i);
+
+        let instr = self.read_bus(pc_bank | pc_addr);
 
         match instr {
+            0x00 => {
+                // STOP
+                self.regs.write_flags(&[(Flag::G, false)]);
+                self.finish_instr(1, 3, 3, 1)?;
+            }
+            0x01 => {
+                // NOP
+                self.finish_instr(1, 3, 3, 1)?;
+            }
+            0xF0..=0xFF => {
+                // IWT
+                let reg = (instr & 0x0F) as usize;
+                let imm = self.read16_bus(pc_plus(1));
+                self.regs.write_r(reg, imm);
+                self.finish_instr(3, 9, 9, 3)?;
+            }
             _ => panic!("Unimplemented instruction {:02X}", instr),
         }
+        Ok(())
+    }
+
+    fn finish_instr(
+        &mut self,
+        len: usize,
+        _cy_rom: Ticks,
+        _cy_ram: usize,
+        _cy_cache: usize,
+    ) -> Result<()> {
+        let pc = self.regs.read(Register::R15);
+        self.regs.write(Register::R15, pc.wrapping_add(len as u16));
+
+        // TODO cycles
+
+        Ok(())
     }
 }
 

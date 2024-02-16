@@ -1,4 +1,5 @@
 use super::test_display;
+use crate::snes::cartridge::Mapper;
 
 use hex_literal::hex;
 
@@ -18,7 +19,7 @@ macro_rules! test {
                 &hex!($hash),
                 20000,
                 true,
-                false,
+                Mapper::LoROM,
             );
         }
     };
