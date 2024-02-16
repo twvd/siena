@@ -11,14 +11,14 @@ use crate::bus::Bus;
 use crate::cpu_65816::cpu::Cpu65816;
 use crate::frontend::test::TestRenderer;
 use crate::snes::bus::mainbus::{BusTrace, Mainbus};
-use crate::snes::cartridge::{Cartridge, VideoFormat};
+use crate::snes::cartridge::{Cartridge, Mapper, VideoFormat};
 use crate::snes::joypad::Joypad;
 use crate::snes::ppu::ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
 fn test_display(rom: &[u8], pass_hash: &[u8], time_limit: u128, stable: bool, hirom: bool) {
     let (display, dispstatus) = TestRenderer::new_test(SCREEN_WIDTH, SCREEN_HEIGHT);
     let (joypads, _) = Joypad::new_channel_all();
-    let cart = Cartridge::load_nohdr(rom, hirom);
+    let cart = Cartridge::load_nohdr(rom, if hirom { Mapper::HiROM } else { Mapper::LoROM });
     let bus = Mainbus::<TestRenderer>::new(
         cart,
         BusTrace::None,
