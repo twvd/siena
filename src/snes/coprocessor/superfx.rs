@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::bus::{Address, BusMember};
 use crate::cpu_gsu::cpu::CpuGsu;
-use crate::cpu_gsu::regs::Register;
+use crate::cpu_gsu::regs::{Flag, Register};
 use crate::tickable::{Tickable, Ticks};
 
 /// SuperFX co-processor
@@ -16,9 +16,9 @@ pub struct SuperFX {
 }
 
 impl SuperFX {
-    pub fn new() -> Self {
+    pub fn new(rom: &[u8]) -> Self {
         Self {
-            cpu: RefCell::new(CpuGsu::new()),
+            cpu: RefCell::new(CpuGsu::new(rom)),
         }
     }
 }
@@ -36,7 +36,7 @@ impl BusMember<Address> for SuperFX {
         let (_bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
         let cpu = self.cpu.borrow();
 
-        println!("SuperFX read: {:04X}", addr);
+        //println!("SuperFX read: {:04X}", addr);
         match addr {
             0x3000..=0x301F => {
                 // Rxx registers
@@ -91,7 +91,14 @@ impl BusMember<Address> for SuperFX {
                     // MSB
                     (curval & 0xFF) | ((val as u16) << 8)
                 };
-                Some(cpu.regs.write_r(r, newval))
+                cpu.regs.write_r(r, newval);
+
+                // If PC (R15) is written, start execution
+                if r == 15 && addr & 1 != 0 && !cpu.regs.test_flag(Flag::G) {
+                    cpu.regs.write_flags(&[(Flag::G, true)]);
+                }
+
+                Some(())
             }
             0x3030 => {
                 let curval = cpu.regs.read(Register::SFR);

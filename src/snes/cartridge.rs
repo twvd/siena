@@ -244,7 +244,7 @@ impl Cartridge {
             }
             Some(CoProcessor::SuperFX) => {
                 println!("SuperFX co-processor detected");
-                c.co_superfx = Some(SuperFX::new());
+                c.co_superfx = Some(SuperFX::new(rom));
             }
             Some(c) => println!("Warning: unimplemented co-processor: {:?}", c),
             None => (),
@@ -282,7 +282,7 @@ impl Cartridge {
             rom_mask: rom.len() - 1,
             co_dsp1: None,
             co_superfx: if mapper == Mapper::LoROMSuperFX {
-                Some(SuperFX::new())
+                Some(SuperFX::new(rom))
             } else {
                 None
             },
