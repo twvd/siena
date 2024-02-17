@@ -92,23 +92,38 @@ impl CpuGsu {
     pub fn step(&mut self) -> Result<()> {
         let instr = self.fetch();
 
-        match instr {
-            0x00 => {
+        // Note: ALTx is ignored if the opcode following does not
+        // require ALTx.
+        let alt1 = self.regs.test_flag(Flag::ALT1);
+        let alt2 = self.regs.test_flag(Flag::ALT2);
+        self.regs
+            .write_flags(&[(Flag::ALT1, false), (Flag::ALT2, false)]);
+
+        let sreg = self.sreg;
+        let dreg = self.dreg;
+        // SREG/DREG are reset after execution, but should persist
+        // for branch instructions.
+        self.sreg = 0;
+        self.dreg = 0;
+
+        match (instr, alt1, alt2) {
+            (0x00, _, _) => {
                 // STOP
                 self.regs.write_flags(&[(Flag::G, false)]);
                 self.cycles(3, 3, 1)?;
             }
-            0x01 => {
+            (0x01, _, _) => {
                 // NOP
                 self.cycles(3, 3, 1)?;
             }
-            0x10..=0x1F => {
+            (0x10..=0x1F, _, _) => {
                 // TO
                 let reg = (instr & 0x0F) as usize;
                 self.dreg = reg;
                 self.cycles(3, 3, 1)?;
             }
-            0x20..=0x2F => {
+            (0x20..=0x2F, _, _) => {
+                println!("with {:02X}", instr);
                 // WITH
                 let reg = (instr & 0x0F) as usize;
                 self.sreg = reg;
@@ -116,44 +131,94 @@ impl CpuGsu {
                 // cycles unknown, assumed 3/3/1
                 self.cycles(3, 3, 1)?;
             }
-            0x3D => {
+            (0x3D, _, _) => {
                 // ALT1
                 self.regs.write_flags(&[(Flag::ALT1, true)]);
+
+                // Prefix opcodes preserve SReg/DReg
+                self.sreg = sreg;
+                self.dreg = dreg;
+
                 self.cycles(3, 3, 1)?;
             }
-            0x3E => {
+            (0x3E, _, _) => {
                 // ALT2
                 self.regs.write_flags(&[(Flag::ALT2, true)]);
+
+                // Prefix opcodes preserve SReg/DReg
+                self.sreg = sreg;
+                self.dreg = dreg;
+
                 self.cycles(3, 3, 1)?;
             }
-            0x3F => {
+            (0x3F, _, _) => {
                 // ALT3
                 self.regs
                     .write_flags(&[(Flag::ALT1, true), (Flag::ALT2, true)]);
+
+                // Prefix opcodes preserve SReg/DReg
+                self.sreg = sreg;
+                self.dreg = dreg;
+
                 self.cycles(3, 3, 1)?;
             }
-            0x4F => {
+            (0x4F, _, _) => {
                 // NOT
-                let result = !self.regs.read_r(self.sreg);
-                self.regs.write_r(self.dreg, result);
+                let result = !self.regs.read_r(sreg);
+                self.regs.write_r(dreg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
                 self.cycles(3, 3, 1)?;
             }
-            0xB0..=0xBF => {
+            (0xB0..=0xBF, _, _) => {
                 // FROM
                 let reg = (instr & 0x0F) as usize;
                 self.sreg = reg;
                 self.cycles(3, 3, 1)?;
             }
-            0xF0..=0xFF => {
+            (0xC0, _, _) => {
+                // HIB
+                let result = self.regs.read_r(sreg) >> 8;
+                self.regs.write_r(dreg, result);
+                self.regs
+                    .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x80 != 0)]);
+                self.cycles(3, 3, 1)?;
+            }
+            (0xC1..=0xCF, true, false) => {
+                // XOR r#
+                let s2reg = (instr & 0x0F) as usize;
+                let s1 = self.regs.read_r(sreg);
+                let s2 = self.regs.read_r(s2reg);
+
+                let result = s1 ^ s2;
+                println!("{:02X} ^ {:02X} = {:02X} {}", s1, s2, result, dreg);
+                self.regs.write_r(dreg, result);
+                self.regs
+                    .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
+                self.cycles(3, 3, 1)?;
+            }
+            (0xC1..=0xCF, true, true) => {
+                // XOR #
+                let s1 = self.regs.read_r(sreg);
+                let s2 = (instr & 0x0F) as u16;
+
+                let result = s1 ^ s2;
+                self.regs.write_r(dreg, result);
+                self.regs
+                    .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
+                self.cycles(3, 3, 1)?;
+            }
+            (0xF0..=0xFF, _, _) => {
                 // IWT
                 let reg = (instr & 0x0F) as usize;
                 let imm = self.fetch16();
                 self.regs.write_r(reg, imm);
                 self.cycles(9, 9, 3)?;
             }
-            _ => panic!("Unimplemented instruction {:02X}", instr),
+            _ => panic!(
+                "Unimplemented instruction {:02X} alt1 = {} alt2 = {}",
+                instr, alt1, alt2
+            ),
         }
         Ok(())
     }
