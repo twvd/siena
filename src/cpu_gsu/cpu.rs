@@ -170,6 +170,17 @@ impl CpuGsu {
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
                 self.cycles(3, 3, 1)?;
             }
+            (0x95, _, _) => {
+                // SEX
+                let s = self.regs.read_r(sreg) & 0xFF;
+                let sgn = if s & 0x80 != 0 { 0xFF00_u16 } else { 0_u16 };
+                let result = sgn | s;
+
+                self.regs.write_r(dreg, result);
+                self.regs
+                    .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
+                self.cycles(3, 3, 1)?;
+            }
             (0xB0..=0xBF, _, _) => {
                 // FROM
                 let reg = (instr & 0x0F) as usize;
