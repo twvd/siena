@@ -203,7 +203,7 @@ impl CpuGsu {
                 self.regs.write_r(dreg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
-                self.cycles(3, 3, 1)?;
+                self.cycles(6, 6, 2)?;
             }
             (0x95, _, _) => {
                 // SEX
@@ -251,7 +251,7 @@ impl CpuGsu {
                 self.regs.write_r(dreg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
-                self.cycles(3, 3, 1)?;
+                self.cycles(6, 6, 2)?;
             }
             (0xF0..=0xFF, _, _) => {
                 // IWT
