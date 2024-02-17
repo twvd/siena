@@ -123,7 +123,6 @@ impl CpuGsu {
                 self.cycles(3, 3, 1)?;
             }
             (0x20..=0x2F, _, _) => {
-                println!("with {:02X}", instr);
                 // WITH
                 let reg = (instr & 0x0F) as usize;
                 self.sreg = reg;
@@ -170,6 +169,42 @@ impl CpuGsu {
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
                 self.cycles(3, 3, 1)?;
             }
+            (0x70, _, _) => {
+                // MERGE
+                let result = (self.regs.read(Register::R7) & 0xFF00)
+                    .wrapping_add(self.regs.read(Register::R8) / 0x0100);
+                self.regs.write_r(dreg, result);
+                self.regs.write_flags(&[
+                    (Flag::S, result & 0x8080 != 0),
+                    (Flag::V, result & 0xC0C0 != 0),
+                    (Flag::C, result & 0xE0E0 != 0),
+                    (Flag::Z, result & 0xF0F0 != 0),
+                ]);
+                self.cycles(3, 3, 1)?;
+            }
+            (0x71..=0x7F, false, false) => {
+                // AND r#
+                let s2reg = (instr & 0x0F) as usize;
+                let s1 = self.regs.read_r(sreg);
+                let s2 = self.regs.read_r(s2reg);
+
+                let result = s1 & s2;
+                self.regs.write_r(dreg, result);
+                self.regs
+                    .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
+                self.cycles(3, 3, 1)?;
+            }
+            (0x71..=0x7F, false, true) => {
+                // AND #
+                let s1 = self.regs.read_r(sreg);
+                let s2 = (instr & 0x0F) as u16;
+
+                let result = s1 & s2;
+                self.regs.write_r(dreg, result);
+                self.regs
+                    .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
+                self.cycles(3, 3, 1)?;
+            }
             (0x95, _, _) => {
                 // SEX
                 let s = self.regs.read_r(sreg) & 0xFF;
@@ -202,7 +237,6 @@ impl CpuGsu {
                 let s2 = self.regs.read_r(s2reg);
 
                 let result = s1 ^ s2;
-                println!("{:02X} ^ {:02X} = {:02X} {}", s1, s2, result, dreg);
                 self.regs.write_r(dreg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);

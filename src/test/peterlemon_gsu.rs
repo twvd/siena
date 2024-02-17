@@ -26,12 +26,20 @@ macro_rules! test {
 }
 
 test!(
+    AND,
+    "cd8cfe5d386d79c67599942f6f35403a8cca101b5337ac4e83e3ceacb6798bc8"
+);
+test!(
     HIB,
     "007cc9321ac216460fa3827b590cd9e320206da8e87049ad82c17ff62c049c0a"
 );
 test!(
     IWT,
     "8f9723fd9dc60671f2fe8533c2bbe440f00159d629022dbafb2480934e2d1603"
+);
+test!(
+    MERGE,
+    "e9fe1f2f7a24612b0d43ea5241b64b3c2453d0f824b3152c7d4cb85d1525e25c"
 );
 test!(
     NOT,

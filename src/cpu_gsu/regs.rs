@@ -25,7 +25,7 @@ pub enum Flag {
     /// Go (GSU is running)
     G = 5,
     /// Overflow
-    OV = 4,
+    V = 4,
     /// Sign
     S = 3,
     /// Carry
