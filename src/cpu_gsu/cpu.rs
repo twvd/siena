@@ -26,6 +26,9 @@ pub struct CpuGsu {
     pub cache: Vec<u8>,
     pub rom: Vec<u8>,
     pub ram: Vec<u8>,
+
+    sreg: usize,
+    dreg: usize,
 }
 
 impl CpuGsu {
@@ -36,6 +39,8 @@ impl CpuGsu {
             cache: vec![0; 512],
             rom: vec![0xFF; 8 * 1024 * 1024],
             ram: vec![0xFF; 256 * 1024],
+            sreg: 0,
+            dreg: 0,
         };
 
         c.rom[0..rom.len()].copy_from_slice(rom);
@@ -87,6 +92,42 @@ impl CpuGsu {
             }
             0x01 => {
                 // NOP
+                self.finish_instr(1, 3, 3, 1)?;
+            }
+            0x10..=0x1F => {
+                // TO
+                let reg = (instr & 0x0F) as usize;
+                self.dreg = reg;
+                self.finish_instr(1, 3, 3, 1)?;
+            }
+            0x20..=0x2F => {
+                // WITH
+                let reg = (instr & 0x0F) as usize;
+                self.sreg = reg;
+                self.dreg = reg;
+                // cycles unknown, assumed 3/3/1
+                self.finish_instr(1, 3, 3, 1)?;
+            }
+            0x3D => {
+                // ALT1
+                self.regs.write_flags(&[(Flag::ALT1, true)]);
+                self.finish_instr(1, 3, 3, 1)?;
+            }
+            0x3E => {
+                // ALT2
+                self.regs.write_flags(&[(Flag::ALT2, true)]);
+                self.finish_instr(1, 3, 3, 1)?;
+            }
+            0x3F => {
+                // ALT3
+                self.regs
+                    .write_flags(&[(Flag::ALT1, true), (Flag::ALT2, true)]);
+                self.finish_instr(1, 3, 3, 1)?;
+            }
+            0xB0..=0xBF => {
+                // FROM
+                let reg = (instr & 0x0F) as usize;
+                self.sreg = reg;
                 self.finish_instr(1, 3, 3, 1)?;
             }
             0xF0..=0xFF => {
