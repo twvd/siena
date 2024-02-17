@@ -30,6 +30,10 @@ test!(
     "cd8cfe5d386d79c67599942f6f35403a8cca101b5337ac4e83e3ceacb6798bc8"
 );
 test!(
+    BIC,
+    "06aa897653bc52e02cf37f65b0bc71951a440b465aeed2d839e28dacaea1261e"
+);
+test!(
     HIB,
     "007cc9321ac216460fa3827b590cd9e320206da8e87049ad82c17ff62c049c0a"
 );
