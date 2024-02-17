@@ -77,28 +77,36 @@ impl CpuGsu {
         (self.read_bus(fulladdr) as u16) | ((self.read_bus(gsu_addr_add(fulladdr, 1)) as u16) << 8)
     }
 
-    pub fn step(&mut self) -> Result<()> {
+    fn fetch(&mut self) -> u8 {
         let pc_bank = GsuAddress::from(self.regs.read(Register::PBR)) << 16;
-        let pc_addr = GsuAddress::from(self.regs.read(Register::R15));
-        let pc_plus = |i| gsu_addr_add(pc_bank | pc_addr, i);
+        let pc = pc_bank | GsuAddress::from(self.regs.read_inc(Register::R15));
+        self.read_bus(pc)
+    }
 
-        let instr = self.read_bus(pc_bank | pc_addr);
+    fn fetch16(&mut self) -> u16 {
+        let lo = self.fetch() as u16;
+        let hi = self.fetch() as u16;
+        lo | (hi << 8)
+    }
+
+    pub fn step(&mut self) -> Result<()> {
+        let instr = self.fetch();
 
         match instr {
             0x00 => {
                 // STOP
                 self.regs.write_flags(&[(Flag::G, false)]);
-                self.finish_instr(1, 3, 3, 1)?;
+                self.cycles(3, 3, 1)?;
             }
             0x01 => {
                 // NOP
-                self.finish_instr(1, 3, 3, 1)?;
+                self.cycles(3, 3, 1)?;
             }
             0x10..=0x1F => {
                 // TO
                 let reg = (instr & 0x0F) as usize;
                 self.dreg = reg;
-                self.finish_instr(1, 3, 3, 1)?;
+                self.cycles(3, 3, 1)?;
             }
             0x20..=0x2F => {
                 // WITH
@@ -106,52 +114,51 @@ impl CpuGsu {
                 self.sreg = reg;
                 self.dreg = reg;
                 // cycles unknown, assumed 3/3/1
-                self.finish_instr(1, 3, 3, 1)?;
+                self.cycles(3, 3, 1)?;
             }
             0x3D => {
                 // ALT1
                 self.regs.write_flags(&[(Flag::ALT1, true)]);
-                self.finish_instr(1, 3, 3, 1)?;
+                self.cycles(3, 3, 1)?;
             }
             0x3E => {
                 // ALT2
                 self.regs.write_flags(&[(Flag::ALT2, true)]);
-                self.finish_instr(1, 3, 3, 1)?;
+                self.cycles(3, 3, 1)?;
             }
             0x3F => {
                 // ALT3
                 self.regs
                     .write_flags(&[(Flag::ALT1, true), (Flag::ALT2, true)]);
-                self.finish_instr(1, 3, 3, 1)?;
+                self.cycles(3, 3, 1)?;
+            }
+            0x4F => {
+                // NOT
+                let result = !self.regs.read_r(self.sreg);
+                self.regs.write_r(self.dreg, result);
+                self.regs
+                    .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
+                self.cycles(3, 3, 1)?;
             }
             0xB0..=0xBF => {
                 // FROM
                 let reg = (instr & 0x0F) as usize;
                 self.sreg = reg;
-                self.finish_instr(1, 3, 3, 1)?;
+                self.cycles(3, 3, 1)?;
             }
             0xF0..=0xFF => {
                 // IWT
                 let reg = (instr & 0x0F) as usize;
-                let imm = self.read16_bus(pc_plus(1));
+                let imm = self.fetch16();
                 self.regs.write_r(reg, imm);
-                self.finish_instr(3, 9, 9, 3)?;
+                self.cycles(9, 9, 3)?;
             }
             _ => panic!("Unimplemented instruction {:02X}", instr),
         }
         Ok(())
     }
 
-    fn finish_instr(
-        &mut self,
-        len: usize,
-        _cy_rom: Ticks,
-        _cy_ram: usize,
-        _cy_cache: usize,
-    ) -> Result<()> {
-        let pc = self.regs.read(Register::R15);
-        self.regs.write(Register::R15, pc.wrapping_add(len as u16));
-
+    fn cycles(&mut self, _cy_rom: Ticks, _cy_ram: usize, _cy_cache: usize) -> Result<()> {
         // TODO cycles
 
         Ok(())
