@@ -230,6 +230,18 @@ impl CpuGsu {
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x80 != 0)]);
                 self.cycles(3, 3, 1)?;
             }
+            (0xC1..=0xCF, false, false) => {
+                // OR r#
+                let s2reg = (instr & 0x0F) as usize;
+                let s1 = self.regs.read_r(sreg);
+                let s2 = self.regs.read_r(s2reg);
+
+                let result = s1 | s2;
+                self.regs.write_r(dreg, result);
+                self.regs
+                    .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
+                self.cycles(3, 3, 1)?;
+            }
             (0xC1..=0xCF, true, false) => {
                 // XOR r#
                 let s2reg = (instr & 0x0F) as usize;
@@ -241,6 +253,17 @@ impl CpuGsu {
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
                 self.cycles(3, 3, 1)?;
+            }
+            (0xC1..=0xCF, false, true) => {
+                // OR #
+                let s1 = self.regs.read_r(sreg);
+                let s2 = (instr & 0x0F) as u16;
+
+                let result = s1 | s2;
+                self.regs.write_r(dreg, result);
+                self.regs
+                    .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
+                self.cycles(6, 6, 2)?;
             }
             (0xC1..=0xCF, true, true) => {
                 // XOR #
