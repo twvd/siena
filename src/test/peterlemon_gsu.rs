@@ -38,6 +38,10 @@ test!(
     "cd8cfe5d386d79c67599942f6f35403a8cca101b5337ac4e83e3ceacb6798bc8"
 );
 test!(
+    ASR,
+    "b03a1771af6fce6739dd63c944253bd575fe83676b98e724fa96e822c0ef3c23"
+);
+test!(
     BIC,
     "06aa897653bc52e02cf37f65b0bc71951a440b465aeed2d839e28dacaea1261e"
 );
