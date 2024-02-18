@@ -100,6 +100,17 @@ impl CpuGsu {
         result as u16
     }
 
+    fn alu_add(&mut self, a: u16, b: u16, c: u16) -> u16 {
+        let result = u32::from(a) + u32::from(b) + u32::from(c);
+        self.regs.write_flags(&[
+            (Flag::Z, (result as u16) == 0),
+            (Flag::S, result & 0x8000 != 0),
+            (Flag::C, result > u16::MAX.into()),
+            (Flag::V, !(a ^ b) & (a ^ result as u16) & 0x8000 != 0),
+        ]);
+        result as u16
+    }
+
     pub fn step(&mut self) -> Result<()> {
         let instr = self.fetch();
 
@@ -186,14 +197,8 @@ impl CpuGsu {
                 let s1 = self.regs.read_r(sreg);
                 let s2 = self.regs.read_r(s2reg);
 
-                let result = u32::from(s1) + u32::from(s2);
-                self.regs.write_r(dreg, result as u16);
-                self.regs.write_flags(&[
-                    (Flag::Z, (result as u16) == 0),
-                    (Flag::S, result & 0x8000 != 0),
-                    (Flag::C, result > u16::MAX.into()),
-                    (Flag::V, !(s1 ^ s2) & (s1 ^ result as u16) & 0x8000 != 0),
-                ]);
+                let result = self.alu_add(s1, s2, 0);
+                self.regs.write_r(dreg, result);
                 self.cycles(3, 3, 1)?;
             }
             (0x50..=0x5F, true, false) => {
@@ -207,14 +212,8 @@ impl CpuGsu {
                     0_u16
                 };
 
-                let result = u32::from(s1) + u32::from(s2) + u32::from(c);
-                self.regs.write_r(dreg, result as u16);
-                self.regs.write_flags(&[
-                    (Flag::Z, (result as u16) == 0),
-                    (Flag::S, result & 0x8000 != 0),
-                    (Flag::C, result > u16::MAX.into()),
-                    (Flag::V, !(s1 ^ s2) & (s1 ^ result as u16) & 0x8000 != 0),
-                ]);
+                let result = self.alu_add(s1, s2, c);
+                self.regs.write_r(dreg, result);
                 self.cycles(3, 3, 1)?;
             }
             (0x50..=0x5F, false, true) => {
@@ -222,14 +221,8 @@ impl CpuGsu {
                 let s1 = self.regs.read_r(sreg);
                 let s2 = (instr & 0x0F) as u16;
 
-                let result = u32::from(s1) + u32::from(s2);
-                self.regs.write_r(dreg, result as u16);
-                self.regs.write_flags(&[
-                    (Flag::Z, (result as u16) == 0),
-                    (Flag::S, result & 0x8000 != 0),
-                    (Flag::C, result > u16::MAX.into()),
-                    (Flag::V, !(s1 ^ s2) & (s1 ^ result as u16) & 0x8000 != 0),
-                ]);
+                let result = self.alu_add(s1, s2, 0);
+                self.regs.write_r(dreg, result);
                 self.cycles(6, 6, 2)?;
             }
             (0x50..=0x5F, true, true) => {
@@ -242,14 +235,8 @@ impl CpuGsu {
                     0_u16
                 };
 
-                let result = u32::from(s1) + u32::from(s2) + u32::from(c);
-                self.regs.write_r(dreg, result as u16);
-                self.regs.write_flags(&[
-                    (Flag::Z, (result as u16) == 0),
-                    (Flag::S, result & 0x8000 != 0),
-                    (Flag::C, result > u16::MAX.into()),
-                    (Flag::V, !(s1 ^ s2) & (s1 ^ result as u16) & 0x8000 != 0),
-                ]);
+                let result = self.alu_add(s1, s2, c);
+                self.regs.write_r(dreg, result);
                 self.cycles(6, 6, 2)?;
             }
             (0x60..=0x6F, false, false) => {
@@ -432,6 +419,24 @@ impl CpuGsu {
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
                 self.cycles(6, 6, 2)?;
+            }
+            (0xD0..=0xDE, _, _) => {
+                // INC Rn
+                let reg = (instr & 0x0F) as usize;
+                let result = self.regs.read_r(reg).wrapping_add(1);
+                self.regs.write_r(reg, result);
+                self.regs
+                    .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
+                self.cycles(3, 3, 1)?;
+            }
+            (0xE0..=0xEE, _, _) => {
+                // DEC Rn
+                let reg = (instr & 0x0F) as usize;
+                let result = self.regs.read_r(reg).wrapping_sub(1);
+                self.regs.write_r(reg, result);
+                self.regs
+                    .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
+                self.cycles(3, 3, 1)?;
             }
             (0xF0..=0xFF, _, _) => {
                 // IWT

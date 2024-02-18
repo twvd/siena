@@ -50,8 +50,16 @@ test!(
     "f358269ca59fd8fde0b92b5bf2e112c6fab6423f7df96b3ee9a4029a1e485596"
 );
 test!(
+    DEC,
+    "299a3ae2e890d3df6b9b08d5801a34b570f9f175756bdd2095d3598616a3888d"
+);
+test!(
     HIB,
     "007cc9321ac216460fa3827b590cd9e320206da8e87049ad82c17ff62c049c0a"
+);
+test!(
+    INC,
+    "587b3f81700a4f33b22c493a438c73d004580a7d990a29db05ff7eb8a74b8dbc"
 );
 test!(
     IWT,
