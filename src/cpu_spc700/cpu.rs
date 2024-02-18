@@ -985,19 +985,19 @@ where
         // Only direct page mode
         let b = self.read16_tick_a8_delay(self.map_pageflag(instr.imm8(0)));
 
-        let (result, result_c) = a.overflowing_add((!b).wrapping_add(1));
+        let result = i32::from(a) + i32::from(!b) + 1;
 
         // Half-carry on high byte
-        let result_h = (a ^ !b ^ result) & 0x1000 != 0;
-        let result_v = !(a ^ !b) & (a ^ result) & 0x8000 != 0;
+        let result_h = (a ^ !b ^ (result as u16)) & 0x1000 != 0;
+        let result_v = !(a ^ !b) & (a ^ (result as u16)) & 0x8000 != 0;
 
-        self.regs.write(Register::YA, result);
+        self.regs.write(Register::YA, result as u16);
         self.regs.write_flags(&[
-            (Flag::C, result_c),
+            (Flag::C, result > u16::MAX.into()),
             (Flag::H, result_h),
             (Flag::V, result_v),
             (Flag::N, (result & 0x8000) != 0),
-            (Flag::Z, result == 0),
+            (Flag::Z, (result as u16) == 0),
         ]);
 
         Ok(())
