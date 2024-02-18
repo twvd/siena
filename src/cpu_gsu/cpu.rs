@@ -89,6 +89,17 @@ impl CpuGsu {
         lo | (hi << 8)
     }
 
+    fn alu_sub(&mut self, a: u16, b: u16, c: u16) -> u16 {
+        let result = i32::from(a) + i32::from(!b) + i32::from(c);
+        self.regs.write_flags(&[
+            (Flag::Z, (result as u16) == 0),
+            (Flag::S, result & 0x8000 != 0),
+            (Flag::C, result > u16::MAX.into()),
+            (Flag::V, !(a ^ !b) & (a ^ result as u16) & 0x8000 != 0),
+        ]);
+        result as u16
+    }
+
     pub fn step(&mut self) -> Result<()> {
         let instr = self.fetch();
 
@@ -247,14 +258,8 @@ impl CpuGsu {
                 let s1 = self.regs.read_r(sreg);
                 let s2 = self.regs.read_r(s2reg);
 
-                let result = i32::from(s1) + i32::from(!s2) + 1;
-                self.regs.write_r(dreg, result as u16);
-                self.regs.write_flags(&[
-                    (Flag::Z, (result as u16) == 0),
-                    (Flag::S, result & 0x8000 != 0),
-                    (Flag::C, result > u16::MAX.into()),
-                    (Flag::V, !(s1 ^ !s2) & (s1 ^ result as u16) & 0x8000 != 0),
-                ]);
+                let result = self.alu_sub(s1, s2, 1);
+                self.regs.write_r(dreg, result);
                 self.cycles(3, 3, 1)?;
             }
             (0x60..=0x6F, true, false) => {
@@ -262,20 +267,10 @@ impl CpuGsu {
                 let s2reg = (instr & 0x0F) as usize;
                 let s1 = self.regs.read_r(sreg);
                 let s2 = self.regs.read_r(s2reg);
-                let c = if self.regs.test_flag(Flag::C) {
-                    1_i32
-                } else {
-                    0_i32
-                };
+                let c = if self.regs.test_flag(Flag::C) { 1 } else { 0 };
 
-                let result = i32::from(s1) + i32::from(!s2) + c;
-                self.regs.write_r(dreg, result as u16);
-                self.regs.write_flags(&[
-                    (Flag::Z, (result as u16) == 0),
-                    (Flag::S, result & 0x8000 != 0),
-                    (Flag::C, result > u16::MAX.into()),
-                    (Flag::V, !(s1 ^ !s2) & (s1 ^ result as u16) & 0x8000 != 0),
-                ]);
+                let result = self.alu_sub(s1, s2, c);
+                self.regs.write_r(dreg, result);
                 self.cycles(3, 3, 1)?;
             }
             (0x60..=0x6F, false, true) => {
@@ -283,15 +278,17 @@ impl CpuGsu {
                 let s1 = self.regs.read_r(sreg);
                 let s2 = (instr & 0x0F) as u16;
 
-                let result = i32::from(s1) + i32::from(!s2) + 1;
-                self.regs.write_r(dreg, result as u16);
-                self.regs.write_flags(&[
-                    (Flag::Z, (result as u16) == 0),
-                    (Flag::S, result & 0x8000 != 0),
-                    (Flag::C, result > u16::MAX.into()),
-                    (Flag::V, !(s1 ^ !s2) & (s1 ^ result as u16) & 0x8000 != 0),
-                ]);
+                let result = self.alu_sub(s1, s2, 1);
+                self.regs.write_r(dreg, result);
                 self.cycles(6, 6, 2)?;
+            }
+            (0x60..=0x6F, true, true) => {
+                // CMP
+                let s1 = self.regs.read_r(sreg);
+                let s2 = self.regs.read_r((instr & 0x0F) as usize);
+
+                let _ = self.alu_sub(s1, s2, 1);
+                self.cycles(3, 3, 1)?;
             }
             (0x70, _, _) => {
                 // MERGE

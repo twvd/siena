@@ -46,6 +46,10 @@ test!(
     "06aa897653bc52e02cf37f65b0bc71951a440b465aeed2d839e28dacaea1261e"
 );
 test!(
+    CMP,
+    "f358269ca59fd8fde0b92b5bf2e112c6fab6423f7df96b3ee9a4029a1e485596"
+);
+test!(
     HIB,
     "007cc9321ac216460fa3827b590cd9e320206da8e87049ad82c17ff62c049c0a"
 );
