@@ -169,6 +169,130 @@ impl CpuGsu {
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
                 self.cycles(3, 3, 1)?;
             }
+            (0x50..=0x5F, false, false) => {
+                // ADD Rn
+                let s2reg = (instr & 0x0F) as usize;
+                let s1 = self.regs.read_r(sreg);
+                let s2 = self.regs.read_r(s2reg);
+
+                let result = u32::from(s1) + u32::from(s2);
+                self.regs.write_r(dreg, result as u16);
+                self.regs.write_flags(&[
+                    (Flag::Z, (result as u16) == 0),
+                    (Flag::S, result & 0x8000 != 0),
+                    (Flag::C, result > u16::MAX.into()),
+                    (Flag::V, !(s1 ^ s2) & (s1 ^ result as u16) & 0x8000 != 0),
+                ]);
+                self.cycles(3, 3, 1)?;
+            }
+            (0x50..=0x5F, true, false) => {
+                // ADC Rn
+                let s2reg = (instr & 0x0F) as usize;
+                let s1 = self.regs.read_r(sreg);
+                let s2 = self.regs.read_r(s2reg);
+                let c = if self.regs.test_flag(Flag::C) {
+                    1_u16
+                } else {
+                    0_u16
+                };
+
+                let result = u32::from(s1) + u32::from(s2) + u32::from(c);
+                self.regs.write_r(dreg, result as u16);
+                self.regs.write_flags(&[
+                    (Flag::Z, (result as u16) == 0),
+                    (Flag::S, result & 0x8000 != 0),
+                    (Flag::C, result > u16::MAX.into()),
+                    (Flag::V, !(s1 ^ s2) & (s1 ^ result as u16) & 0x8000 != 0),
+                ]);
+                self.cycles(3, 3, 1)?;
+            }
+            (0x50..=0x5F, false, true) => {
+                // ADD #n
+                let s1 = self.regs.read_r(sreg);
+                let s2 = (instr & 0x0F) as u16;
+
+                let result = u32::from(s1) + u32::from(s2);
+                self.regs.write_r(dreg, result as u16);
+                self.regs.write_flags(&[
+                    (Flag::Z, (result as u16) == 0),
+                    (Flag::S, result & 0x8000 != 0),
+                    (Flag::C, result > u16::MAX.into()),
+                    (Flag::V, !(s1 ^ s2) & (s1 ^ result as u16) & 0x8000 != 0),
+                ]);
+                self.cycles(6, 6, 2)?;
+            }
+            (0x50..=0x5F, true, true) => {
+                // ADC #n
+                let s1 = self.regs.read_r(sreg);
+                let s2 = (instr & 0x0F) as u16;
+                let c = if self.regs.test_flag(Flag::C) {
+                    1_u16
+                } else {
+                    0_u16
+                };
+
+                let result = u32::from(s1) + u32::from(s2) + u32::from(c);
+                self.regs.write_r(dreg, result as u16);
+                self.regs.write_flags(&[
+                    (Flag::Z, (result as u16) == 0),
+                    (Flag::S, result & 0x8000 != 0),
+                    (Flag::C, result > u16::MAX.into()),
+                    (Flag::V, !(s1 ^ s2) & (s1 ^ result as u16) & 0x8000 != 0),
+                ]);
+                self.cycles(6, 6, 2)?;
+            }
+            (0x60..=0x6F, false, false) => {
+                // SUB Rn
+                let s2reg = (instr & 0x0F) as usize;
+                let s1 = self.regs.read_r(sreg);
+                let s2 = self.regs.read_r(s2reg);
+
+                let result = i32::from(s1) + i32::from(!s2) + 1;
+                self.regs.write_r(dreg, result as u16);
+                self.regs.write_flags(&[
+                    (Flag::Z, (result as u16) == 0),
+                    (Flag::S, result & 0x8000 != 0),
+                    (Flag::C, result > u16::MAX.into()),
+                    (Flag::V, !(s1 ^ !s2) & (s1 ^ result as u16) & 0x8000 != 0),
+                ]);
+                self.cycles(3, 3, 1)?;
+            }
+            (0x60..=0x6F, true, false) => {
+                // SBC Rn
+                let s2reg = (instr & 0x0F) as usize;
+                let s1 = self.regs.read_r(sreg);
+                let s2 = self.regs.read_r(s2reg);
+                let c = if self.regs.test_flag(Flag::C) {
+                    1_i32
+                } else {
+                    0_i32
+                };
+
+                let result = i32::from(s1) + i32::from(!s2) + c;
+                self.regs.write_r(dreg, result as u16);
+                self.regs.write_flags(&[
+                    (Flag::Z, (result as u16) == 0),
+                    (Flag::S, result & 0x8000 != 0),
+                    (Flag::C, result > u16::MAX.into()),
+                    (Flag::V, !(s1 ^ !s2) & (s1 ^ result as u16) & 0x8000 != 0),
+                ]);
+                self.cycles(3, 3, 1)?;
+            }
+            (0x60..=0x6F, false, true) => {
+                // SUB #n
+                let s1 = self.regs.read_r(sreg);
+                let s2 = (instr & 0x0F) as u16;
+
+                let result = i32::from(s1) + i32::from(!s2) + 1;
+                self.regs.write_r(dreg, result as u16);
+                self.regs.write_flags(&[
+                    (Flag::Z, (result as u16) == 0),
+                    (Flag::S, result & 0x8000 != 0),
+                    (Flag::C, result > u16::MAX.into()),
+                    (Flag::V, !(s1 ^ !s2) & (s1 ^ result as u16) & 0x8000 != 0),
+                ]);
+                self.cycles(6, 6, 2)?;
+            }
             (0x70, _, _) => {
                 // MERGE
                 let result = (self.regs.read(Register::R7) & 0xFF00)

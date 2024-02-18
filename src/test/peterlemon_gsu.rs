@@ -26,6 +26,14 @@ macro_rules! test {
 }
 
 test!(
+    ADC,
+    "37f2762099429d75055f307c9b1d5e82e204b0e431279c8036a9d108b5fb07eb"
+);
+test!(
+    ADD,
+    "de9f72e11f37844212389e9a90a5275ad54ac437b1d0c73b684f26a180228b2a"
+);
+test!(
     AND,
     "cd8cfe5d386d79c67599942f6f35403a8cca101b5337ac4e83e3ceacb6798bc8"
 );
@@ -54,8 +62,16 @@ test!(
     "3247f4d2ff8df0f040a1c87295cda3655d5900a96bea94723a0fdf1029369cf1"
 );
 test!(
+    SBC,
+    "5ca8e8b3fd757c6624c12ab24933fa1877fdfdf5f1e93e456af06cf1eaf2cada"
+);
+test!(
     SEX,
     "0111d224c50333ca7a15649593a1978b27ab6a157d7b9d2296e35cf917dfa9b9"
+);
+test!(
+    SUB,
+    "1e79664b574ef3a418f8896763e3a7a78d6cf9d82e883f662574e389c9ea5bd2"
 );
 test!(
     XOR,
