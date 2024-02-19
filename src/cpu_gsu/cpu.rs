@@ -379,6 +379,14 @@ impl CpuGsu {
                 ]);
                 self.cycles(1)?;
             }
+            (0x9E, _, _) => {
+                // LOB
+                let result = self.regs.read_r(sreg) & 0xFF;
+                self.regs.write_r(dreg, result);
+                self.regs
+                    .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x80 != 0)]);
+                self.cycles(1)?;
+            }
             (0x9F, _, false) => {
                 // FMULT/LMULT
                 let a = self.regs.read_r(sreg) as i16 as i32;
