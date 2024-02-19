@@ -78,6 +78,10 @@ test!(
     "8f9723fd9dc60671f2fe8533c2bbe440f00159d629022dbafb2480934e2d1603"
 );
 test!(
+    LMULT,
+    "d516286af434eed3c51bc0cd6189a0bbd72f92ff0433c81a5630e6293626fe31"
+);
+test!(
     MERGE,
     "e9fe1f2f7a24612b0d43ea5241b64b3c2453d0f824b3152c7d4cb85d1525e25c"
 );

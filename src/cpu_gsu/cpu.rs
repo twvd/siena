@@ -379,17 +379,26 @@ impl CpuGsu {
                 ]);
                 self.cycles(1)?;
             }
-            (0x9F, false, false) => {
-                // FMULT
+            (0x9F, _, false) => {
+                // FMULT/LMULT
                 let a = self.regs.read_r(sreg) as i16 as i32;
                 let b = self.regs.read(Register::R6) as i16 as i32;
                 let result = (a * b) as u32;
+
+                if alt1 {
+                    // LMULT
+                    self.regs.write(Register::R4, result as u16);
+                    self.cycles(1)?;
+                }
+
+                // If LMULT is called with DReg = R4, R4 will contain MSB
                 self.regs.write_r(dreg, (result >> 16) as u16);
                 self.regs.write_flags(&[
                     (Flag::Z, (result >> 16) == 0),
                     (Flag::S, result & 0x80000000 != 0),
                     (Flag::C, result & 0x8000 != 0),
                 ]);
+
                 if self.regs.test_cfgr(CFGRFlag::MS0) {
                     self.cycles(4)?;
                 } else {
