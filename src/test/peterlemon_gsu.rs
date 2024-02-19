@@ -58,6 +58,10 @@ test!(
     "914bb1eeffb13f4e960c862330570da7d8e3900a85721931877e833c4f6ca2b4"
 );
 test!(
+    FMULT,
+    "0727c7275a04d23b5eda5cc5a08cb781cec92ce48af709029811bca6af50cd30"
+);
+test!(
     HIB,
     "007cc9321ac216460fa3827b590cd9e320206da8e87049ad82c17ff62c049c0a"
 );

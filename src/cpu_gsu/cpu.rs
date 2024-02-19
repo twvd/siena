@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use super::regs::{Flag, Register, RegisterFile};
+use super::regs::{CFGRFlag, Flag, Register, RegisterFile};
 
 use crate::tickable::{Tickable, Ticks};
 
@@ -142,6 +142,7 @@ impl CpuGsu {
             (0x10..=0x1F, _, _) => {
                 // TO
                 let reg = (instr & 0x0F) as usize;
+                self.sreg = sreg;
                 self.dreg = reg;
                 self.cycles(1)?;
             }
@@ -378,6 +379,23 @@ impl CpuGsu {
                 ]);
                 self.cycles(1)?;
             }
+            (0x9F, false, false) => {
+                // FMULT
+                let a = self.regs.read_r(sreg) as i16 as i32;
+                let b = self.regs.read(Register::R6) as i16 as i32;
+                let result = (a * b) as u32;
+                self.regs.write_r(dreg, (result >> 16) as u16);
+                self.regs.write_flags(&[
+                    (Flag::Z, (result >> 16) == 0),
+                    (Flag::S, result & 0x80000000 != 0),
+                    (Flag::C, result & 0x8000 != 0),
+                ]);
+                if self.regs.test_cfgr(CFGRFlag::MS0) {
+                    self.cycles(4)?;
+                } else {
+                    self.cycles(8)?;
+                }
+            }
             (0xA0..=0xAF, _, _) => {
                 // IBT Rn,imm
                 let reg = (instr & 0x0F) as usize;
@@ -392,6 +410,7 @@ impl CpuGsu {
                 // FROM
                 let reg = (instr & 0x0F) as usize;
                 self.sreg = reg;
+                self.dreg = dreg;
                 self.cycles(1)?;
             }
             (0xC0, _, _) => {

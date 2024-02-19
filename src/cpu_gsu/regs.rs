@@ -34,6 +34,15 @@ pub enum Flag {
     Z = 1,
 }
 
+/// Bit positions of the flags in the CFGR register.
+#[derive(EnumIter, ToPrimitive, Debug, Copy, Clone, Display)]
+pub enum CFGRFlag {
+    /// Multiplier speed
+    MS0 = 5,
+    /// Interrupt on STOP mask
+    IRQ = 7,
+}
+
 /// Bit-width of a register (see Register::width())
 #[derive(Debug, Eq, PartialEq)]
 pub enum RegisterWidth {
@@ -337,6 +346,11 @@ impl RegisterFile {
     /// Test a flag in SFR.
     pub fn test_flag(&self, f: Flag) -> bool {
         self.sfr & (1u16 << f.to_u16().unwrap()) != 0
+    }
+
+    /// Test a flag in CFGR.
+    pub fn test_cfgr(&self, f: CFGRFlag) -> bool {
+        self.cfgr & (1u8 << f.to_u8().unwrap()) != 0
     }
 }
 
