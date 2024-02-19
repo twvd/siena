@@ -63,6 +63,7 @@ impl CpuGsu {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
         // TODO bus access clear check
+        // TODO wait states based on location
 
         // TODO cache
         match (bank & !0x80, addr) {
@@ -132,17 +133,17 @@ impl CpuGsu {
             (0x00, _, _) => {
                 // STOP
                 self.regs.write_flags(&[(Flag::G, false)]);
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0x01, _, _) => {
                 // NOP
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0x10..=0x1F, _, _) => {
                 // TO
                 let reg = (instr & 0x0F) as usize;
                 self.dreg = reg;
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0x20..=0x2F, _, _) => {
                 // WITH
@@ -150,7 +151,7 @@ impl CpuGsu {
                 self.sreg = reg;
                 self.dreg = reg;
                 // cycles unknown, assumed 3/3/1
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0x3D, _, _) => {
                 // ALT1
@@ -160,7 +161,7 @@ impl CpuGsu {
                 self.sreg = sreg;
                 self.dreg = dreg;
 
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0x3E, _, _) => {
                 // ALT2
@@ -170,7 +171,7 @@ impl CpuGsu {
                 self.sreg = sreg;
                 self.dreg = dreg;
 
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0x3F, _, _) => {
                 // ALT3
@@ -181,7 +182,7 @@ impl CpuGsu {
                 self.sreg = sreg;
                 self.dreg = dreg;
 
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0x4F, _, _) => {
                 // NOT
@@ -189,7 +190,7 @@ impl CpuGsu {
                 self.regs.write_r(dreg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0x50..=0x5F, false, false) => {
                 // ADD Rn
@@ -199,7 +200,7 @@ impl CpuGsu {
 
                 let result = self.alu_add(s1, s2, 0);
                 self.regs.write_r(dreg, result);
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0x50..=0x5F, true, false) => {
                 // ADC Rn
@@ -214,7 +215,7 @@ impl CpuGsu {
 
                 let result = self.alu_add(s1, s2, c);
                 self.regs.write_r(dreg, result);
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0x50..=0x5F, false, true) => {
                 // ADD #n
@@ -223,7 +224,7 @@ impl CpuGsu {
 
                 let result = self.alu_add(s1, s2, 0);
                 self.regs.write_r(dreg, result);
-                self.cycles(6, 6, 2)?;
+                self.cycles(1)?;
             }
             (0x50..=0x5F, true, true) => {
                 // ADC #n
@@ -237,7 +238,7 @@ impl CpuGsu {
 
                 let result = self.alu_add(s1, s2, c);
                 self.regs.write_r(dreg, result);
-                self.cycles(6, 6, 2)?;
+                self.cycles(1)?;
             }
             (0x60..=0x6F, false, false) => {
                 // SUB Rn
@@ -247,7 +248,7 @@ impl CpuGsu {
 
                 let result = self.alu_sub(s1, s2, 1);
                 self.regs.write_r(dreg, result);
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0x60..=0x6F, true, false) => {
                 // SBC Rn
@@ -258,7 +259,7 @@ impl CpuGsu {
 
                 let result = self.alu_sub(s1, s2, c);
                 self.regs.write_r(dreg, result);
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0x60..=0x6F, false, true) => {
                 // SUB #n
@@ -267,7 +268,7 @@ impl CpuGsu {
 
                 let result = self.alu_sub(s1, s2, 1);
                 self.regs.write_r(dreg, result);
-                self.cycles(6, 6, 2)?;
+                self.cycles(1)?;
             }
             (0x60..=0x6F, true, true) => {
                 // CMP
@@ -275,7 +276,7 @@ impl CpuGsu {
                 let s2 = self.regs.read_r((instr & 0x0F) as usize);
 
                 let _ = self.alu_sub(s1, s2, 1);
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0x70, _, _) => {
                 // MERGE
@@ -288,7 +289,7 @@ impl CpuGsu {
                     (Flag::C, result & 0xE0E0 != 0),
                     (Flag::Z, result & 0xF0F0 != 0),
                 ]);
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0x71..=0x7F, false, false) => {
                 // AND r#
@@ -300,7 +301,7 @@ impl CpuGsu {
                 self.regs.write_r(dreg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0x71..=0x7F, true, false) => {
                 // BIC r#
@@ -312,7 +313,7 @@ impl CpuGsu {
                 self.regs.write_r(dreg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0x71..=0x7F, false, true) => {
                 // AND #
@@ -323,7 +324,7 @@ impl CpuGsu {
                 self.regs.write_r(dreg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
-                self.cycles(6, 6, 2)?;
+                self.cycles(1)?;
             }
             (0x71..=0x7F, true, true) => {
                 // BIC #
@@ -334,7 +335,7 @@ impl CpuGsu {
                 self.regs.write_r(dreg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
-                self.cycles(6, 6, 2)?;
+                self.cycles(1)?;
             }
             (0x95, _, _) => {
                 // SEX
@@ -345,7 +346,7 @@ impl CpuGsu {
                 self.regs.write_r(dreg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0x96, _, _) => {
                 // ASR
@@ -358,13 +359,13 @@ impl CpuGsu {
                     (Flag::S, result & 0x8000 != 0),
                     (Flag::C, s & 0x01 != 0),
                 ]);
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0xB0..=0xBF, _, _) => {
                 // FROM
                 let reg = (instr & 0x0F) as usize;
                 self.sreg = reg;
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0xC0, _, _) => {
                 // HIB
@@ -372,7 +373,7 @@ impl CpuGsu {
                 self.regs.write_r(dreg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x80 != 0)]);
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0xC1..=0xCF, false, false) => {
                 // OR r#
@@ -384,7 +385,7 @@ impl CpuGsu {
                 self.regs.write_r(dreg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0xC1..=0xCF, true, false) => {
                 // XOR r#
@@ -396,7 +397,7 @@ impl CpuGsu {
                 self.regs.write_r(dreg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0xC1..=0xCF, false, true) => {
                 // OR #
@@ -407,7 +408,7 @@ impl CpuGsu {
                 self.regs.write_r(dreg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
-                self.cycles(6, 6, 2)?;
+                self.cycles(1)?;
             }
             (0xC1..=0xCF, true, true) => {
                 // XOR #
@@ -418,7 +419,7 @@ impl CpuGsu {
                 self.regs.write_r(dreg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
-                self.cycles(6, 6, 2)?;
+                self.cycles(1)?;
             }
             (0xD0..=0xDE, _, _) => {
                 // INC Rn
@@ -427,7 +428,7 @@ impl CpuGsu {
                 self.regs.write_r(reg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0xE0..=0xEE, _, _) => {
                 // DEC Rn
@@ -436,14 +437,14 @@ impl CpuGsu {
                 self.regs.write_r(reg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
-                self.cycles(3, 3, 1)?;
+                self.cycles(1)?;
             }
             (0xF0..=0xFF, _, _) => {
                 // IWT
                 let reg = (instr & 0x0F) as usize;
                 let imm = self.fetch16();
                 self.regs.write_r(reg, imm);
-                self.cycles(9, 9, 3)?;
+                self.cycles(3)?;
             }
             _ => panic!(
                 "Unimplemented instruction {:02X} alt1 = {} alt2 = {}",
@@ -453,7 +454,7 @@ impl CpuGsu {
         Ok(())
     }
 
-    fn cycles(&mut self, _cy_rom: Ticks, _cy_ram: usize, _cy_cache: usize) -> Result<()> {
+    fn cycles(&mut self, cycles: Ticks) -> Result<()> {
         // TODO cycles
 
         Ok(())
