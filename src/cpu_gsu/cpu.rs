@@ -139,6 +139,18 @@ impl CpuGsu {
                 // NOP
                 self.cycles(1)?;
             }
+            (0x03, _, _) => {
+                // LSR
+                let s = self.regs.read_r(sreg);
+                let result = s >> 1;
+                self.regs.write_r(dreg, result);
+                self.regs.write_flags(&[
+                    (Flag::Z, result == 0),
+                    (Flag::S, false),
+                    (Flag::C, s & 0x01 != 0),
+                ]);
+                self.cycles(1)?;
+            }
             (0x10..=0x1F, _, _) => {
                 // TO
                 let reg = (instr & 0x0F) as usize;
