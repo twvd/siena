@@ -364,6 +364,46 @@ impl CpuGsu {
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
                 self.cycles(1)?;
             }
+            (0x80..=0x8F, false, _) => {
+                // MULT Rn / #n
+                let a = self.regs.read_r(sreg) as i8 as u16;
+                let b = if !alt2 {
+                    self.regs.read_r((instr & 0x0F) as usize) as i8
+                } else {
+                    (instr & 0x0F) as i8
+                } as u16;
+
+                let result = a.wrapping_mul(b);
+                self.regs.write_r(dreg, result);
+                self.regs
+                    .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
+
+                if self.regs.test_cfgr(CFGRFlag::MS0) {
+                    self.cycles(1)?;
+                } else {
+                    self.cycles(2)?;
+                }
+            }
+            (0x80..=0x8F, true, _) => {
+                // UMULT Rn / #n
+                let a = self.regs.read_r(sreg) as u8 as u16;
+                let b = if !alt2 {
+                    self.regs.read_r((instr & 0x0F) as usize) as u8
+                } else {
+                    (instr & 0x0F) as u8
+                } as u16;
+
+                let result = a.wrapping_mul(b);
+                self.regs.write_r(dreg, result);
+                self.regs
+                    .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
+
+                if self.regs.test_cfgr(CFGRFlag::MS0) {
+                    self.cycles(1)?;
+                } else {
+                    self.cycles(2)?;
+                }
+            }
             (0x95, _, _) => {
                 // SEX
                 let s = self.regs.read_r(sreg) & 0xFF;

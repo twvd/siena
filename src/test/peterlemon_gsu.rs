@@ -102,6 +102,10 @@ test!(
     "5cbf50d260ca51353385caf88e19d80118670fc848b2391c3659e7121854f834"
 );
 test!(
+    MULT,
+    "91501add6875282f548b05a631f11f55dcfd297153cbee1058c5a45f264df0b9"
+);
+test!(
     NOT,
     "0df76d9fc716575400c4c6baaf53f284f59cf8b6ba066c013c150167e1c1652e"
 );
@@ -120,6 +124,10 @@ test!(
 test!(
     SUB,
     "1e79664b574ef3a418f8896763e3a7a78d6cf9d82e883f662574e389c9ea5bd2"
+);
+test!(
+    UMULT,
+    "673674cfd30ca0303eaf551edf2ac3410412e5a1c6e5a1254acb8ca1801296f9"
 );
 test!(
     XOR,
