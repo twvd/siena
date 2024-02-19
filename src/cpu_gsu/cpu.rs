@@ -29,6 +29,7 @@ pub struct CpuGsu {
 
     sreg: usize,
     dreg: usize,
+    last_instr: u8,
 }
 
 impl CpuGsu {
@@ -41,6 +42,7 @@ impl CpuGsu {
             ram: vec![0xFF; 256 * 1024],
             sreg: 0,
             dreg: 0,
+            last_instr: 0,
         };
 
         c.rom[0..rom.len()].copy_from_slice(rom);
@@ -129,6 +131,9 @@ impl CpuGsu {
         self.sreg = 0;
         self.dreg = 0;
 
+        let last_instr = self.last_instr;
+        self.last_instr = instr;
+
         match (instr, alt1, alt2) {
             (0x00, _, _) => {
                 // STOP
@@ -152,10 +157,19 @@ impl CpuGsu {
                 self.cycles(1)?;
             }
             (0x10..=0x1F, _, _) => {
-                // TO
+                // MOVE/TO
                 let reg = (instr & 0x0F) as usize;
-                self.sreg = sreg;
-                self.dreg = reg;
+
+                if last_instr & 0xF0 == 0x20 {
+                    // MOVE
+                    let val = self.regs.read_r(sreg);
+                    self.regs.write_r(reg, val);
+                } else {
+                    // TO
+                    self.sreg = sreg;
+                    self.dreg = reg;
+                }
+
                 self.cycles(1)?;
             }
             (0x20..=0x2F, _, _) => {
@@ -436,10 +450,23 @@ impl CpuGsu {
                 self.cycles(2)?;
             }
             (0xB0..=0xBF, _, _) => {
-                // FROM
+                // FROM/MOVES
                 let reg = (instr & 0x0F) as usize;
-                self.sreg = reg;
-                self.dreg = dreg;
+
+                if last_instr & 0xF0 == 0x20 {
+                    // MOVES
+                    let val = self.regs.read_r(reg);
+                    self.regs.write_r(sreg, val);
+                    self.regs.write_flags(&[
+                        (Flag::S, val & 0x8000 != 0),
+                        (Flag::Z, val == 0),
+                        (Flag::V, val & 0x80 != 0),
+                    ]);
+                } else {
+                    // FROM
+                    self.sreg = reg;
+                    self.dreg = dreg;
+                }
                 self.cycles(1)?;
             }
             (0xC0, _, _) => {
