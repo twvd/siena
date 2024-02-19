@@ -348,10 +348,27 @@ impl CpuGsu {
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
                 self.cycles(1)?;
             }
-            (0x96, _, _) => {
+            (0x96, false, false) => {
                 // ASR
                 let s = self.regs.read_r(sreg);
                 let result = ((s as i16) >> 1) as u16;
+
+                self.regs.write_r(dreg, result);
+                self.regs.write_flags(&[
+                    (Flag::Z, result == 0),
+                    (Flag::S, result & 0x8000 != 0),
+                    (Flag::C, s & 0x01 != 0),
+                ]);
+                self.cycles(1)?;
+            }
+            (0x96, true, false) => {
+                // DIV2
+                let s = self.regs.read_r(sreg);
+                let result = if s == 0xFFFF {
+                    0
+                } else {
+                    ((s as i16) >> 1) as u16
+                };
 
                 self.regs.write_r(dreg, result);
                 self.regs.write_flags(&[
