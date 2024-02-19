@@ -378,6 +378,16 @@ impl CpuGsu {
                 ]);
                 self.cycles(1)?;
             }
+            (0xA0..=0xAF, _, _) => {
+                // IBT Rn,imm
+                let reg = (instr & 0x0F) as usize;
+                let s = self.fetch() as u16;
+                let sgn = if s & 0x80 != 0 { 0xFF00_u16 } else { 0_u16 };
+                let result = sgn | s;
+
+                self.regs.write_r(reg, result);
+                self.cycles(2)?;
+            }
             (0xB0..=0xBF, _, _) => {
                 // FROM
                 let reg = (instr & 0x0F) as usize;

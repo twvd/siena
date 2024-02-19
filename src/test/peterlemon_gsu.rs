@@ -62,6 +62,10 @@ test!(
     "007cc9321ac216460fa3827b590cd9e320206da8e87049ad82c17ff62c049c0a"
 );
 test!(
+    IBT,
+    "ef5747209c3a2aff11d3f6bb8ab2c8651a5b32b68ea7271f2a290f13f4b4a340"
+);
+test!(
     INC,
     "587b3f81700a4f33b22c493a438c73d004580a7d990a29db05ff7eb8a74b8dbc"
 );
