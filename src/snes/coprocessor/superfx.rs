@@ -4,7 +4,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::bus::{Address, BusMember};
-use crate::cpu_gsu::cpu::CpuGsu;
+use crate::cpu_gsu::cpu::{CpuGsu, GsuAddress, CACHE_LINE_SIZE};
 use crate::cpu_gsu::regs::{Flag, Register};
 use crate::tickable::{Tickable, Ticks};
 
@@ -67,7 +67,10 @@ impl BusMember<Address> for SuperFX {
             0x303F => Some((cpu.regs.read(Register::CBR) >> 8) as u8),
 
             // Instruction cache
-            0x3100..=0x32FF => Some(cpu.cache[addr - 0x3100]),
+            0x3100..=0x32FF => {
+                let base = cpu.get_cache_base() & 0x1FF;
+                Some(cpu.read_bus(base + ((addr as GsuAddress) - 0x3100)))
+            }
 
             _ => None,
         }
@@ -109,10 +112,16 @@ impl BusMember<Address> for SuperFX {
             }
             0x3031 => {
                 let curval = cpu.regs.read(Register::SFR);
-                Some(
-                    cpu.regs
-                        .write(Register::SFR, (curval & 0xFF) | ((val as u16) << 8)),
-                )
+                let newval = (curval & 0xFF) | ((val as u16) << 8);
+
+                cpu.regs.write(Register::SFR, newval);
+
+                // Writing G to 0 invalidates cache and resets CBR
+                if !cpu.regs.test_flag(Flag::G) {
+                    cpu.regs.write(Register::CBR, 0);
+                    cpu.cache_flush();
+                }
+                Some(())
             }
             // 0x3032 unused
             0x3033 => Some(cpu.regs.write8(Register::BRAMBR, val)),
@@ -126,23 +135,18 @@ impl BusMember<Address> for SuperFX {
             0x303B => Some(cpu.regs.write8(Register::VCR, val)),
             0x303C => Some(cpu.regs.write8(Register::RAMBR, val)),
             // 0x303D unused
-            0x303E => {
-                let curval = cpu.regs.read(Register::CBR);
-                Some(
-                    cpu.regs
-                        .write(Register::CBR, (curval & 0xFF00) | (val as u16)),
-                )
-            }
-            0x303F => {
-                let curval = cpu.regs.read(Register::CBR);
-                Some(
-                    cpu.regs
-                        .write(Register::CBR, (curval & 0xFF00) | (val as u16)),
-                )
-            }
+            // 0x303E CBR read-only
+            // 0x303F CBR read-only
 
             // Instruction cache
-            0x3100..=0x32FF => Some(cpu.cache[addr - 0x3100] = val),
+            0x3100..=0x32FF => {
+                let cache_addr = addr - 0x3100;
+                cpu.cache[cache_addr] = val;
+                if cache_addr % CACHE_LINE_SIZE == (CACHE_LINE_SIZE - 1) {
+                    cpu.cache_valid[cache_addr / CACHE_LINE_SIZE] = true;
+                }
+                Some(())
+            }
 
             _ => None,
         }

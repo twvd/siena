@@ -218,7 +218,7 @@ impl RegisterFile {
             Register::R14 => self.r[14] = reg16(),
             Register::R15 => self.r[15] = reg16(),
             Register::SFR => self.sfr = reg16(),
-            Register::CBR => self.cbr = reg16(),
+            Register::CBR => self.cbr = reg16() & 0xFFF0,
         }
     }
 

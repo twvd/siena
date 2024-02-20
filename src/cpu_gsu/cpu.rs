@@ -11,6 +11,10 @@ fn gsu_addr_add(addr: GsuAddress, i: GsuAddress) -> GsuAddress {
     (addr & 0xFF0000) | (addr.wrapping_add(i) & 0xFFFF)
 }
 
+pub const CACHE_LINES: usize = 32;
+pub const CACHE_LINE_SIZE: usize = 16;
+pub const CACHE_SIZE: usize = CACHE_LINES * CACHE_LINE_SIZE;
+
 #[derive(Serialize, Deserialize)]
 pub enum GsuBus {
     ROM,
@@ -30,6 +34,8 @@ pub struct CpuGsu {
     sreg: usize,
     dreg: usize,
     last_instr: u8,
+
+    pub cache_valid: [bool; CACHE_LINES],
 }
 
 impl CpuGsu {
@@ -37,22 +43,40 @@ impl CpuGsu {
         let mut c = Self {
             regs: RegisterFile::new(),
             cycles: 0,
-            cache: vec![0; 512],
+            cache: vec![0; CACHE_SIZE],
             rom: vec![0xFF; 8 * 1024 * 1024],
             ram: vec![0xFF; 256 * 1024],
             sreg: 0,
             dreg: 0,
             last_instr: 0,
+            cache_valid: [false; CACHE_LINES],
         };
 
         c.rom[0..rom.len()].copy_from_slice(rom);
         c
     }
 
+    pub fn cache_flush(&mut self) {
+        self.cache_valid = [false; CACHE_LINES];
+    }
+
+    pub fn get_cache_base(&self) -> GsuAddress {
+        (GsuAddress::from(self.regs.read(Register::PBR)) << 16)
+            | GsuAddress::from(self.regs.read(Register::CBR))
+    }
+
     pub fn determine_bus(&self, fulladdr: GsuAddress) -> GsuBus {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
-        // TODO cache
+        // Check cache
+        let cache_base = self.get_cache_base() as usize;
+        if (cache_base..=(cache_base + CACHE_SIZE)).contains(&(fulladdr as usize)) {
+            let cache_line = ((fulladdr as usize) - cache_base) / CACHE_LINE_SIZE;
+            if self.cache_valid[cache_line] {
+                return GsuBus::Cache;
+            }
+        }
+
         match (bank & !0x80, addr) {
             (0x00..=0x3F, 0x8000..=0xFFFF) => GsuBus::ROM,
             (0x40..=0x5F, _) => GsuBus::ROM,
@@ -64,10 +88,16 @@ impl CpuGsu {
     pub fn read_bus(&self, fulladdr: GsuAddress) -> u8 {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
-        // TODO bus access clear check
-        // TODO wait states based on location
+        // Check cache
+        let cache_base = self.get_cache_base() as usize;
+        if (cache_base..=(cache_base + CACHE_SIZE)).contains(&(fulladdr as usize)) {
+            let cache_line = (fulladdr as usize - cache_base) / CACHE_LINE_SIZE;
+            let cache_line_pos = (fulladdr as usize - cache_base) % CACHE_LINE_SIZE;
+            if self.cache_valid[cache_line] {
+                return self.cache[(cache_line * CACHE_LINE_SIZE) + cache_line_pos];
+            }
+        }
 
-        // TODO cache
         match (bank & !0x80, addr) {
             (0x00..=0x3F, 0x8000..=0xFFFF) => self.rom[addr - 0x8000 + bank * 0x8000],
             (0x40..=0x5F, _) => self.rom[(bank - 0x40) * 0x10000 + addr],
@@ -80,10 +110,41 @@ impl CpuGsu {
         (self.read_bus(fulladdr) as u16) | ((self.read_bus(gsu_addr_add(fulladdr, 1)) as u16) << 8)
     }
 
+    fn read_bus_tick(&self, fulladdr: GsuAddress) -> u8 {
+        // TODO bus access clear check
+        // TODO wait states based on location
+
+        self.read_bus(fulladdr)
+    }
+
+    pub fn read16_bus_tick(&self, fulladdr: GsuAddress) -> u16 {
+        (self.read_bus_tick(fulladdr) as u16)
+            | ((self.read_bus_tick(gsu_addr_add(fulladdr, 1)) as u16) << 8)
+    }
+
     fn fetch(&mut self) -> u8 {
         let pc_bank = GsuAddress::from(self.regs.read(Register::PBR)) << 16;
         let pc = pc_bank | GsuAddress::from(self.regs.read_inc(Register::R15));
-        self.read_bus(pc)
+
+        let cache_base = self.get_cache_base() as usize;
+        if (cache_base..=(cache_base + CACHE_SIZE)).contains(&(pc as usize)) {
+            // PC in cache region
+            let cache_line = (pc as usize - cache_base) / CACHE_LINE_SIZE;
+            let cache_line_pos = (pc as usize - cache_base) % CACHE_LINE_SIZE;
+            let cache_pos = pc as usize - cache_base;
+            if !self.cache_valid[cache_line] {
+                // Cache miss, load to cache
+                self.cache[cache_pos] = self.read_bus_tick(pc);
+                if cache_line_pos == (CACHE_LINE_SIZE - 1) {
+                    // Mark cache line valid
+                    self.cache_valid[cache_line] = true;
+                }
+            }
+
+            self.cache[cache_pos]
+        } else {
+            self.read_bus_tick(pc)
+        }
     }
 
     fn fetch16(&mut self) -> u16 {
