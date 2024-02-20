@@ -225,6 +225,16 @@ impl CpuGsu {
 
                 self.cycles(1)?;
             }
+            (0x4D, false, _) => {
+                // SWAP
+                let s = self.regs.read_r(sreg);
+                let result = s.rotate_right(8);
+
+                self.regs.write_r(dreg, result);
+                self.regs
+                    .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
+                self.cycles(1)?;
+            }
             (0x4F, _, _) => {
                 // NOT
                 let result = !self.regs.read_r(sreg);

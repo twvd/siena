@@ -134,6 +134,10 @@ test!(
     "1e79664b574ef3a418f8896763e3a7a78d6cf9d82e883f662574e389c9ea5bd2"
 );
 test!(
+    SWAP,
+    "c3e00447f24cadf80768bc563c24c1e7bbd1e56fed95b6e9ce5129a4da2dd0d9"
+);
+test!(
     UMULT,
     "673674cfd30ca0303eaf551edf2ac3410412e5a1c6e5a1254acb8ca1801296f9"
 );
