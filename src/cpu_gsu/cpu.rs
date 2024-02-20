@@ -156,6 +156,20 @@ impl CpuGsu {
                 ]);
                 self.cycles(1)?;
             }
+            (0x04, _, _) => {
+                // ROL
+                let s = self.regs.read_r(sreg);
+                let c = if self.regs.test_flag(Flag::C) { 1 } else { 0 };
+                let result = s << 1 | c;
+
+                self.regs.write_r(dreg, result);
+                self.regs.write_flags(&[
+                    (Flag::Z, result == 0),
+                    (Flag::S, result & 0x8000 != 0),
+                    (Flag::C, s & 0x8000 != 0),
+                ]);
+                self.cycles(1)?;
+            }
             (0x10..=0x1F, _, _) => {
                 // MOVE/TO
                 let reg = (instr & 0x0F) as usize;
@@ -415,7 +429,7 @@ impl CpuGsu {
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
                 self.cycles(1)?;
             }
-            (0x96, false, false) => {
+            (0x96, false, _) => {
                 // ASR
                 let s = self.regs.read_r(sreg);
                 let result = ((s as i16) >> 1) as u16;
@@ -428,7 +442,7 @@ impl CpuGsu {
                 ]);
                 self.cycles(1)?;
             }
-            (0x96, true, false) => {
+            (0x96, true, _) => {
                 // DIV2
                 let s = self.regs.read_r(sreg);
                 let result = if s == 0xFFFF {
@@ -436,6 +450,24 @@ impl CpuGsu {
                 } else {
                     ((s as i16) >> 1) as u16
                 };
+
+                self.regs.write_r(dreg, result);
+                self.regs.write_flags(&[
+                    (Flag::Z, result == 0),
+                    (Flag::S, result & 0x8000 != 0),
+                    (Flag::C, s & 0x01 != 0),
+                ]);
+                self.cycles(1)?;
+            }
+            (0x97, _, _) => {
+                // ROR
+                let s = self.regs.read_r(sreg);
+                let c = if self.regs.test_flag(Flag::C) {
+                    0x8000
+                } else {
+                    0
+                };
+                let result = s >> 1 | c;
 
                 self.regs.write_r(dreg, result);
                 self.regs.write_flags(&[

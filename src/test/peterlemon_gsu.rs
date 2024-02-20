@@ -114,6 +114,14 @@ test!(
     "3247f4d2ff8df0f040a1c87295cda3655d5900a96bea94723a0fdf1029369cf1"
 );
 test!(
+    ROL,
+    "a1aef52d36c0c402e9b070164b5a9950df77110c755e08a03262b825fb60b7b0"
+);
+test!(
+    ROR,
+    "4f4e399186f472bab253216754c03f9da93f7b54376951167ce30cd9311ff6f7"
+);
+test!(
     SBC,
     "5ca8e8b3fd757c6624c12ab24933fa1877fdfdf5f1e93e456af06cf1eaf2cada"
 );
