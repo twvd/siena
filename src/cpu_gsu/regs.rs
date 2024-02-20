@@ -110,6 +110,12 @@ pub enum Register {
     RAMBR,
     /// Cache base register
     CBR,
+
+    // Plotting registers
+    /// Color register
+    COLR,
+    /// Plotting option register
+    POR,
 }
 
 impl Register {
@@ -142,7 +148,9 @@ impl Register {
             | Register::CLSR
             | Register::SCMR
             | Register::VCR
-            | Register::RAMBR => RegisterWidth::EightBit,
+            | Register::RAMBR
+            | Register::COLR
+            | Register::POR => RegisterWidth::EightBit,
         }
     }
 }
@@ -161,6 +169,8 @@ pub struct RegisterFile {
     pub scmr: u8,
     pub rambr: u8,
     pub cbr: u16,
+    pub colr: u8,
+    pub por: u8,
 }
 
 impl RegisterFile {
@@ -177,6 +187,8 @@ impl RegisterFile {
             scmr: 0,
             rambr: 0,
             cbr: 0,
+            colr: 0,
+            por: 0,
         }
     }
 
@@ -199,6 +211,8 @@ impl RegisterFile {
             Register::VCR => unreachable!(),
             Register::RAMBR => self.rambr = reg8(),
             Register::BRAMBR => self.brambr = reg8(),
+            Register::COLR => self.colr = reg8(),
+            Register::POR => self.por = reg8(),
 
             // 16-bit registers
             Register::R0 => self.r[0] = reg16(),
@@ -235,6 +249,8 @@ impl RegisterFile {
             Register::VCR => todo!(),
             Register::RAMBR => self.rambr.into(),
             Register::BRAMBR => self.brambr.into(),
+            Register::COLR => self.colr.into(),
+            Register::POR => self.por.into(),
 
             // 16-bit registers
             Register::R0 => self.r[0],

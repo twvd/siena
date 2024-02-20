@@ -81,7 +81,7 @@ impl CpuGsu {
             (0x00..=0x3F, 0x8000..=0xFFFF) => GsuBus::ROM,
             (0x40..=0x5F, _) => GsuBus::ROM,
             (0x70..=0x71, _) => GsuBus::RAM,
-            _ => panic!("Unmapped address"),
+            _ => panic!("Unmapped address {:06X}", fulladdr),
         }
     }
 
@@ -102,7 +102,7 @@ impl CpuGsu {
             (0x00..=0x3F, 0x8000..=0xFFFF) => self.rom[addr - 0x8000 + bank * 0x8000],
             (0x40..=0x5F, _) => self.rom[(bank - 0x40) * 0x10000 + addr],
             (0x70..=0x71, _) => self.ram[(bank - 0x70) * 0x10000 + addr],
-            _ => panic!("Unmapped address"),
+            _ => panic!("Unmapped address {:06X}", fulladdr),
         }
     }
 
@@ -294,6 +294,18 @@ impl CpuGsu {
                 self.regs.write_r(dreg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
+                self.cycles(1)?;
+            }
+            (0x4E, false, _) => {
+                // COLOR
+                let s = self.regs.read_r(sreg) & 0xFF;
+                self.regs.write(Register::COLR, s);
+                self.cycles(1)?;
+            }
+            (0x4E, true, _) => {
+                // CMODE
+                let s = self.regs.read_r(sreg) & 0x1F;
+                self.regs.write(Register::POR, s);
                 self.cycles(1)?;
             }
             (0x4F, _, _) => {
@@ -673,6 +685,14 @@ impl CpuGsu {
                 self.regs.write_r(reg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
+                self.cycles(1)?;
+            }
+            (0xDF, _, _) => {
+                // GETC
+                let addr = (GsuAddress::from(self.regs.read(Register::ROMBR)) << 16)
+                    | GsuAddress::from(self.regs.read(Register::R14));
+                let s = self.read_bus_tick(addr);
+                self.regs.write8(Register::COLR, s);
                 self.cycles(1)?;
             }
             (0xE0..=0xEE, _, _) => {
