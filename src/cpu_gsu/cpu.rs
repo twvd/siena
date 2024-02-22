@@ -255,6 +255,28 @@ impl CpuGsu {
                 // cycles unknown, assumed 3/3/1
                 self.cycles(1)?;
             }
+            (0x30..=0x3B, _, _) => {
+                // STW (Rn)
+                let addr = (usize::from(self.regs.read(Register::RAMBR)) << 8)
+                    | usize::from(self.regs.read_r((instr & 0x0F) as usize) * 2);
+                let v = self.regs.read_r(sreg);
+                self.ram[addr] = v as u8;
+                self.ram[addr + 1] = (v >> 8) as u8;
+                self.cycles(1)?;
+            }
+            (0x3C, _, _) => {
+                // LOOP
+                let i = self.regs.read(Register::R12);
+                let new_i = i.wrapping_sub(1);
+                self.regs.write(Register::R12, new_i);
+                self.regs
+                    .write_flags(&[(Flag::S, new_i & 0x8000 != 0), (Flag::Z, new_i == 0)]);
+                if new_i != 0 {
+                    let new_pc = self.regs.read(Register::R13);
+                    self.regs.write(Register::R15, new_pc);
+                }
+                self.cycles(1)?;
+            }
             (0x3D, _, _) => {
                 // ALT1
                 self.regs.write_flags(&[(Flag::ALT1, true)]);
