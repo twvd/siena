@@ -289,7 +289,8 @@ where
             }
 
             if self.hdmaen & (1 << ch) != 0 {
-                println!("??? Doing GDMA on a channel ({}) enabled for HDMA", ch);
+                //println!("??? Doing GDMA on a channel ({}) enabled for HDMA", ch);
+                continue;
             }
 
             if self.trace == BusTrace::All {
