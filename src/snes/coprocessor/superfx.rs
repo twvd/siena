@@ -68,6 +68,7 @@ impl BusMember<Address> for SuperFX {
 
             // Instruction cache
             0x3100..=0x32FF => {
+                return None;
                 let base = cpu.get_cache_base() & 0x1FF;
                 Some(cpu.read_bus(base + ((addr as GsuAddress) - 0x3100)))
             }

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use super::regs::{CFGRFlag, Flag, Register, RegisterFile};
+use super::regs::{CFGRFlag, Flag, PORFlag, Register, RegisterFile, ScreenHeight, BPP};
 
 use crate::tickable::{Tickable, Ticks};
 
@@ -285,6 +285,16 @@ impl CpuGsu {
                 self.dreg = dreg;
 
                 self.cycles(1)?;
+            }
+            (0x4C, false, _) => {
+                // PLOT
+                self.pixel_draw();
+                let _ = self.regs.read_inc(Register::R1);
+                self.cycles(1)?;
+            }
+            (0x4C, true, _) => {
+                // RPIX
+                // TODO pixel cache
             }
             (0x4D, false, _) => {
                 // SWAP
@@ -723,6 +733,43 @@ impl CpuGsu {
         // TODO cycles
 
         Ok(())
+    }
+
+    fn pixel_draw(&mut self) {
+        let x = self.regs.read(Register::R1) as usize;
+        let y = self.regs.read(Register::R2) as usize;
+        let color = self.regs.read(Register::COLR) as usize;
+
+        // Transparency
+        if !self.regs.test_por(PORFlag::NotTransparent) && color == 0 {
+            return;
+        }
+
+        let bpp = self.regs.get_scmr_bpp();
+        let tilenum = if self.regs.get_scmr_height() == ScreenHeight::Obj
+            || self.regs.test_por(PORFlag::ObjMode)
+        {
+            todo!();
+        } else {
+            match self.regs.get_scmr_height() {
+                ScreenHeight::H128 => (x / 8) * 0x10 + (y / 8),
+                ScreenHeight::H160 => (x / 8) * 0x14 + (y / 8),
+                ScreenHeight::H192 => (x / 8) * 0x18 + (y / 8),
+                ScreenHeight::Obj => unreachable!(),
+            }
+        };
+        let scbr = self.regs.read(Register::SCBR) as usize;
+        let row_addr = match bpp {
+            BPP::Two => tilenum * 0x10 + scbr * 0x400 + (y & 7) * 2,
+            BPP::Four => tilenum * 0x20 + scbr * 0x400 + (y & 7) * 2,
+            BPP::Eight => tilenum * 0x40 + scbr * 0x400 + (y & 7) * 2,
+        };
+
+        for bitp in 0..(bpp.num_bitplanes()) {
+            if color & (1 << bitp) != 0 {
+                self.ram[row_addr + bitp] |= 1 << (7 - (x % 8));
+            }
+        }
     }
 }
 

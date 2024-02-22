@@ -1,7 +1,7 @@
 use std::fmt;
 
-use num_derive::ToPrimitive;
-use num_traits::ToPrimitive;
+use num_derive::{FromPrimitive, ToPrimitive};
+use num_traits::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, IntoEnumIterator};
 
@@ -41,6 +41,48 @@ pub enum CFGRFlag {
     MS0 = 5,
     /// Interrupt on STOP mask
     IRQ = 7,
+}
+
+/// Bit positions of the flags in the POR register.
+#[derive(EnumIter, ToPrimitive, Debug, Copy, Clone, Display)]
+pub enum PORFlag {
+    NotTransparent = 0,
+    Dither = 1,
+    ColorHighNibble = 2,
+    ColorHighFreeze = 3,
+    ObjMode = 4,
+}
+
+const SCMR_BPP_MASK: u8 = 0x03;
+/// Color depth values in SCMR
+#[derive(Clone, Copy, Debug, FromPrimitive, ToPrimitive)]
+pub enum BPP {
+    // BPP == number of bitplanes
+    Two = 0,   // 4 colors
+    Four = 1,  // 16 colors
+    Eight = 3, // 256 colors
+}
+impl BPP {
+    pub fn entries_per_palette(&self) -> u8 {
+        1 << self.to_u8().unwrap()
+    }
+    pub fn num_bitplanes(&self) -> usize {
+        match self {
+            BPP::Two => 2,
+            BPP::Four => 4,
+            BPP::Eight => 8,
+        }
+    }
+}
+
+const SCMR_HEIGHT_MASK: u8 = 0b00100100;
+/// Screen height values in SCMR
+#[derive(Clone, Copy, Debug, ToPrimitive, FromPrimitive, Eq, PartialEq)]
+pub enum ScreenHeight {
+    H128 = 0,
+    H160 = 0b001,
+    H192 = 0b100000,
+    Obj = 0b100100,
 }
 
 /// Bit-width of a register (see Register::width())
@@ -246,7 +288,7 @@ impl RegisterFile {
             Register::SCBR => self.scbr.into(),
             Register::CLSR => self.clsr.into(),
             Register::SCMR => self.scmr.into(),
-            Register::VCR => todo!(),
+            Register::VCR => 1,
             Register::RAMBR => self.rambr.into(),
             Register::BRAMBR => self.brambr.into(),
             Register::COLR => self.colr.into(),
@@ -367,6 +409,19 @@ impl RegisterFile {
     /// Test a flag in CFGR.
     pub fn test_cfgr(&self, f: CFGRFlag) -> bool {
         self.cfgr & (1u8 << f.to_u8().unwrap()) != 0
+    }
+
+    /// Test a flag in POR.
+    pub fn test_por(&self, f: PORFlag) -> bool {
+        self.por & (1u8 << f.to_u8().unwrap()) != 0
+    }
+
+    pub fn get_scmr_bpp(&self) -> BPP {
+        BPP::from_u8(self.scmr & SCMR_BPP_MASK).unwrap()
+    }
+
+    pub fn get_scmr_height(&self) -> ScreenHeight {
+        ScreenHeight::from_u8(self.scmr & SCMR_HEIGHT_MASK).unwrap()
     }
 }
 
