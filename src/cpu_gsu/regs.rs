@@ -438,6 +438,10 @@ impl fmt::Display for RegisterFile {
             })
             .collect::<String>();
 
-        write!(f, "TODO {}", flags)
+        let regs = (0..=15)
+            .map(|r| format!("R{:02}:{:04X} ", r, self.read_r(r)))
+            .collect::<String>();
+
+        write!(f, "{} SFR: {:04X} ({})", regs, self.sfr, flags)
     }
 }
