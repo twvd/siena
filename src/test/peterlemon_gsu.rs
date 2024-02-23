@@ -166,9 +166,21 @@ test_instr!(
     "cd0d145aa76c202c872d59e03866aee5ab82c183283a991c4b308ed521325918"
 );
 
-//test!(GSU2BPP256x128FillPoly, "2BPP/FillPoly/256x128/GSU2BPP256x128FillPoly.sfc", "");
-//test!(GSU2BPP256x160FillPoly, "2BPP/FillPoly/256x160/GSU2BPP256x160FillPoly.sfc", "");
-//test!(GSU2BPP256x192FillPoly, "2BPP/FillPoly/256x192/GSU2BPP256x192FillPoly.sfc", "");
+test!(
+    GSU2BPP256x128FillPoly,
+    "2BPP/FillPoly/256x128/GSU2BPP256x128FillPoly.sfc",
+    "316379e7206c2123b309fd680fe9b5c78cc6cdbcbb51970bb686f720aa52d59b"
+);
+test!(
+    GSU2BPP256x160FillPoly,
+    "2BPP/FillPoly/256x160/GSU2BPP256x160FillPoly.sfc",
+    "569b52d85ad936c0eece352371ab8261e2805696193edd269ed6bd3dcea89968"
+);
+test!(
+    GSU2BPP256x192FillPoly,
+    "2BPP/FillPoly/256x192/GSU2BPP256x192FillPoly.sfc",
+    "aef15107dd671afe9425aa7cf0fc7aa60149d4afeb75d2c383e80fc2fc9e258f"
+);
 test!(
     GSU2BPP256x128PlotLine,
     "2BPP/PlotLine/256x128/GSU2BPP256x128PlotLine.sfc",
@@ -199,9 +211,21 @@ test!(
     "2BPP/PlotPixel/256x192/GSU2BPP256x192PlotPixel.sfc",
     "9f1168626ef71fe00e5371b7b21271a6ee2cb903ff437a8483b79afa9695fec2"
 );
-//test!(GSU4BPP256x128FillPoly, "4BPP/FillPoly/256x128/GSU4BPP256x128FillPoly.sfc", "");
-//test!(GSU4BPP256x160FillPoly, "4BPP/FillPoly/256x160/GSU4BPP256x160FillPoly.sfc", "");
-//test!(GSU4BPP256x192FillPoly, "4BPP/FillPoly/256x192/GSU4BPP256x192FillPoly.sfc", "");
+test!(
+    GSU4BPP256x128FillPoly,
+    "4BPP/FillPoly/256x128/GSU4BPP256x128FillPoly.sfc",
+    "316379e7206c2123b309fd680fe9b5c78cc6cdbcbb51970bb686f720aa52d59b"
+);
+test!(
+    GSU4BPP256x160FillPoly,
+    "4BPP/FillPoly/256x160/GSU4BPP256x160FillPoly.sfc",
+    "569b52d85ad936c0eece352371ab8261e2805696193edd269ed6bd3dcea89968"
+);
+test!(
+    GSU4BPP256x192FillPoly,
+    "4BPP/FillPoly/256x192/GSU4BPP256x192FillPoly.sfc",
+    "aef15107dd671afe9425aa7cf0fc7aa60149d4afeb75d2c383e80fc2fc9e258f"
+);
 test!(
     GSU4BPP256x128PlotLine,
     "4BPP/PlotLine/256x128/GSU4BPP256x128PlotLine.sfc",
@@ -232,9 +256,21 @@ test!(
     "4BPP/PlotPixel/256x192/GSU4BPP256x192PlotPixel.sfc",
     "9f1168626ef71fe00e5371b7b21271a6ee2cb903ff437a8483b79afa9695fec2"
 );
-//test!(GSU8BPP256x128FillPoly, "8BPP/FillPoly/256x128/GSU8BPP256x128FillPoly.sfc", "");
-//test!(GSU8BPP256x160FillPoly, "8BPP/FillPoly/256x160/GSU8BPP256x160FillPoly.sfc", "");
-//test!(GSU8BPP256x192FillPoly, "8BPP/FillPoly/256x192/GSU8BPP256x192FillPoly.sfc", "");
+test!(
+    GSU8BPP256x128FillPoly,
+    "8BPP/FillPoly/256x128/GSU8BPP256x128FillPoly.sfc",
+    "316379e7206c2123b309fd680fe9b5c78cc6cdbcbb51970bb686f720aa52d59b"
+);
+test!(
+    GSU8BPP256x160FillPoly,
+    "8BPP/FillPoly/256x160/GSU8BPP256x160FillPoly.sfc",
+    "569b52d85ad936c0eece352371ab8261e2805696193edd269ed6bd3dcea89968"
+);
+test!(
+    GSU8BPP256x192FillPoly,
+    "8BPP/FillPoly/256x192/GSU8BPP256x192FillPoly.sfc",
+    "aef15107dd671afe9425aa7cf0fc7aa60149d4afeb75d2c383e80fc2fc9e258f"
+);
 test!(
     GSU8BPP256x128PlotLine,
     "8BPP/PlotLine/256x128/GSU8BPP256x128PlotLine.sfc",

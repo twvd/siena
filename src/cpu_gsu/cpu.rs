@@ -360,6 +360,16 @@ impl CpuGsu {
 
                 self.cycles(1)?;
             }
+            (0x40..=0x4B, false, _) => {
+                // LDW (Rn)
+                let addr_l = (usize::from(self.regs.read(Register::RAMBR)) << 8)
+                    | usize::from(self.regs.read_r((instr & 0x0F) as usize));
+                let addr_h = (usize::from(self.regs.read(Register::RAMBR)) << 8)
+                    | usize::from(self.regs.read_r((instr & 0x0F) as usize).wrapping_add(1));
+                let v = self.ram[addr_l] as u16 | ((self.ram[addr_h] as u16) << 8);
+                self.regs.write_r(dreg, v);
+                self.cycles(7)?;
+            }
             (0x4C, false, _) => {
                 // PLOT
                 self.pixel_draw();
@@ -775,6 +785,7 @@ impl CpuGsu {
                 // GETC
                 let addr = (GsuAddress::from(self.regs.read(Register::ROMBR)) << 16)
                     | GsuAddress::from(self.regs.read(Register::R14));
+                // TODO ROM cache
                 let s = self.read_bus_tick(addr);
                 self.regs.write8(Register::COLR, s);
                 self.cycles(1)?;
@@ -786,6 +797,34 @@ impl CpuGsu {
                 self.regs.write_r(reg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
+                self.cycles(1)?;
+            }
+            (0xEF, _, _) => {
+                // GETBx
+                let addr = (GsuAddress::from(self.regs.read(Register::ROMBR)) << 16)
+                    | GsuAddress::from(self.regs.read(Register::R14));
+                // TODO ROM cache
+                let val = self.read_bus_tick(addr) as u16;
+                let d = self.regs.read_r(dreg);
+                self.regs.write_r(
+                    dreg,
+                    match (alt1, alt2) {
+                        // GETB
+                        (false, false) => val,
+                        // GETBH
+                        (true, false) => (val << 8) | (d & 0x00FF),
+                        // GETBL
+                        (false, true) => val | (val & 0xFF00),
+                        // GETBS
+                        (true, true) => {
+                            if val & 0x80 != 0 {
+                                val | 0xFF00
+                            } else {
+                                val
+                            }
+                        }
+                    },
+                );
                 self.cycles(1)?;
             }
             (0xF0..=0xFF, _, _) => {
