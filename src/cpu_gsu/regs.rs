@@ -80,7 +80,7 @@ const SCMR_HEIGHT_MASK: u8 = 0b00100100;
 #[derive(Clone, Copy, Debug, ToPrimitive, FromPrimitive, Eq, PartialEq)]
 pub enum ScreenHeight {
     H128 = 0,
-    H160 = 0b001,
+    H160 = 0b100,
     H192 = 0b100000,
     Obj = 0b100100,
 }
