@@ -34,6 +34,7 @@ pub struct CpuGsu {
     sreg: usize,
     dreg: usize,
     last_instr: u8,
+    branch_pc: Option<u16>,
 
     pub cache_valid: [bool; CACHE_LINES],
 }
@@ -49,6 +50,7 @@ impl CpuGsu {
             sreg: 0,
             dreg: 0,
             last_instr: 0,
+            branch_pc: None,
             cache_valid: [false; CACHE_LINES],
         };
 
@@ -125,6 +127,12 @@ impl CpuGsu {
     fn fetch(&mut self) -> u8 {
         let pc_bank = GsuAddress::from(self.regs.read(Register::PBR)) << 16;
         let pc = pc_bank | GsuAddress::from(self.regs.read_inc(Register::R15));
+
+        if let Some(branch_pc) = self.branch_pc {
+            // Branch scheduled, now in delay slot
+            self.regs.write(Register::R15, branch_pc);
+            self.branch_pc = None;
+        }
 
         let cache_base = self.get_cache_base() as usize;
         if (cache_base..=(cache_base + CACHE_SIZE)).contains(&(pc as usize)) {
@@ -231,6 +239,22 @@ impl CpuGsu {
                 ]);
                 self.cycles(1)?;
             }
+            (0x05, _, _) => {
+                // BRA
+                self.op_branch(true)
+            }
+            (0x06, _, _) => {
+                // BGE
+                self.op_branch(!(self.regs.test_flag(Flag::S) ^ self.regs.test_flag(Flag::V)))
+            }
+            (0x07, _, _) => {
+                // BLT
+                self.op_branch(self.regs.test_flag(Flag::S) ^ self.regs.test_flag(Flag::V))
+            }
+            (0x0A, _, _) => {
+                // BPL
+                self.op_branch(!self.regs.test_flag(Flag::S))
+            }
             (0x10..=0x1F, _, _) => {
                 // MOVE/TO
                 let reg = (instr & 0x0F) as usize;
@@ -273,7 +297,7 @@ impl CpuGsu {
                     .write_flags(&[(Flag::S, new_i & 0x8000 != 0), (Flag::Z, new_i == 0)]);
                 if new_i != 0 {
                     let new_pc = self.regs.read(Register::R13);
-                    self.regs.write(Register::R15, new_pc);
+                    self.branch_pc = Some(new_pc);
                 }
                 self.cycles(1)?;
             }
@@ -792,6 +816,17 @@ impl CpuGsu {
                 self.ram[row_addr + bitp] |= 1 << (7 - (x % 8));
             }
         }
+    }
+
+    fn op_branch(&mut self, cond: bool) {
+        let dest = self.fetch() as i8 as i16;
+        let pc = self.regs.read(Register::R15);
+        let new_pc = pc.wrapping_add_signed(dest);
+
+        if cond {
+            self.branch_pc = Some(new_pc);
+        }
+        // TODO cycles
     }
 }
 
