@@ -251,9 +251,37 @@ impl CpuGsu {
                 // BLT
                 self.op_branch(self.regs.test_flag(Flag::S) ^ self.regs.test_flag(Flag::V))
             }
+            (0x08, _, _) => {
+                // BNE
+                self.op_branch(!self.regs.test_flag(Flag::Z))
+            }
+            (0x09, _, _) => {
+                // BEQ
+                self.op_branch(self.regs.test_flag(Flag::Z))
+            }
             (0x0A, _, _) => {
                 // BPL
                 self.op_branch(!self.regs.test_flag(Flag::S))
+            }
+            (0x0B, _, _) => {
+                // BMI
+                self.op_branch(self.regs.test_flag(Flag::S))
+            }
+            (0x0C, _, _) => {
+                // BCC
+                self.op_branch(!self.regs.test_flag(Flag::C))
+            }
+            (0x0D, _, _) => {
+                // BCS
+                self.op_branch(self.regs.test_flag(Flag::C))
+            }
+            (0x0E, _, _) => {
+                // BVC
+                self.op_branch(!self.regs.test_flag(Flag::V))
+            }
+            (0x0F, _, _) => {
+                // BVS
+                self.op_branch(self.regs.test_flag(Flag::V))
             }
             (0x10..=0x1F, _, _) => {
                 // MOVE/TO
