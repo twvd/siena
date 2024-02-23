@@ -258,7 +258,7 @@ impl CpuGsu {
             (0x30..=0x3B, _, _) => {
                 // STW (Rn)
                 let addr = (usize::from(self.regs.read(Register::RAMBR)) << 8)
-                    | usize::from(self.regs.read_r((instr & 0x0F) as usize) * 2);
+                    | usize::from(self.regs.read_r((instr & 0x0F) as usize));
                 let v = self.regs.read_r(sreg);
                 self.ram[addr] = v as u8;
                 self.ram[addr + 1] = (v >> 8) as u8;
