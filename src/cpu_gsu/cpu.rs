@@ -101,6 +101,7 @@ impl CpuGsu {
         }
 
         match (bank & !0x80, addr) {
+            (0x00..=0x3F, 0x0000..=0x7FFF) => self.rom[addr + bank * 0x8000],
             (0x00..=0x3F, 0x8000..=0xFFFF) => self.rom[addr - 0x8000 + bank * 0x8000],
             (0x40..=0x5F, _) => self.rom[(bank - 0x40) * 0x10000 + addr],
             (0x70..=0x71, _) => self.ram[(bank - 0x70) * 0x10000 + addr],
