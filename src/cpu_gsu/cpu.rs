@@ -35,6 +35,7 @@ pub struct CpuGsu {
     dreg: usize,
     last_instr: u8,
     branch_pc: Option<u16>,
+    irq_pending: bool,
 
     pub cache_valid: [bool; CACHE_LINES],
 }
@@ -52,6 +53,7 @@ impl CpuGsu {
             last_instr: 0,
             branch_pc: None,
             cache_valid: [false; CACHE_LINES],
+            irq_pending: false,
         };
 
         c.rom[0..rom.len()].copy_from_slice(rom);
@@ -208,6 +210,13 @@ impl CpuGsu {
             (0x00, _, _) => {
                 // STOP
                 self.regs.write_flags(&[(Flag::G, false)]);
+                println!("{}", self.regs);
+
+                if !self.regs.test_cfgr(CFGRFlag::IRQ) {
+                    self.regs.write_flags(&[(Flag::IRQ, true)]);
+                    self.irq_pending = true;
+                }
+
                 self.cycles(1)?;
             }
             (0x01, _, _) => {
@@ -928,6 +937,12 @@ impl CpuGsu {
             self.branch_pc = Some(new_pc);
         }
         // TODO cycles
+    }
+
+    pub fn get_clr_int(&mut self) -> bool {
+        let v = self.irq_pending;
+        self.irq_pending = false;
+        v
     }
 }
 

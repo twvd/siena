@@ -521,6 +521,14 @@ impl Cartridge {
             _ => None,
         }
     }
+
+    pub fn get_clr_int(&mut self) -> bool {
+        if let Some(sfx) = self.co_superfx.as_mut() {
+            return sfx.get_clr_int();
+        }
+
+        false
+    }
 }
 
 impl fmt::Display for Cartridge {

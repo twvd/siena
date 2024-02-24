@@ -858,6 +858,10 @@ where
             self.timeup.set(true);
         }
 
+        if self.cartridge.get_clr_int() {
+            self.intreq_int = true;
+        }
+
         Ok(())
     }
 }

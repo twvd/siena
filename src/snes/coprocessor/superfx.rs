@@ -21,6 +21,11 @@ impl SuperFX {
             cpu: RefCell::new(CpuGsu::new(rom)),
         }
     }
+
+    pub fn get_clr_int(&mut self) -> bool {
+        let mut cpu = self.cpu.borrow_mut();
+        cpu.get_clr_int()
+    }
 }
 
 impl Tickable for SuperFX {
@@ -34,7 +39,7 @@ impl Tickable for SuperFX {
 impl BusMember<Address> for SuperFX {
     fn read(&self, fulladdr: Address) -> Option<u8> {
         let (_bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
-        let cpu = self.cpu.borrow();
+        let mut cpu = self.cpu.borrow_mut();
 
         //println!("SuperFX read: {:04X}", addr);
         match addr {
@@ -49,7 +54,11 @@ impl BusMember<Address> for SuperFX {
                     Some((cpu.regs.read_r(r) >> 8) as u8)
                 }
             }
-            0x3030 => Some(cpu.regs.read(Register::SFR) as u8),
+            0x3030 => {
+                let v = cpu.regs.read(Register::SFR) as u8;
+                cpu.regs.write_flags(&[(Flag::IRQ, false)]);
+                Some(v)
+            }
             0x3031 => Some((cpu.regs.read(Register::SFR) >> 8) as u8),
             // 0x3032 unused
             0x3033 => Some(cpu.regs.read8(Register::BRAMBR)),
