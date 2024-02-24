@@ -108,7 +108,6 @@ impl BusMember<Address> for SuperFX {
                 // If PC (R15) is written, start execution
                 if r == 15 && addr & 1 != 0 && !cpu.regs.test_flag(Flag::G) {
                     println!("SuperFX go {:02X} {:04X}", cpu.regs.pbr, newval);
-                    cpu.cache_flush();
                     cpu.regs.write_flags(&[(Flag::G, true)]);
                 }
 
