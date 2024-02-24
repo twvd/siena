@@ -31,11 +31,11 @@ impl SnesColor {
 
     /// Convert to a (host)-native color (RGB888)
     pub fn to_native(&self) -> Color {
-        let c = |v| (((v as u16) * 0x21) >> 2) as u8;
+        // TODO better put this in the frontend? I'm not sure..
         (
-            c(self.r()), // Red, 5-bit
-            c(self.g()), // Green, 5-bit
-            c(self.b()), // Blue, 5-bit
+            self.r() << 3, // Red, 5-bit
+            self.g() << 3, // Green, 5-bit
+            self.b() << 3, // Blue, 5-bit
         )
     }
 
