@@ -327,13 +327,21 @@ impl CpuGsu {
                 // cycles unknown, assumed 3/3/1
                 self.cycles(1)?;
             }
-            (0x30..=0x3B, _, _) => {
+            (0x30..=0x3B, false, _) => {
                 // STW (Rn)
                 let addr = (usize::from(self.regs.read(Register::RAMBR)) << 8)
                     | usize::from(self.regs.read_r((instr & 0x0F) as usize));
                 let v = self.regs.read_r(sreg);
                 self.ram[addr] = v as u8;
                 self.ram[addr + 1] = (v >> 8) as u8;
+                self.cycles(1)?;
+            }
+            (0x30..=0x3B, true, _) => {
+                // STB (Rn)
+                let addr = (usize::from(self.regs.read(Register::RAMBR)) << 8)
+                    | usize::from(self.regs.read_r((instr & 0x0F) as usize));
+                let v = self.regs.read_r(sreg);
+                self.ram[addr] = v as u8;
                 self.cycles(1)?;
             }
             (0x3C, _, _) => {
