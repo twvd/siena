@@ -90,7 +90,7 @@ impl CpuGsu {
     pub fn read_bus(&self, fulladdr: GsuAddress) -> u8 {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
-        // Check cache
+        // Check cache. Note: get_cache_base() includes PBR
         let cache_base = self.get_cache_base() as usize;
         if (cache_base..=(cache_base + CACHE_SIZE)).contains(&(fulladdr as usize)) {
             let cache_line = (fulladdr as usize - cache_base) / CACHE_LINE_SIZE;
@@ -211,6 +211,16 @@ impl CpuGsu {
             }
             (0x01, _, _) => {
                 // NOP
+                self.cycles(1)?;
+            }
+            (0x02, _, _) => {
+                // CACHE
+                let pc = self.regs.read(Register::R15);
+                let cbr = self.regs.read(Register::CBR);
+                if (pc & 0xFFF0) != cbr {
+                    self.cache_flush();
+                    self.regs.write(Register::CBR, pc & 0xFFF0);
+                }
                 self.cycles(1)?;
             }
             (0x03, _, _) => {

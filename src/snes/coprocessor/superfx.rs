@@ -68,7 +68,6 @@ impl BusMember<Address> for SuperFX {
 
             // Instruction cache
             0x3100..=0x32FF => {
-                return None;
                 let base = cpu.get_cache_base() & 0x1FF;
                 Some(cpu.read_bus(base + ((addr as GsuAddress) - 0x3100)))
             }
@@ -81,7 +80,7 @@ impl BusMember<Address> for SuperFX {
         let (_bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
         let mut cpu = self.cpu.borrow_mut();
 
-        println!("SuperFX write: {:04X} {:02X}", addr, val);
+        //println!("SuperFX write: {:04X} {:02X}", addr, val);
 
         match addr {
             0x3000..=0x301F => {
@@ -99,6 +98,8 @@ impl BusMember<Address> for SuperFX {
 
                 // If PC (R15) is written, start execution
                 if r == 15 && addr & 1 != 0 && !cpu.regs.test_flag(Flag::G) {
+                    println!("SuperFX go {:02X} {:04X}", cpu.regs.pbr, newval);
+                    cpu.cache_flush();
                     cpu.regs.write_flags(&[(Flag::G, true)]);
                 }
 
