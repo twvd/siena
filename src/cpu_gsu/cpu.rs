@@ -381,6 +381,14 @@ impl CpuGsu {
                 self.regs.write_r(dreg, v);
                 self.cycles(7)?;
             }
+            (0x40..=0x4B, true, _) => {
+                // LDB (Rn)
+                let addr_l = (usize::from(self.regs.read(Register::RAMBR)) << 8)
+                    | usize::from(self.regs.read_r((instr & 0x0F) as usize));
+                let v = self.ram[addr_l] as u16;
+                self.regs.write_r(dreg, v);
+                self.cycles(6)?;
+            }
             (0x4C, false, _) => {
                 // PLOT
                 self.pixel_draw();
@@ -606,6 +614,15 @@ impl CpuGsu {
                     self.cycles(2)?;
                 }
             }
+            (0x91..=0x94, _, _) => {
+                // LINK #n
+                let v = self
+                    .regs
+                    .read(Register::R15)
+                    .wrapping_add((instr & 0x0F) as u16);
+                self.regs.write(Register::R11, v);
+                self.cycles(1)?;
+            }
             (0x95, _, _) => {
                 // SEX
                 let s = self.regs.read_r(sreg) & 0xFF;
@@ -663,6 +680,12 @@ impl CpuGsu {
                     (Flag::S, result & 0x8000 != 0),
                     (Flag::C, s & 0x01 != 0),
                 ]);
+                self.cycles(1)?;
+            }
+            (0x98..=0x9D, false, _) => {
+                // JMP Rn
+                let r = (instr & 0x0F) as usize;
+                self.branch_pc = Some(self.regs.read_r(r));
                 self.cycles(1)?;
             }
             (0x9E, _, _) => {
