@@ -289,7 +289,7 @@ impl RegisterFile {
             Register::CLSR => self.clsr.into(),
             Register::SCMR => self.scmr.into(),
             Register::VCR => 1,
-            Register::RAMBR => self.rambr.into(),
+            Register::RAMBR => 0, //self.rambr.into(),
             Register::BRAMBR => self.brambr.into(),
             Register::COLR => self.colr.into(),
             Register::POR => self.por.into(),

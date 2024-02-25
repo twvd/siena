@@ -36,6 +36,7 @@ pub struct CpuGsu {
     last_instr: u8,
     branch_pc: Option<u16>,
     irq_pending: bool,
+    last_ramaddr: usize,
 
     pub cache_valid: [bool; CACHE_LINES],
 }
@@ -51,6 +52,7 @@ impl CpuGsu {
             sreg: 0,
             dreg: 0,
             last_instr: 0,
+            last_ramaddr: 0,
             branch_pc: None,
             cache_valid: [false; CACHE_LINES],
             irq_pending: false,
@@ -137,8 +139,9 @@ impl CpuGsu {
             self.branch_pc = None;
         }
 
+        return self.read_bus_tick(pc);
         let cache_base = self.get_cache_base() as usize;
-        if (cache_base..=(cache_base + CACHE_SIZE)).contains(&(pc as usize)) {
+        if (cache_base..(cache_base + CACHE_SIZE)).contains(&(pc as usize)) {
             // PC in cache region
             let cache_line = (pc as usize - cache_base) / CACHE_LINE_SIZE;
             let cache_line_pos = (pc as usize - cache_base) % CACHE_LINE_SIZE;
@@ -207,10 +210,9 @@ impl CpuGsu {
         self.last_instr = instr;
 
         match (instr, alt1, alt2) {
-            (0x00, _, _) => {
+            (0x00, false, false) => {
                 // STOP
                 self.regs.write_flags(&[(Flag::G, false)]);
-                println!("{}", self.regs);
 
                 if !self.regs.test_cfgr(CFGRFlag::IRQ) {
                     self.regs.write_flags(&[(Flag::IRQ, true)]);
@@ -219,21 +221,21 @@ impl CpuGsu {
 
                 self.cycles(1)?;
             }
-            (0x01, _, _) => {
+            (0x01, false, false) => {
                 // NOP
                 self.cycles(1)?;
             }
-            (0x02, _, _) => {
+            (0x02, false, false) => {
                 // CACHE
                 let pc = self.regs.read(Register::R15);
                 let cbr = self.regs.read(Register::CBR);
                 if (pc & 0xFFF0) != cbr {
-                    self.cache_flush();
-                    self.regs.write(Register::CBR, pc & 0xFFF0);
+                    //self.cache_flush();
+                    //self.regs.write(Register::CBR, pc & 0xFFF0);
                 }
                 self.cycles(1)?;
             }
-            (0x03, _, _) => {
+            (0x03, false, false) => {
                 // LSR
                 let s = self.regs.read_r(sreg);
                 let result = s >> 1;
@@ -245,7 +247,7 @@ impl CpuGsu {
                 ]);
                 self.cycles(1)?;
             }
-            (0x04, _, _) => {
+            (0x04, false, false) => {
                 // ROL
                 let s = self.regs.read_r(sreg);
                 let c = if self.regs.test_flag(Flag::C) { 1 } else { 0 };
@@ -259,51 +261,51 @@ impl CpuGsu {
                 ]);
                 self.cycles(1)?;
             }
-            (0x05, _, _) => {
+            (0x05, false, false) => {
                 // BRA
                 self.op_branch(true)
             }
-            (0x06, _, _) => {
+            (0x06, false, false) => {
                 // BGE
                 self.op_branch(!(self.regs.test_flag(Flag::S) ^ self.regs.test_flag(Flag::V)))
             }
-            (0x07, _, _) => {
+            (0x07, false, false) => {
                 // BLT
                 self.op_branch(self.regs.test_flag(Flag::S) ^ self.regs.test_flag(Flag::V))
             }
-            (0x08, _, _) => {
+            (0x08, false, false) => {
                 // BNE
                 self.op_branch(!self.regs.test_flag(Flag::Z))
             }
-            (0x09, _, _) => {
+            (0x09, false, false) => {
                 // BEQ
                 self.op_branch(self.regs.test_flag(Flag::Z))
             }
-            (0x0A, _, _) => {
+            (0x0A, false, false) => {
                 // BPL
                 self.op_branch(!self.regs.test_flag(Flag::S))
             }
-            (0x0B, _, _) => {
+            (0x0B, false, false) => {
                 // BMI
                 self.op_branch(self.regs.test_flag(Flag::S))
             }
-            (0x0C, _, _) => {
+            (0x0C, false, false) => {
                 // BCC
                 self.op_branch(!self.regs.test_flag(Flag::C))
             }
-            (0x0D, _, _) => {
+            (0x0D, false, false) => {
                 // BCS
                 self.op_branch(self.regs.test_flag(Flag::C))
             }
-            (0x0E, _, _) => {
+            (0x0E, false, false) => {
                 // BVC
                 self.op_branch(!self.regs.test_flag(Flag::V))
             }
-            (0x0F, _, _) => {
+            (0x0F, false, false) => {
                 // BVS
                 self.op_branch(self.regs.test_flag(Flag::V))
             }
-            (0x10..=0x1F, _, _) => {
+            (0x10..=0x1F, false, false) => {
                 // MOVE/TO
                 let reg = (instr & 0x0F) as usize;
 
@@ -327,24 +329,26 @@ impl CpuGsu {
                 // cycles unknown, assumed 3/3/1
                 self.cycles(1)?;
             }
-            (0x30..=0x3B, false, _) => {
+            (0x30..=0x3B, false, false) => {
                 // STW (Rn)
                 let addr = (usize::from(self.regs.read(Register::RAMBR)) << 8)
                     | usize::from(self.regs.read_r((instr & 0x0F) as usize));
                 let v = self.regs.read_r(sreg);
                 self.ram[addr] = v as u8;
                 self.ram[addr + 1] = (v >> 8) as u8;
+                self.last_ramaddr = addr;
                 self.cycles(1)?;
             }
-            (0x30..=0x3B, true, _) => {
+            (0x30..=0x3B, true, false) => {
                 // STB (Rn)
                 let addr = (usize::from(self.regs.read(Register::RAMBR)) << 8)
                     | usize::from(self.regs.read_r((instr & 0x0F) as usize));
                 let v = self.regs.read_r(sreg);
                 self.ram[addr] = v as u8;
+                self.last_ramaddr = addr;
                 self.cycles(1)?;
             }
-            (0x3C, _, _) => {
+            (0x3C, false, false) => {
                 // LOOP
                 let i = self.regs.read(Register::R12);
                 let new_i = i.wrapping_sub(1);
@@ -357,7 +361,7 @@ impl CpuGsu {
                 }
                 self.cycles(1)?;
             }
-            (0x3D, _, _) => {
+            (0x3D, false, false) => {
                 // ALT1
                 self.regs.write_flags(&[(Flag::ALT1, true)]);
 
@@ -367,7 +371,7 @@ impl CpuGsu {
 
                 self.cycles(1)?;
             }
-            (0x3E, _, _) => {
+            (0x3E, false, false) => {
                 // ALT2
                 self.regs.write_flags(&[(Flag::ALT2, true)]);
 
@@ -377,7 +381,7 @@ impl CpuGsu {
 
                 self.cycles(1)?;
             }
-            (0x3F, _, _) => {
+            (0x3F, false, false) => {
                 // ALT3
                 self.regs
                     .write_flags(&[(Flag::ALT1, true), (Flag::ALT2, true)]);
@@ -388,35 +392,37 @@ impl CpuGsu {
 
                 self.cycles(1)?;
             }
-            (0x40..=0x4B, false, _) => {
+            (0x40..=0x4B, false, false) => {
                 // LDW (Rn)
                 let addr_l = (usize::from(self.regs.read(Register::RAMBR)) << 8)
                     | usize::from(self.regs.read_r((instr & 0x0F) as usize));
                 let addr_h = (usize::from(self.regs.read(Register::RAMBR)) << 8)
                     | usize::from(self.regs.read_r((instr & 0x0F) as usize).wrapping_add(1));
                 let v = self.ram[addr_l] as u16 | ((self.ram[addr_h] as u16) << 8);
+                self.last_ramaddr = addr_l;
                 self.regs.write_r(dreg, v);
                 self.cycles(7)?;
             }
-            (0x40..=0x4B, true, _) => {
+            (0x40..=0x4B, true, false) => {
                 // LDB (Rn)
                 let addr_l = (usize::from(self.regs.read(Register::RAMBR)) << 8)
                     | usize::from(self.regs.read_r((instr & 0x0F) as usize));
                 let v = self.ram[addr_l] as u16;
+                self.last_ramaddr = addr_l;
                 self.regs.write_r(dreg, v);
                 self.cycles(6)?;
             }
-            (0x4C, false, _) => {
+            (0x4C, false, false) => {
                 // PLOT
                 self.pixel_draw();
                 let _ = self.regs.read_inc(Register::R1);
                 self.cycles(1)?;
             }
-            (0x4C, true, _) => {
+            (0x4C, true, false) => {
                 // RPIX
                 // TODO pixel cache
             }
-            (0x4D, false, _) => {
+            (0x4D, false, false) => {
                 // SWAP
                 let s = self.regs.read_r(sreg);
                 let result = s.rotate_right(8);
@@ -426,19 +432,19 @@ impl CpuGsu {
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
                 self.cycles(1)?;
             }
-            (0x4E, false, _) => {
+            (0x4E, false, false) => {
                 // COLOR
                 let s = self.regs.read_r(sreg) & 0xFF;
                 self.regs.write(Register::COLR, s);
                 self.cycles(1)?;
             }
-            (0x4E, true, _) => {
+            (0x4E, true, false) => {
                 // CMODE
                 let s = self.regs.read_r(sreg) & 0x1F;
                 self.regs.write(Register::POR, s);
                 self.cycles(1)?;
             }
-            (0x4F, _, _) => {
+            (0x4F, false, false) => {
                 // NOT
                 let result = !self.regs.read_r(sreg);
                 self.regs.write_r(dreg, result);
@@ -532,7 +538,7 @@ impl CpuGsu {
                 let _ = self.alu_sub(s1, s2, 1);
                 self.cycles(1)?;
             }
-            (0x70, _, _) => {
+            (0x70, false, false) => {
                 // MERGE
                 let result = (self.regs.read(Register::R7) & 0xFF00)
                     .wrapping_add(self.regs.read(Register::R8) / 0x0100);
@@ -631,7 +637,17 @@ impl CpuGsu {
                     self.cycles(2)?;
                 }
             }
-            (0x91..=0x94, _, _) => {
+            (0x90, false, false) => {
+                // SBK
+                let addr = self.last_ramaddr;
+                let v = self.regs.read_r(sreg);
+
+                self.ram[addr] = v as u8;
+                self.ram[addr + 1] = (v >> 8) as u8;
+                self.last_ramaddr = addr;
+                self.cycles(1)?;
+            }
+            (0x91..=0x94, false, false) => {
                 // LINK #n
                 let v = self
                     .regs
@@ -640,7 +656,7 @@ impl CpuGsu {
                 self.regs.write(Register::R11, v);
                 self.cycles(1)?;
             }
-            (0x95, _, _) => {
+            (0x95, false, false) => {
                 // SEX
                 let s = self.regs.read_r(sreg) & 0xFF;
                 let sgn = if s & 0x80 != 0 { 0xFF00_u16 } else { 0_u16 };
@@ -651,7 +667,7 @@ impl CpuGsu {
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
                 self.cycles(1)?;
             }
-            (0x96, false, _) => {
+            (0x96, false, false) => {
                 // ASR
                 let s = self.regs.read_r(sreg);
                 let result = ((s as i16) >> 1) as u16;
@@ -664,7 +680,7 @@ impl CpuGsu {
                 ]);
                 self.cycles(1)?;
             }
-            (0x96, true, _) => {
+            (0x96, true, false) => {
                 // DIV2
                 let s = self.regs.read_r(sreg);
                 let result = if s == 0xFFFF {
@@ -681,7 +697,7 @@ impl CpuGsu {
                 ]);
                 self.cycles(1)?;
             }
-            (0x97, _, _) => {
+            (0x97, false, false) => {
                 // ROR
                 let s = self.regs.read_r(sreg);
                 let c = if self.regs.test_flag(Flag::C) {
@@ -699,13 +715,13 @@ impl CpuGsu {
                 ]);
                 self.cycles(1)?;
             }
-            (0x98..=0x9D, false, _) => {
+            (0x98..=0x9D, false, false) => {
                 // JMP Rn
                 let r = (instr & 0x0F) as usize;
                 self.branch_pc = Some(self.regs.read_r(r));
                 self.cycles(1)?;
             }
-            (0x9E, _, _) => {
+            (0x9E, false, false) => {
                 // LOB
                 let result = self.regs.read_r(sreg) & 0xFF;
                 self.regs.write_r(dreg, result);
@@ -739,7 +755,7 @@ impl CpuGsu {
                     self.cycles(8)?;
                 }
             }
-            (0xA0..=0xAF, _, _) => {
+            (0xA0..=0xAF, false, false) => {
                 // IBT Rn,imm
                 let reg = (instr & 0x0F) as usize;
                 let s = self.fetch() as u16;
@@ -749,7 +765,34 @@ impl CpuGsu {
                 self.regs.write_r(reg, result);
                 self.cycles(2)?;
             }
-            (0xB0..=0xBF, _, _) => {
+            (0xA0..=0xAF, true, false) => {
+                // LMS Rn,(yy)
+                let reg = (instr & 0x0F) as usize;
+                let yy = (self.fetch() as u16).wrapping_mul(2);
+
+                let addr_l = (usize::from(self.regs.read(Register::RAMBR)) << 8) | usize::from(yy);
+                let addr_h = (usize::from(self.regs.read(Register::RAMBR)) << 8)
+                    | usize::from(yy.wrapping_add(1));
+                let val = ((self.ram[addr_h] as u16) << 8) | (self.ram[addr_l] as u16);
+                self.last_ramaddr = addr_l;
+                self.regs.write_r(reg, val);
+                self.cycles(7)?;
+            }
+            (0xA0..=0xAF, false, true) => {
+                // SMS (yy),Rn
+                let reg = (instr & 0x0F) as usize;
+                let yy = (self.fetch() as u16).wrapping_mul(2);
+
+                let addr_l = (usize::from(self.regs.read(Register::RAMBR)) << 8) | usize::from(yy);
+                let addr_h = (usize::from(self.regs.read(Register::RAMBR)) << 8)
+                    | usize::from(yy.wrapping_add(1));
+                let val = self.regs.read_r(reg);
+                self.ram[addr_l] = val as u8;
+                self.ram[addr_h] = (val >> 8) as u8;
+                self.last_ramaddr = addr_l;
+                self.cycles(1)?;
+            }
+            (0xB0..=0xBF, false, false) => {
                 // FROM/MOVES
                 let reg = (instr & 0x0F) as usize;
 
@@ -769,7 +812,7 @@ impl CpuGsu {
                 }
                 self.cycles(1)?;
             }
-            (0xC0, _, _) => {
+            (0xC0, false, false) => {
                 // HIB
                 let result = self.regs.read_r(sreg) >> 8;
                 self.regs.write_r(dreg, result);
@@ -823,7 +866,7 @@ impl CpuGsu {
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
                 self.cycles(1)?;
             }
-            (0xD0..=0xDE, _, _) => {
+            (0xD0..=0xDE, false, false) => {
                 // INC Rn
                 let reg = (instr & 0x0F) as usize;
                 let result = self.regs.read_r(reg).wrapping_add(1);
@@ -832,7 +875,7 @@ impl CpuGsu {
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
                 self.cycles(1)?;
             }
-            (0xDF, _, _) => {
+            (0xDF, false, false) => {
                 // GETC
                 let addr = (GsuAddress::from(self.regs.read(Register::ROMBR)) << 16)
                     | GsuAddress::from(self.regs.read(Register::R14));
@@ -841,7 +884,17 @@ impl CpuGsu {
                 self.regs.write8(Register::COLR, s);
                 self.cycles(1)?;
             }
-            (0xE0..=0xEE, _, _) => {
+            (0xDF, false, true) => {
+                // RAMB
+                self.regs.write(Register::RAMBR, self.regs.read_r(sreg) & 0x01);
+                self.cycles(1)?;
+            }
+            (0xDF, true, true) => {
+                // ROMB
+                self.regs.write(Register::ROMBR, self.regs.read_r(sreg) & 0xFF);
+                self.cycles(1)?;
+            }
+            (0xE0..=0xEE, false, false) => {
                 // DEC Rn
                 let reg = (instr & 0x0F) as usize;
                 let result = self.regs.read_r(reg).wrapping_sub(1);
@@ -878,16 +931,47 @@ impl CpuGsu {
                 );
                 self.cycles(1)?;
             }
-            (0xF0..=0xFF, _, _) => {
+            (0xF0..=0xFF, false, false) => {
                 // IWT
                 let reg = (instr & 0x0F) as usize;
                 let imm = self.fetch16();
                 self.regs.write_r(reg, imm);
                 self.cycles(3)?;
             }
+            (0xF0..=0xFF, false, true) => {
+                // SM (hilo),Rn
+                let reg = (instr & 0x0F) as usize;
+                let lo = self.fetch() as u16;
+                let hi = self.fetch() as u16;
+                let yy = (hi << 8) | lo;
+
+                let addr_l = (usize::from(self.regs.read(Register::RAMBR)) << 8) | usize::from(yy);
+                let addr_h = (usize::from(self.regs.read(Register::RAMBR)) << 8)
+                    | usize::from(yy.wrapping_add(1));
+                let val = self.regs.read_r(reg);
+                self.ram[addr_l] = val as u8;
+                self.ram[addr_h] = (val >> 8) as u8;
+                self.last_ramaddr = addr_l;
+                self.cycles(4)?;
+            }
+            (0xF0..=0xFF, true, false) => {
+                // LM Rn,(hilo)
+                let reg = (instr & 0x0F) as usize;
+                let lo = self.fetch() as u16;
+                let hi = self.fetch() as u16;
+                let yy = (hi << 8) | lo;
+
+                let addr_l = (usize::from(self.regs.read(Register::RAMBR)) << 8) | usize::from(yy);
+                let addr_h = (usize::from(self.regs.read(Register::RAMBR)) << 8)
+                    | usize::from(yy.wrapping_add(1));
+                let val = ((self.ram[addr_h] as u16) << 8) | (self.ram[addr_l] as u16);
+                self.last_ramaddr = addr_l;
+                self.regs.write_r(reg, val);
+                self.cycles(4)?;
+            }
             _ => panic!(
-                "Unimplemented instruction {:02X} alt1 = {} alt2 = {}",
-                instr, alt1, alt2
+                "Unimplemented instruction {:02X} alt1 = {} alt2 = {} (last: {:02X})",
+                instr, alt1, alt2, last_instr
             ),
         }
         Ok(())
