@@ -196,18 +196,21 @@ impl CpuGsu {
         // require ALTx.
         let alt1 = self.regs.test_flag(Flag::ALT1);
         let alt2 = self.regs.test_flag(Flag::ALT2);
-        self.regs
-            .write_flags(&[(Flag::ALT1, false), (Flag::ALT2, false)]);
 
         let sreg = self.sreg;
         let dreg = self.dreg;
-        // SREG/DREG are reset after execution, but should persist
-        // for branch instructions.
-        self.sreg = 0;
-        self.dreg = 0;
-
         let last_instr = self.last_instr;
-        self.last_instr = instr;
+
+        // SREG/DREG/ALTx are reset after execution, but should persist
+        // for branch instructions.
+        if !(0x05..=0x0F).contains(&instr) {
+            self.sreg = 0;
+            self.dreg = 0;
+            self.regs
+                .write_flags(&[(Flag::ALT1, false), (Flag::ALT2, false)]);
+        } else {
+            self.last_instr = instr;
+        }
 
         match (instr, alt1, alt2) {
             (0x00, false, false) => {
@@ -305,7 +308,7 @@ impl CpuGsu {
                 // BVS
                 self.op_branch(self.regs.test_flag(Flag::V))
             }
-            (0x10..=0x1F, false, false) => {
+            (0x10..=0x1F, _, _) => {
                 // MOVE/TO
                 let reg = (instr & 0x0F) as usize;
 
@@ -317,6 +320,8 @@ impl CpuGsu {
                     // TO
                     self.sreg = sreg;
                     self.dreg = reg;
+                    self.regs
+                        .write_flags(&[(Flag::ALT1, alt1), (Flag::ALT2, alt2)]);
                 }
 
                 self.cycles(1)?;
@@ -326,6 +331,8 @@ impl CpuGsu {
                 let reg = (instr & 0x0F) as usize;
                 self.sreg = reg;
                 self.dreg = reg;
+                self.regs
+                    .write_flags(&[(Flag::ALT1, alt1), (Flag::ALT2, alt2)]);
                 // cycles unknown, assumed 3/3/1
                 self.cycles(1)?;
             }
@@ -792,7 +799,7 @@ impl CpuGsu {
                 self.last_ramaddr = addr_l;
                 self.cycles(1)?;
             }
-            (0xB0..=0xBF, false, false) => {
+            (0xB0..=0xBF, _, _) => {
                 // FROM/MOVES
                 let reg = (instr & 0x0F) as usize;
 
@@ -809,6 +816,8 @@ impl CpuGsu {
                     // FROM
                     self.sreg = reg;
                     self.dreg = dreg;
+                    self.regs
+                        .write_flags(&[(Flag::ALT1, alt1), (Flag::ALT2, alt2)]);
                 }
                 self.cycles(1)?;
             }
@@ -886,12 +895,14 @@ impl CpuGsu {
             }
             (0xDF, false, true) => {
                 // RAMB
-                self.regs.write(Register::RAMBR, self.regs.read_r(sreg) & 0x01);
+                self.regs
+                    .write(Register::RAMBR, self.regs.read_r(sreg) & 0x01);
                 self.cycles(1)?;
             }
             (0xDF, true, true) => {
                 // ROMB
-                self.regs.write(Register::ROMBR, self.regs.read_r(sreg) & 0xFF);
+                self.regs
+                    .write(Register::ROMBR, self.regs.read_r(sreg) & 0xFF);
                 self.cycles(1)?;
             }
             (0xE0..=0xEE, false, false) => {
