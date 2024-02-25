@@ -39,7 +39,7 @@ pub struct Mainbus<TRenderer>
 where
     TRenderer: Renderer,
 {
-    cartridge: Cartridge,
+    pub cartridge: Cartridge,
     wram: Vec<u8>,
     pub trace: BusTrace,
 

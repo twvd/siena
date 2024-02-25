@@ -48,6 +48,7 @@ enum EmuThreadSignal {
     DumpState,
     ToggleVerbose,
     ToggleVerboseSPC,
+    ToggleVerboseGSU,
 }
 
 #[derive(Parser)]
@@ -240,6 +241,12 @@ fn main() -> Result<()> {
                 let mut apu = cpu.bus.apu.lock().unwrap();
                 apu.verbose = !apu.verbose;
             }
+            Ok(EmuThreadSignal::ToggleVerboseGSU) => {
+                if let Some(sfx) = cpu.bus.cartridge.co_superfx.as_mut() {
+                    let mut gsu = sfx.cpu.borrow_mut();
+                    gsu.verbose = !gsu.verbose;
+                }
+            }
             _ => (),
         }
 
@@ -290,6 +297,14 @@ fn main() -> Result<()> {
                     ..
                 } => {
                     emuthread_tx.send(EmuThreadSignal::ToggleVerboseSPC)?;
+                }
+
+                // Toggle GSU verbose
+                Event::KeyDown {
+                    keycode: Some(Keycode::Num8),
+                    ..
+                } => {
+                    emuthread_tx.send(EmuThreadSignal::ToggleVerboseGSU)?;
                 }
 
                 // Start/stop recording

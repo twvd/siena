@@ -25,6 +25,7 @@ pub enum GsuBus {
 /// SuperFX CPU (GSU)
 #[derive(Serialize, Deserialize)]
 pub struct CpuGsu {
+    pub verbose: bool,
     pub regs: RegisterFile,
     pub cycles: Ticks,
     pub cache: Vec<u8>,
@@ -43,6 +44,7 @@ pub struct CpuGsu {
 impl CpuGsu {
     pub fn new(rom: &[u8]) -> Self {
         let mut c = Self {
+            verbose: false,
             regs: RegisterFile::new(),
             cycles: 0,
             cache: vec![0; CACHE_SIZE],
@@ -199,6 +201,11 @@ impl CpuGsu {
         let dreg = self.dreg;
         let flag_b = self.regs.test_flag(Flag::B);
 
+        if self.verbose {
+            println!("{}", self.regs);
+            println!("SREG: R{} DREG: R{}", sreg, dreg);
+            println!("--> {}", Self::instr_str(instr, alt1, alt2, sreg, dreg));
+        }
 
         // SREG/DREG/ALTx are reset after execution, but should persist
         // for branch and prefix instructions.
@@ -1027,6 +1034,24 @@ impl CpuGsu {
         let v = self.irq_pending;
         self.irq_pending = false;
         v
+    }
+
+    pub fn instr_str(instr: u8, alt1: bool, alt2: bool, sreg: usize, dreg: usize) -> String {
+        let l = instr & 0x0F;
+        match (instr, alt1, alt2) {
+            (0x20..=0x2F, false, false) => format!("WITH/MOVE R{}", l),
+            (0x3C, false, false) => "LOOP".to_string(),
+            _ => format!(
+                "? {} {:02X}",
+                match (alt1, alt2) {
+                    (false, false) => "",
+                    (true, false) => "ALT1",
+                    (false, true) => "ALT2",
+                    (true, true) => "ALT3",
+                },
+                instr
+            ),
+        }
     }
 }
 

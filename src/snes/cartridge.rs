@@ -99,7 +99,7 @@ pub struct Cartridge {
     co_dsp1: Option<DSP1>,
 
     /// SuperFX co-processor
-    co_superfx: Option<SuperFX>,
+    pub co_superfx: Option<SuperFX>,
 }
 
 impl Cartridge {
