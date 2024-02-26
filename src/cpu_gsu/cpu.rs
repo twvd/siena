@@ -209,11 +209,14 @@ impl CpuGsu {
 
         // SREG/DREG/ALTx are reset after execution, but should persist
         // for branch and prefix instructions.
-        if !(0x05..=0x0F).contains(&instr)
+        // Special cases for MOVE/MOVES because they use the same opcode
+        // as TO/FROM.
+        if (!(0x05..=0x0F).contains(&instr)
             && !(0x3D..=0x3F).contains(&instr)
             && (instr & 0xF0) != 0x10
             && (instr & 0xF0) != 0x20
-            && (instr & 0xF0) != 0xB0
+            && (instr & 0xF0) != 0xB0)
+            || (self.regs.test_flag(Flag::B) && ((instr & 0xF0 == 0x10) || (instr & 0xF0 == 0xB0)))
         {
             self.sreg = 0;
             self.dreg = 0;

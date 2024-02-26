@@ -120,4 +120,24 @@ fn op_move() {
     let c = cpu_run(&[IWT | 2, 0xBB, 0xAA, WITH | 2, TO | 3, STOP]);
     assert_eq!(c.regs.read(Register::R2), 0xAABB);
     assert_eq!(c.regs.read(Register::R3), 0xAABB);
+    assert!(!c.regs.test_flag(Flag::B));
+}
+
+#[test]
+fn op_move_clears_altx_b() {
+    let mut c = cpu_steps(&[IWT | 2, 0xBB, 0xAA, WITH | 2, ALT3, TO | 3], 3);
+    // Before TO R2 (MOVE)
+    assert!(c.regs.test_flag(Flag::B));
+    assert!(c.regs.test_flag(Flag::ALT1));
+    assert!(c.regs.test_flag(Flag::ALT2));
+    assert_eq!(c.regs.read(Register::R3), 0);
+
+    c.step().unwrap();
+
+    // After MOVE
+    assert_eq!(c.regs.read(Register::R2), 0xAABB);
+    assert_eq!(c.regs.read(Register::R3), 0xAABB);
+    assert!(!c.regs.test_flag(Flag::B));
+    assert!(!c.regs.test_flag(Flag::ALT1));
+    assert!(!c.regs.test_flag(Flag::ALT2));
 }
