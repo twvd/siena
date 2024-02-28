@@ -36,7 +36,7 @@ pub struct CpuGsu {
     pub dreg: usize,
     branch_pc: Option<u16>,
     irq_pending: bool,
-    last_ramaddr: usize,
+    last_ramaddr: u16,
 
     pub cache_valid: [bool; CACHE_LINES],
 }
@@ -364,7 +364,7 @@ impl CpuGsu {
                     self.ram[addr_l] = v as u8;
                     self.ram[addr_h] = (v >> 8) as u8;
                 }
-                self.last_ramaddr = addr as usize;
+                self.last_ramaddr = addr;
                 self.cycles(1)?;
             }
             (0x30..=0x3B, true, false) => {
@@ -374,7 +374,7 @@ impl CpuGsu {
                 let v = self.regs.read_r(sreg);
                 // Ignores high byte
                 self.ram[addr] = v as u8;
-                self.last_ramaddr = addr;
+                self.last_ramaddr = addr as u16;
                 self.cycles(1)?;
             }
             (0x3C, false, false) => {
@@ -419,7 +419,7 @@ impl CpuGsu {
                     self.ram[addr_l] as u16 | ((self.ram[addr_h] as u16) << 8)
                 };
 
-                self.last_ramaddr = addr_l;
+                self.last_ramaddr = addr;
                 self.regs.write_r(dreg, v);
                 self.cycles(7)?;
             }
@@ -429,7 +429,7 @@ impl CpuGsu {
                     | usize::from(self.regs.read_r((instr & 0x0F) as usize));
                 // Zero-expanded
                 let v = self.ram[addr_l] as u16;
-                self.last_ramaddr = addr_l;
+                self.last_ramaddr = addr_l as u16;
                 self.regs.write_r(dreg, v);
                 self.cycles(6)?;
             }
@@ -660,17 +660,17 @@ impl CpuGsu {
             }
             (0x90, false, false) => {
                 // SBK
-                let addr = self.last_ramaddr;
+                let addr = usize::from(self.regs.read(Register::RAMBR)) << 16
+                    | usize::from(self.last_ramaddr);
                 let v = self.regs.read_r(sreg);
 
                 if addr & 1 != 0 {
-                    self.ram[(addr & !1) + 1] = v as u8;
+                    self.ram[addr | 1] = v as u8;
                     self.ram[addr & !1] = (v >> 8) as u8;
                 } else {
                     self.ram[addr & !1] = v as u8;
-                    self.ram[(addr & !1) + 1] = (v >> 8) as u8;
+                    self.ram[addr | 1] = (v >> 8) as u8;
                 }
-                self.last_ramaddr = addr;
                 self.cycles(1)?;
             }
             (0x91..=0x94, false, false) => {
@@ -801,7 +801,7 @@ impl CpuGsu {
                     | usize::from(yy.wrapping_add(1));
 
                 let val = ((self.ram[addr_h] as u16) << 8) | (self.ram[addr_l] as u16);
-                self.last_ramaddr = addr_l;
+                self.last_ramaddr = yy;
                 self.regs.write_r(reg, val);
                 self.cycles(7)?;
             }
@@ -816,7 +816,7 @@ impl CpuGsu {
                 let val = self.regs.read_r(reg);
                 self.ram[addr_l] = val as u8;
                 self.ram[addr_h] = (val >> 8) as u8;
-                self.last_ramaddr = addr_l;
+                self.last_ramaddr = yy;
                 self.cycles(1)?;
             }
             (0xB0..=0xBF, _, _) => {
@@ -985,7 +985,7 @@ impl CpuGsu {
                     self.ram[addr_l] = val as u8;
                     self.ram[addr_h] = (val >> 8) as u8;
                 }
-                self.last_ramaddr = yy as usize;
+                self.last_ramaddr = yy;
                 self.cycles(4)?;
             }
             (0xF0..=0xFF, true, false) => {
@@ -1004,7 +1004,7 @@ impl CpuGsu {
                 } else {
                     ((self.ram[addr_h] as u16) << 8) | (self.ram[addr_l] as u16)
                 };
-                self.last_ramaddr = yy as usize;
+                self.last_ramaddr = yy;
                 self.regs.write_r(reg, val);
                 self.cycles(4)?;
             }

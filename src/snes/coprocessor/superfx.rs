@@ -33,6 +33,13 @@ impl Tickable for SuperFX {
         let mut cpu = self.cpu.borrow_mut();
 
         cpu.tick(ticks)?;
+        cpu.tick(ticks)?;
+        cpu.tick(ticks)?;
+        cpu.tick(ticks)?;
+        cpu.tick(ticks)?;
+        cpu.tick(ticks)?;
+        cpu.tick(ticks)?;
+        cpu.tick(ticks)?;
         Ok(())
     }
 }

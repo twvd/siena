@@ -17,6 +17,7 @@ const LM: u8 = 0xF0;
 const LMS: u8 = 0xA0;
 const SM: u8 = 0xF0;
 const SMS: u8 = 0xA0;
+const SBK: u8 = 0x90;
 
 fn cpu(code: &[u8]) -> CpuGsu {
     let c = CpuGsu::new(code);
@@ -274,4 +275,47 @@ fn op_sms() {
     let c = cpu_steps(&[IWT | 4, 0xBB, 0xAA, ALT2, SMS | 4, 0x08], 4);
     assert_eq!(c.ram[0x10], 0xBB);
     assert_eq!(c.ram[0x11], 0xAA);
+}
+
+#[test]
+fn op_sbk() {
+    let c = cpu_ram_steps(
+        &[
+            IWT | 4,
+            0x22,
+            0x11,
+            IWT | 5,
+            0xDD,
+            0xCC,
+            TO | 3,
+            LDW | 4,
+            FROM | 5,
+            SBK,
+        ],
+        &[(0x1122, 0xBB), (0x1123, 0xAA)],
+        6,
+    );
+    assert_eq!(c.regs.read(Register::R3), 0xAABB);
+    assert_eq!(c.ram[0x1122], 0xDD);
+    assert_eq!(c.ram[0x1123], 0xCC);
+
+    let c = cpu_ram_steps(
+        &[
+            IWT | 4,
+            0x23,
+            0x11,
+            IWT | 5,
+            0xDD,
+            0xCC,
+            TO | 3,
+            LDW | 4,
+            FROM | 5,
+            SBK,
+        ],
+        &[(0x1122, 0xBB), (0x1123, 0xAA)],
+        6,
+    );
+    assert_eq!(c.regs.read(Register::R3), 0xBBAA);
+    assert_eq!(c.ram[0x1122], 0xCC);
+    assert_eq!(c.ram[0x1123], 0xDD);
 }
