@@ -204,7 +204,10 @@ impl CpuGsu {
         if self.verbose {
             println!("{}", self.regs);
             println!("SREG: R{} DREG: R{}", sreg, dreg);
-            println!("--> {}", Self::instr_str(instr, alt1, alt2, sreg, dreg));
+            println!(
+                "--> {}",
+                Self::instr_str(instr, alt1, alt2, flag_b, sreg, dreg)
+            );
         }
 
         // SREG/DREG/ALTx are reset after execution, but should persist
@@ -347,19 +350,29 @@ impl CpuGsu {
             }
             (0x30..=0x3B, false, false) => {
                 // STW (Rn)
-                let addr = (usize::from(self.regs.read(Register::RAMBR)) << 8)
-                    | usize::from(self.regs.read_r((instr & 0x0F) as usize));
+                let addr = self.regs.read_r((instr & 0x0F) as usize);
+                let addr_l =
+                    (usize::from(self.regs.read(Register::RAMBR)) << 16) | usize::from(addr & !1);
+                let addr_h =
+                    (usize::from(self.regs.read(Register::RAMBR)) << 16) | usize::from(addr | 1);
                 let v = self.regs.read_r(sreg);
-                self.ram[addr] = v as u8;
-                self.ram[addr + 1] = (v >> 8) as u8;
-                self.last_ramaddr = addr;
+
+                if addr & 1 != 0 {
+                    self.ram[addr_h] = v as u8;
+                    self.ram[addr_l] = (v >> 8) as u8;
+                } else {
+                    self.ram[addr_l] = v as u8;
+                    self.ram[addr_h] = (v >> 8) as u8;
+                }
+                self.last_ramaddr = addr as usize;
                 self.cycles(1)?;
             }
             (0x30..=0x3B, true, false) => {
                 // STB (Rn)
-                let addr = (usize::from(self.regs.read(Register::RAMBR)) << 8)
+                let addr = (usize::from(self.regs.read(Register::RAMBR)) << 16)
                     | usize::from(self.regs.read_r((instr & 0x0F) as usize));
                 let v = self.regs.read_r(sreg);
+                // Ignores high byte
                 self.ram[addr] = v as u8;
                 self.last_ramaddr = addr;
                 self.cycles(1)?;
@@ -395,19 +408,26 @@ impl CpuGsu {
             }
             (0x40..=0x4B, false, false) => {
                 // LDW (Rn)
-                let addr_l = (usize::from(self.regs.read(Register::RAMBR)) << 8)
-                    | usize::from(self.regs.read_r((instr & 0x0F) as usize));
-                let addr_h = (usize::from(self.regs.read(Register::RAMBR)) << 8)
-                    | usize::from(self.regs.read_r((instr & 0x0F) as usize).wrapping_add(1));
-                let v = self.ram[addr_l] as u16 | ((self.ram[addr_h] as u16) << 8);
+                let addr = self.regs.read_r((instr & 0x0F) as usize);
+                let addr_l =
+                    (usize::from(self.regs.read(Register::RAMBR)) << 16) | usize::from(addr & !1);
+                let addr_h =
+                    (usize::from(self.regs.read(Register::RAMBR)) << 16) | usize::from(addr | 1);
+                let v = if addr & 1 != 0 {
+                    ((self.ram[addr_l] as u16) << 8) | (self.ram[addr_h] as u16)
+                } else {
+                    self.ram[addr_l] as u16 | ((self.ram[addr_h] as u16) << 8)
+                };
+
                 self.last_ramaddr = addr_l;
                 self.regs.write_r(dreg, v);
                 self.cycles(7)?;
             }
             (0x40..=0x4B, true, false) => {
                 // LDB (Rn)
-                let addr_l = (usize::from(self.regs.read(Register::RAMBR)) << 8)
+                let addr_l = (usize::from(self.regs.read(Register::RAMBR)) << 16)
                     | usize::from(self.regs.read_r((instr & 0x0F) as usize));
+                // Zero-expanded
                 let v = self.ram[addr_l] as u16;
                 self.last_ramaddr = addr_l;
                 self.regs.write_r(dreg, v);
@@ -643,8 +663,13 @@ impl CpuGsu {
                 let addr = self.last_ramaddr;
                 let v = self.regs.read_r(sreg);
 
-                self.ram[addr] = v as u8;
-                self.ram[addr + 1] = (v >> 8) as u8;
+                if addr & 1 != 0 {
+                    self.ram[(addr & !1) + 1] = v as u8;
+                    self.ram[addr & !1] = (v >> 8) as u8;
+                } else {
+                    self.ram[addr & !1] = v as u8;
+                    self.ram[(addr & !1) + 1] = (v >> 8) as u8;
+                }
                 self.last_ramaddr = addr;
                 self.cycles(1)?;
             }
@@ -771,9 +796,10 @@ impl CpuGsu {
                 let reg = (instr & 0x0F) as usize;
                 let yy = (self.fetch() as u16).wrapping_mul(2);
 
-                let addr_l = (usize::from(self.regs.read(Register::RAMBR)) << 8) | usize::from(yy);
-                let addr_h = (usize::from(self.regs.read(Register::RAMBR)) << 8)
+                let addr_l = (usize::from(self.regs.read(Register::RAMBR)) << 16) | usize::from(yy);
+                let addr_h = (usize::from(self.regs.read(Register::RAMBR)) << 16)
                     | usize::from(yy.wrapping_add(1));
+
                 let val = ((self.ram[addr_h] as u16) << 8) | (self.ram[addr_l] as u16);
                 self.last_ramaddr = addr_l;
                 self.regs.write_r(reg, val);
@@ -784,8 +810,8 @@ impl CpuGsu {
                 let reg = (instr & 0x0F) as usize;
                 let yy = (self.fetch() as u16).wrapping_mul(2);
 
-                let addr_l = (usize::from(self.regs.read(Register::RAMBR)) << 8) | usize::from(yy);
-                let addr_h = (usize::from(self.regs.read(Register::RAMBR)) << 8)
+                let addr_l = (usize::from(self.regs.read(Register::RAMBR)) << 16) | usize::from(yy);
+                let addr_h = (usize::from(self.regs.read(Register::RAMBR)) << 16)
                     | usize::from(yy.wrapping_add(1));
                 let val = self.regs.read_r(reg);
                 self.ram[addr_l] = val as u8;
@@ -800,7 +826,7 @@ impl CpuGsu {
                 if flag_b {
                     // MOVES
                     let val = self.regs.read_r(reg);
-                    self.regs.write_r(sreg, val);
+                    self.regs.write_r(dreg, val);
                     self.regs.write_flags(&[
                         (Flag::S, val & 0x8000 != 0),
                         (Flag::Z, val == 0),
@@ -947,13 +973,19 @@ impl CpuGsu {
                 let hi = self.fetch() as u16;
                 let yy = (hi << 8) | lo;
 
-                let addr_l = (usize::from(self.regs.read(Register::RAMBR)) << 8) | usize::from(yy);
-                let addr_h = (usize::from(self.regs.read(Register::RAMBR)) << 8)
-                    | usize::from(yy.wrapping_add(1));
+                let addr_l =
+                    (usize::from(self.regs.read(Register::RAMBR)) << 16) | usize::from(yy & !1);
+                let addr_h =
+                    (usize::from(self.regs.read(Register::RAMBR)) << 16) | usize::from(yy | 1);
                 let val = self.regs.read_r(reg);
-                self.ram[addr_l] = val as u8;
-                self.ram[addr_h] = (val >> 8) as u8;
-                self.last_ramaddr = addr_l;
+                if yy & 1 != 0 {
+                    self.ram[addr_h] = val as u8;
+                    self.ram[addr_l] = (val >> 8) as u8;
+                } else {
+                    self.ram[addr_l] = val as u8;
+                    self.ram[addr_h] = (val >> 8) as u8;
+                }
+                self.last_ramaddr = yy as usize;
                 self.cycles(4)?;
             }
             (0xF0..=0xFF, true, false) => {
@@ -963,11 +995,16 @@ impl CpuGsu {
                 let hi = self.fetch() as u16;
                 let yy = (hi << 8) | lo;
 
-                let addr_l = (usize::from(self.regs.read(Register::RAMBR)) << 8) | usize::from(yy);
-                let addr_h = (usize::from(self.regs.read(Register::RAMBR)) << 8)
-                    | usize::from(yy.wrapping_add(1));
-                let val = ((self.ram[addr_h] as u16) << 8) | (self.ram[addr_l] as u16);
-                self.last_ramaddr = addr_l;
+                let addr_l =
+                    (usize::from(self.regs.read(Register::RAMBR)) << 8) | usize::from(yy & !1);
+                let addr_h =
+                    (usize::from(self.regs.read(Register::RAMBR)) << 8) | usize::from(yy | 1);
+                let val = if yy & 1 != 0 {
+                    ((self.ram[addr_l] as u16) << 8) | (self.ram[addr_h] as u16)
+                } else {
+                    ((self.ram[addr_h] as u16) << 8) | (self.ram[addr_l] as u16)
+                };
+                self.last_ramaddr = yy as usize;
                 self.regs.write_r(reg, val);
                 self.cycles(4)?;
             }
@@ -1039,11 +1076,30 @@ impl CpuGsu {
         v
     }
 
-    pub fn instr_str(instr: u8, alt1: bool, alt2: bool, sreg: usize, dreg: usize) -> String {
+    pub fn instr_str(
+        instr: u8,
+        alt1: bool,
+        alt2: bool,
+        b_flag: bool,
+        sreg: usize,
+        dreg: usize,
+    ) -> String {
         let l = instr & 0x0F;
         match (instr, alt1, alt2) {
-            (0x20..=0x2F, false, false) => format!("WITH/MOVE R{}", l),
+            (0x00, false, false) => "STOP".to_string(),
+            (0x01, false, false) => "NOP".to_string(),
+            (0x03, false, false) => format!("LSR R{} = R{} << 1", dreg, sreg),
+            (0x04, false, false) => "ROL".to_string(),
+            (0x09, _, _) => "BEQ".to_string(),
+            (0x10..=0x1F, _, _) if b_flag => format!("MOVE R{}, R{}", l, sreg),
+            (0x10..=0x1F, _, _) => format!("TO R{}", l),
+            (0x20..=0x2F, false, false) => format!("WITH R{}", l),
             (0x3C, false, false) => "LOOP".to_string(),
+            (0x97, false, false) => "ROR".to_string(),
+            (0xB0..=0xBF, _, _) if b_flag => format!("MOVES R{}, R{}", dreg, sreg),
+            (0xB0..=0xBF, _, _) => format!("FROM R{}", l),
+            (0xC1..=0xCF, false, false) => format!("OR R{}", l),
+            (0xC1..=0xCF, false, true) => format!("OR #{:02X}", l),
             _ => format!(
                 "? {} {:02X}",
                 match (alt1, alt2) {

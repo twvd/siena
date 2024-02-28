@@ -11,9 +11,49 @@ const TO: u8 = 0x10;
 const WITH: u8 = 0x20;
 const FROM: u8 = 0xB0;
 const IWT: u8 = 0xF0;
+const LDW: u8 = 0x40; // 0..11
+const STW: u8 = 0x30; // 0..11
+const LM: u8 = 0xF0;
+const LMS: u8 = 0xA0;
+const SM: u8 = 0xF0;
+const SMS: u8 = 0xA0;
 
 fn cpu(code: &[u8]) -> CpuGsu {
     let c = CpuGsu::new(code);
+    c
+}
+
+fn cpu_ram(code: &[u8], ram: &[(usize, u8)]) -> CpuGsu {
+    let mut c = CpuGsu::new(code);
+    for (addr, val) in ram {
+        c.ram[*addr] = *val;
+    }
+    c
+}
+
+fn cpu_ram_steps(code: &[u8], ram: &[(usize, u8)], steps: usize) -> CpuGsu {
+    let mut c = cpu_ram(code, ram);
+    c.regs.write_flags(&[(Flag::G, true)]);
+    for _ in 0..steps {
+        c.step().unwrap();
+    }
+    c
+}
+
+fn cpu_ram_reg_steps(
+    code: &[u8],
+    ram: &[(usize, u8)],
+    regs: &[(Register, u16)],
+    steps: usize,
+) -> CpuGsu {
+    let mut c = cpu_ram(code, ram);
+    for (reg, val) in regs {
+        c.regs.write(*reg, *val);
+    }
+    c.regs.write_flags(&[(Flag::G, true)]);
+    for _ in 0..steps {
+        c.step().unwrap();
+    }
     c
 }
 
@@ -140,4 +180,98 @@ fn op_move_clears_altx_b() {
     assert!(!c.regs.test_flag(Flag::B));
     assert!(!c.regs.test_flag(Flag::ALT1));
     assert!(!c.regs.test_flag(Flag::ALT2));
+}
+
+#[test]
+fn op_ldw() {
+    let c = cpu_ram_steps(
+        &[IWT | 4, 0x22, 0x11, TO | 3, LDW | 4],
+        &[(0x1122, 0xBB), (0x1123, 0xAA)],
+        3,
+    );
+    assert_eq!(c.regs.read(Register::R3), 0xAABB);
+
+    let c = cpu_ram_steps(
+        &[IWT | 4, 0x23, 0x11, TO | 3, LDW | 4],
+        &[(0x1122, 0xBB), (0x1123, 0xAA)],
+        3,
+    );
+    assert_eq!(c.regs.read(Register::R3), 0xBBAA);
+}
+
+#[test]
+fn op_lm() {
+    let c = cpu_ram_steps(
+        &[ALT1, LM | 4, 0x22, 0x11],
+        &[(0x1122, 0xBB), (0x1123, 0xAA)],
+        2,
+    );
+    assert_eq!(c.regs.read(Register::R4), 0xAABB);
+
+    let c = cpu_ram_steps(
+        &[ALT1, LM | 4, 0x23, 0x11],
+        &[(0x1122, 0xBB), (0x1123, 0xAA)],
+        2,
+    );
+    assert_eq!(c.regs.read(Register::R4), 0xBBAA);
+}
+
+#[test]
+fn op_lms() {
+    let c = cpu_ram_steps(&[ALT1, LMS | 3, 0x08], &[(0x10, 0xBB), (0x11, 0xAA)], 2);
+    assert_eq!(c.regs.read(Register::R3), 0xAABB);
+}
+
+#[test]
+fn op_ldb() {
+    let c = cpu_ram_reg_steps(
+        &[IWT | 4, 0x22, 0x11, TO | 3, ALT1, LDW | 4],
+        &[(0x1122, 0xBB), (0x1123, 0xAA)],
+        &[(Register::R3, 0xFFFF)],
+        4,
+    );
+    assert_eq!(c.regs.read(Register::R3), 0x00BB);
+
+    let c = cpu_ram_reg_steps(
+        &[IWT | 4, 0x23, 0x11, ALT1, TO | 3, LDW | 4],
+        &[(0x1122, 0xBB), (0x1123, 0xAA)],
+        &[(Register::R3, 0xFFFF)],
+        4,
+    );
+    assert_eq!(c.regs.read(Register::R3), 0xAA);
+}
+
+#[test]
+fn op_stw() {
+    let c = cpu_steps(
+        &[IWT | 4, 0x22, 0x11, IWT | 5, 0xBB, 0xAA, FROM | 5, STW | 4],
+        4,
+    );
+    assert_eq!(c.ram[0x1122], 0xBB);
+    assert_eq!(c.ram[0x1123], 0xAA);
+
+    let c = cpu_steps(
+        &[IWT | 4, 0x23, 0x11, IWT | 5, 0xBB, 0xAA, FROM | 5, STW | 4],
+        4,
+    );
+    assert_eq!(c.ram[0x1122], 0xAA);
+    assert_eq!(c.ram[0x1123], 0xBB);
+}
+
+#[test]
+fn op_sm() {
+    let c = cpu_steps(&[IWT | 5, 0xBB, 0xAA, ALT2, SM | 5, 0x22, 0x11], 3);
+    assert_eq!(c.ram[0x1122], 0xBB);
+    assert_eq!(c.ram[0x1123], 0xAA);
+
+    let c = cpu_steps(&[IWT | 5, 0xBB, 0xAA, ALT2, SM | 5, 0x23, 0x11], 3);
+    assert_eq!(c.ram[0x1122], 0xAA);
+    assert_eq!(c.ram[0x1123], 0xBB);
+}
+
+#[test]
+fn op_sms() {
+    let c = cpu_steps(&[IWT | 4, 0xBB, 0xAA, ALT2, SMS | 4, 0x08], 4);
+    assert_eq!(c.ram[0x10], 0xBB);
+    assert_eq!(c.ram[0x11], 0xAA);
 }
