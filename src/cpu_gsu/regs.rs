@@ -55,7 +55,7 @@ pub enum PORFlag {
 
 const SCMR_BPP_MASK: u8 = 0x03;
 /// Color depth values in SCMR
-#[derive(Clone, Copy, Debug, FromPrimitive, ToPrimitive)]
+#[derive(Clone, Copy, Debug, FromPrimitive, ToPrimitive, Eq, PartialEq)]
 pub enum BPP {
     // BPP == number of bitplanes
     Two = 0,   // 4 colors

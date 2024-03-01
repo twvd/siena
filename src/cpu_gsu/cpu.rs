@@ -908,8 +908,19 @@ impl CpuGsu {
                 let addr = (GsuAddress::from(self.regs.read(Register::ROMBR)) << 16)
                     | GsuAddress::from(self.regs.read(Register::R14));
                 // TODO ROM cache
-                let s = self.read_bus_tick(addr);
-                self.regs.write8(Register::COLR, s);
+                let v = self.read_bus_tick(addr);
+                let cur = self.regs.read8(Register::COLR);
+
+                self.regs.write8(
+                    Register::COLR,
+                    if self.regs.test_por(PORFlag::ColorHighNibble) {
+                        (cur & 0xF0) | (v >> 4)
+                    } else if self.regs.test_por(PORFlag::ColorHighFreeze) {
+                        (cur & 0xF0) | (v & 0x0F)
+                    } else {
+                        v
+                    },
+                );
                 self.cycles(1)?;
             }
             (0xDF, false, true) => {
@@ -1027,7 +1038,15 @@ impl CpuGsu {
     fn pixel_draw(&mut self) {
         let x = self.regs.read(Register::R1) as usize;
         let y = self.regs.read(Register::R2) as usize;
-        let color = self.regs.read(Register::COLR) as usize;
+        let ocolor = self.regs.read(Register::COLR);
+        let color = if self.regs.test_por(PORFlag::Dither)
+            && ((x ^ y) & 1) == 1
+            && self.regs.get_scmr_bpp() != BPP::Eight
+        {
+            ocolor / 0x10
+        } else {
+            ocolor
+        };
 
         // Transparency
         if !self.regs.test_por(PORFlag::NotTransparent) && color == 0 {
