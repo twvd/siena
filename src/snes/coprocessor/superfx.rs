@@ -36,10 +36,6 @@ impl Tickable for SuperFX {
         cpu.tick(ticks)?;
         cpu.tick(ticks)?;
         cpu.tick(ticks)?;
-        cpu.tick(ticks)?;
-        cpu.tick(ticks)?;
-        cpu.tick(ticks)?;
-        cpu.tick(ticks)?;
         Ok(())
     }
 }
@@ -100,7 +96,7 @@ impl BusMember<Address> for SuperFX {
         //println!("SuperFX write: {:04X} {:02X}", addr, val);
 
         match addr {
-            0x3000..=0x301F => {
+            0x3000..=0x301D => {
                 // Rxx registers
                 let r = (addr & 0x1F) >> 1;
                 let curval = cpu.regs.read_r(r);
@@ -112,10 +108,24 @@ impl BusMember<Address> for SuperFX {
                     (curval & 0xFF) | ((val as u16) << 8)
                 };
                 cpu.regs.write_r(r, newval);
+                Some(())
+            }
+            0x301E..=0x301F => {
+                // R15 register
+                let curval = cpu.regs.get_r15();
+                let newval = if addr & 1 == 0 {
+                    // LSB
+                    (curval & 0xFF00) | (val as u16)
+                } else {
+                    // MSB
+                    (curval & 0xFF) | ((val as u16) << 8)
+                };
+                cpu.regs.set_r15(newval);
 
                 // If PC (R15) is written, start execution
-                if r == 15 && addr & 1 != 0 && !cpu.regs.test_flag(Flag::G) {
+                if addr & 1 != 0 && !cpu.regs.test_flag(Flag::G) {
                     println!("SuperFX go {:02X} {:04X}", cpu.regs.pbr, newval);
+                    cpu.regs.get_clr_r15_shadow();
                     cpu.regs.write_flags(&[(Flag::G, true)]);
                 }
 

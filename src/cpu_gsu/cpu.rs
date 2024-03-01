@@ -34,7 +34,6 @@ pub struct CpuGsu {
 
     pub sreg: usize,
     pub dreg: usize,
-    branch_pc: Option<u16>,
     irq_pending: bool,
     last_ramaddr: u16,
 
@@ -53,7 +52,6 @@ impl CpuGsu {
             sreg: 0,
             dreg: 0,
             last_ramaddr: 0,
-            branch_pc: None,
             cache_valid: [false; CACHE_LINES],
             irq_pending: false,
         };
@@ -131,12 +129,14 @@ impl CpuGsu {
 
     fn fetch(&mut self) -> u8 {
         let pc_bank = GsuAddress::from(self.regs.read(Register::PBR)) << 16;
-        let pc = pc_bank | GsuAddress::from(self.regs.read_inc(Register::R15));
+        let pc = pc_bank | GsuAddress::from(self.regs.get_r15());
 
-        if let Some(branch_pc) = self.branch_pc {
+        if let Some(branch_pc) = self.regs.get_clr_r15_shadow() {
             // Branch scheduled, now in delay slot
-            self.regs.write(Register::R15, branch_pc);
-            self.branch_pc = None;
+            // Next fetch will be from the new position.
+            self.regs.set_r15(branch_pc);
+        } else {
+            self.regs.set_r15(self.regs.get_r15().wrapping_add(1));
         }
 
         return self.read_bus_tick(pc);
@@ -386,7 +386,7 @@ impl CpuGsu {
                     .write_flags(&[(Flag::S, new_i & 0x8000 != 0), (Flag::Z, new_i == 0)]);
                 if new_i != 0 {
                     let new_pc = self.regs.read(Register::R13);
-                    self.branch_pc = Some(new_pc);
+                    self.regs.write(Register::R15, new_pc);
                 }
                 self.cycles(1)?;
             }
@@ -746,7 +746,7 @@ impl CpuGsu {
             (0x98..=0x9D, false, false) => {
                 // JMP Rn
                 let r = (instr & 0x0F) as usize;
-                self.branch_pc = Some(self.regs.read_r(r));
+                self.regs.write(Register::R15, self.regs.read_r(r));
                 self.cycles(1)?;
             }
             (0x9E, false, false) => {
@@ -1067,7 +1067,7 @@ impl CpuGsu {
         let new_pc = pc.wrapping_add_signed(dest);
 
         if cond {
-            self.branch_pc = Some(new_pc);
+            self.regs.write(Register::R15, new_pc);
         }
         // TODO cycles
     }

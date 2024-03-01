@@ -213,6 +213,10 @@ pub struct RegisterFile {
     pub cbr: u16,
     pub colr: u8,
     pub por: u8,
+
+    /// Shadow R15 written by the executed code to emulate delay slots
+    /// in all scenarios.
+    r15_shadow: Option<u16>,
 }
 
 impl RegisterFile {
@@ -231,6 +235,7 @@ impl RegisterFile {
             cbr: 0,
             colr: 0,
             por: 0,
+            r15_shadow: None,
         }
     }
 
@@ -272,7 +277,7 @@ impl RegisterFile {
             Register::R12 => self.r[12] = reg16(),
             Register::R13 => self.r[13] = reg16(),
             Register::R14 => self.r[14] = reg16(),
-            Register::R15 => self.r[15] = reg16(),
+            Register::R15 => self.r15_shadow = Some(reg16()),
             Register::SFR => self.sfr = reg16(),
             Register::CBR => self.cbr = reg16() & 0xFFF0,
         }
@@ -341,7 +346,11 @@ impl RegisterFile {
 
     /// Write an Rxx register
     pub fn write_r(&mut self, r: usize, val: u16) {
-        self.r[r] = val;
+        if r == 15 {
+            self.r15_shadow = Some(val);
+        } else {
+            self.r[r] = val;
+        }
     }
 
     /// Read register and post-increment.
@@ -422,6 +431,20 @@ impl RegisterFile {
 
     pub fn get_scmr_height(&self) -> ScreenHeight {
         ScreenHeight::from_u8(self.scmr & SCMR_HEIGHT_MASK).unwrap()
+    }
+
+    pub fn get_clr_r15_shadow(&mut self) -> Option<u16> {
+        let v = self.r15_shadow;
+        self.r15_shadow = None;
+        v
+    }
+
+    pub fn get_r15(&self) -> u16 {
+        self.r[15]
+    }
+
+    pub fn set_r15(&mut self, v: u16) {
+        self.r[15] = v;
     }
 }
 
