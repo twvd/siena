@@ -457,8 +457,7 @@ impl CpuGsu {
             }
             (0x4E, false, false) => {
                 // COLOR
-                let s = self.regs.read_r(sreg) & 0xFF;
-                self.regs.write(Register::COLR, s);
+                self.set_color(self.regs.read_r(sreg) as u8);
                 self.cycles(1)?;
             }
             (0x4E, true, false) => {
@@ -908,19 +907,7 @@ impl CpuGsu {
                 let addr = (GsuAddress::from(self.regs.read(Register::ROMBR)) << 16)
                     | GsuAddress::from(self.regs.read(Register::R14));
                 // TODO ROM cache
-                let v = self.read_bus_tick(addr);
-                let cur = self.regs.read8(Register::COLR);
-
-                self.regs.write8(
-                    Register::COLR,
-                    if self.regs.test_por(PORFlag::ColorHighNibble) {
-                        (cur & 0xF0) | (v >> 4)
-                    } else if self.regs.test_por(PORFlag::ColorHighFreeze) {
-                        (cur & 0xF0) | (v & 0x0F)
-                    } else {
-                        v
-                    },
-                );
+                self.set_color(self.read_bus_tick(addr));
                 self.cycles(1)?;
             }
             (0xDF, false, true) => {
@@ -1132,6 +1119,20 @@ impl CpuGsu {
                 instr
             ),
         }
+    }
+
+    fn set_color(&mut self, v: u8) {
+        let cur = self.regs.read8(Register::COLR);
+        self.regs.write8(
+            Register::COLR,
+            if self.regs.test_por(PORFlag::ColorHighNibble) {
+                (cur & 0xF0) | (v >> 4)
+            } else if self.regs.test_por(PORFlag::ColorHighFreeze) {
+                (cur & 0xF0) | (v & 0x0F)
+            } else {
+                v
+            },
+        );
     }
 }
 
