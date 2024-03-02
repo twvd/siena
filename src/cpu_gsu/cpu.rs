@@ -674,7 +674,7 @@ impl CpuGsu {
                 }
                 self.cycles(1)?;
             }
-            (0x91..=0x94, false, false) => {
+            (0x91..=0x94, _, _) => {
                 // LINK #n
                 let v = self
                     .regs
@@ -746,6 +746,14 @@ impl CpuGsu {
                 // JMP Rn
                 let r = (instr & 0x0F) as usize;
                 self.regs.write(Register::R15, self.regs.read_r(r));
+                self.cycles(1)?;
+            }
+            (0x98..=0x9D, true, false) => {
+                // LJMP Rn
+                let r = (instr & 0x0F) as usize;
+                self.regs.write(Register::R15, self.regs.read_r(sreg));
+                self.regs.write(Register::PBR, self.regs.read_r(r));
+                self.cache_flush();
                 self.cycles(1)?;
             }
             (0x9E, false, false) => {
