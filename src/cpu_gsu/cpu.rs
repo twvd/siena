@@ -1068,9 +1068,16 @@ impl CpuGsu {
             BPP::Eight => tilenum * 0x40 + scbr * 0x400 + (y & 7) * 2,
         };
 
+        const BITPLANE_OFFSETS: [usize; 8] = [0x00, 0x01, 0x10, 0x11, 0x20, 0x21, 0x30, 0x31];
+        let bit = 1 << (7 - (x % 8));
+
         for bitp in 0..(bpp.num_bitplanes()) {
+            let addr = row_addr + BITPLANE_OFFSETS[bitp];
+
             if color & (1 << bitp) != 0 {
-                self.ram[row_addr + bitp] |= 1 << (7 - (x % 8));
+                self.ram[addr] |= bit;
+            } else {
+                self.ram[addr] &= !bit;
             }
         }
     }
