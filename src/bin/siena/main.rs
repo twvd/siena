@@ -192,7 +192,12 @@ fn main() -> Result<()> {
 
     // Fetch reset vector address
     let reset = bus.read16(0xFFFC);
-    println!("Reset at PC {:06X}", reset);
+    println!(
+        "Reset at PC {:06X}, NMI at {:06X}, IRQ at {:06X}",
+        reset,
+        bus.read16(0xFFEA),
+        bus.read16(0xFFEE)
+    );
 
     // Initialize S-CPU
     let mut cpu = Cpu65816::<Mainbus<ChannelRenderer>>::new(bus, reset);
