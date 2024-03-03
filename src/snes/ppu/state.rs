@@ -339,10 +339,16 @@ impl PPUState {
         }
 
         (
-            self.get_tilemap_entry_xy(OPT_BG, x - tilesize, 0, opthofs, optvofs)
+            self.get_tilemap_entry_xy(OPT_BG, x.saturating_sub(tilesize), 0, opthofs, optvofs)
                 .as_opt(),
-            self.get_tilemap_entry_xy(OPT_BG, x - tilesize, tilesize, opthofs, optvofs)
-                .as_opt(),
+            self.get_tilemap_entry_xy(
+                OPT_BG,
+                x.saturating_sub(tilesize),
+                tilesize,
+                opthofs,
+                optvofs,
+            )
+            .as_opt(),
         )
     }
 
