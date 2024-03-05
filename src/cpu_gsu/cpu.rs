@@ -1053,7 +1053,7 @@ impl CpuGsu {
         let tilenum = if self.regs.get_scmr_height() == ScreenHeight::Obj
             || self.regs.test_por(PORFlag::ObjMode)
         {
-            todo!();
+            (y / 0x80) * 0x200 + (x / 0x80) * 0x100 + ((y / 8) & 0x0F) + ((x / 8) & 0x0F)
         } else {
             match self.regs.get_scmr_height() {
                 ScreenHeight::H128 => (x / 8) * 0x10 + (y / 8),
