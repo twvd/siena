@@ -22,7 +22,7 @@ const HDR_DESTINATION_OFFSET: usize = 0x19;
 const HDR_CHECKSUM_OFFSET: usize = 0x1C;
 const HDR_ICHECKSUM_OFFSET: usize = 0x1E;
 const HDR_LEN: usize = 0x1F;
-const RAM_SIZE: usize = 32 * 1024;
+const RAM_SIZE: usize = 0x20000;
 
 #[derive(Copy, Clone, Display, Serialize, Deserialize, clap::ValueEnum)]
 pub enum VideoFormat {
@@ -76,6 +76,7 @@ pub enum Mapper {
     LoROMDSP1,
     HiROMDSP1,
     SuperFX,
+    SuperFX2,
 }
 
 /// A mounted SNES cartridge
@@ -281,7 +282,7 @@ impl Cartridge {
             ram_mask: RAM_SIZE - 1,
             rom_mask: rom.len() - 1,
             co_dsp1: None,
-            co_superfx: if mapper == Mapper::SuperFX {
+            co_superfx: if mapper == Mapper::SuperFX || mapper == Mapper::SuperFX2 {
                 Some(SuperFX::new(rom))
             } else {
                 None
@@ -347,7 +348,7 @@ impl Cartridge {
         match (bank, addr) {
             // LoROM
             (0x00..=0x3F | 0x80..=0xFF, 0x8000..=0xFFFF) => {
-                Some(self.rom[addr - 0x8000 + (bank & !0x80) * 0x8000])
+                Some(self.rom[(addr - 0x8000 + (bank & !0x80) * 0x8000) & self.rom_mask])
             }
 
             // HiROM
@@ -368,6 +369,39 @@ impl Cartridge {
             (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x32FF) => {
                 let sfx = self.co_superfx.as_ref().unwrap();
                 sfx.read(fulladdr)
+            }
+            _ => None,
+        }
+    }
+
+    fn read_superfx2(&self, fulladdr: Address) -> Option<u8> {
+        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+
+        match (bank, addr) {
+            // LoROM
+            (0x00..=0x3F | 0x80..=0xBF, 0x8000..=0xFFFF) => {
+                Some(self.rom[addr - 0x8000 + (bank & !0x80) * 0x8000])
+            }
+
+            // HiROM
+            (0x40..=0x5F, _) => Some(self.rom[(addr + ((bank - 0x40) * 0x10000)) & self.rom_mask]),
+
+            // Shared SRAM
+            (0x70..=0x71, 0x0000..=0xFFFF) => {
+                let sfx = self.co_superfx.as_ref().unwrap();
+                let cpu = sfx.cpu.borrow();
+                Some(cpu.ram[(bank - 0x70) * 0x10000 + addr])
+            }
+
+            // RAM
+            (0x00..=0x3F | 0x80..=0xBF, 0x6000..=0x7FFF) => {
+                Some(self.ram[(bank & !0x80) * 0x2000 + addr])
+            }
+
+            // SuperFX co-processor
+            (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x34FF) => {
+                let sfx = self.co_superfx.as_ref().unwrap();
+                sfx.read(fulladdr & !0x200)
             }
             _ => None,
         }
@@ -420,6 +454,31 @@ impl Cartridge {
             (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x32FF) => {
                 let sfx = self.co_superfx.as_mut().unwrap();
                 sfx.write(fulladdr, val)
+            }
+
+            _ => None,
+        }
+    }
+
+    fn write_superfx2(&mut self, fulladdr: Address, val: u8) -> Option<()> {
+        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+        match (bank, addr) {
+            // Shared SRAM
+            (0x70..=0x71, 0x0000..=0xFFFF) => {
+                let sfx = self.co_superfx.as_ref().unwrap();
+                let mut cpu = sfx.cpu.borrow_mut();
+                Some(cpu.ram[(bank - 0x70) * 0x10000 + addr] = val)
+            }
+
+            // RAM
+            (0x00..=0x3F | 0x80..=0xBF, 0x6000..=0x7FFF) => {
+                Some(self.ram[(bank & !0x80) * 0x2000 + addr] = val)
+            }
+
+            // SuperFX co-processor
+            (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x34FF) => {
+                let sfx = self.co_superfx.as_mut().unwrap();
+                sfx.write(fulladdr & !0x200, val)
             }
 
             _ => None,
@@ -554,6 +613,7 @@ impl BusMember<Address> for Cartridge {
             Mapper::LoROMDSP1 => self.read_lorom_dsp(fulladdr),
             Mapper::HiROMDSP1 => self.read_hirom_dsp(fulladdr),
             Mapper::SuperFX => self.read_superfx(fulladdr),
+            Mapper::SuperFX2 => self.read_superfx2(fulladdr),
         }
     }
 
@@ -564,6 +624,7 @@ impl BusMember<Address> for Cartridge {
             Mapper::LoROMDSP1 => self.write_lorom_dsp(fulladdr, val),
             Mapper::HiROMDSP1 => self.write_hirom_dsp(fulladdr, val),
             Mapper::SuperFX => self.write_superfx(fulladdr, val),
+            Mapper::SuperFX2 => self.write_superfx2(fulladdr, val),
         }
     }
 }

@@ -48,7 +48,7 @@ impl CpuGsu {
             cycles: 0,
             cache: vec![0; CACHE_SIZE],
             rom: vec![0xFF; 8 * 1024 * 1024],
-            ram: vec![0xFF; 256 * 1024],
+            ram: vec![0xFF; 0x20000],
             sreg: 0,
             dreg: 0,
             last_ramaddr: 0,
@@ -102,10 +102,11 @@ impl CpuGsu {
             }
         }
 
-        match (bank & !0x80, addr) {
+        let bank = bank & !0x80;
+        match (bank, addr) {
             (0x00..=0x3F, 0x0000..=0x7FFF) => self.rom[addr + bank * 0x8000],
             (0x00..=0x3F, 0x8000..=0xFFFF) => self.rom[addr - 0x8000 + bank * 0x8000],
-            (0x40..=0x5F, _) => self.rom[(bank - 0x40) * 0x10000 + addr],
+            (0x40..=0x5F, _) => self.rom[((bank - 0x40) * 0x10000 + addr) % self.rom.len()],
             (0x70..=0x71, _) => self.ram[(bank - 0x70) * 0x10000 + addr],
             _ => panic!("Unmapped address {:06X}", fulladdr),
         }
@@ -390,7 +391,7 @@ impl CpuGsu {
                 }
                 self.cycles(1)?;
             }
-            (0x3D, false, false) => {
+            (0x3D, _, false) => {
                 // ALT1
                 self.regs
                     .write_flags(&[(Flag::ALT1, true), (Flag::B, false)]);
@@ -901,7 +902,7 @@ impl CpuGsu {
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
                 self.cycles(1)?;
             }
-            (0xD0..=0xDE, false, false) => {
+            (0xD0..=0xDE, _, false) => {
                 // INC Rn
                 let reg = (instr & 0x0F) as usize;
                 let result = self.regs.read_r(reg).wrapping_add(1);
@@ -930,7 +931,7 @@ impl CpuGsu {
                     .write(Register::ROMBR, self.regs.read_r(sreg) & 0xFF);
                 self.cycles(1)?;
             }
-            (0xE0..=0xEE, false, false) => {
+            (0xE0..=0xEE, false, _) => {
                 // DEC Rn
                 let reg = (instr & 0x0F) as usize;
                 let result = self.regs.read_r(reg).wrapping_sub(1);
