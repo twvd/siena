@@ -81,6 +81,8 @@ pub struct PPU<TRenderer: Renderer> {
     pub(super) vmadd: Cell<u16>,
     pub(super) vmain: u8,
     pub(super) vram_prefetch: Cell<u16>,
+
+    pub(super) interlace_frame: bool,
 }
 
 impl<TRenderer> PPU<TRenderer>
@@ -116,6 +118,7 @@ where
             vmadd: Cell::new(0),
             vmain: 0,
             vram_prefetch: Cell::new(0),
+            interlace_frame: false,
 
             last_frame: Instant::now(),
             desired_frametime,
@@ -245,6 +248,9 @@ where
                     // VBlank period has ended
                     self.vblank = false;
 
+                    // Toggle interlace frame bit in STAT78
+                    self.interlace_frame = !self.interlace_frame;
+
                     // Roll over the VRAM buffer so any changes during the last frame
                     // reflect in the next frame.
                     self.state.vram = Arc::new(self.vram.clone());
@@ -322,11 +328,16 @@ where
             0x213D => Some(self.vlatch.get()),
             // STAT78 - PPU2 Status and Version Number (R)
             0x213F => {
-                // TODO latches, open bus, interlace
-                Some(match self.videoformat {
+                // TODO latches, open bus
+                let mut val = match self.videoformat {
                     VideoFormat::NTSC => 3,
                     VideoFormat::PAL => (1 << 4) | 3,
-                })
+                };
+                if self.interlace_frame {
+                    val |= 1 << 7;
+                }
+
+                Some(val)
             }
             _ => self.state.read(fulladdr),
         }

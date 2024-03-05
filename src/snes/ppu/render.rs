@@ -504,14 +504,18 @@ impl PPUState {
                 continue;
             }
 
-            let pixel = self.apply_colormath(
-                mainscreen.paletted[x],
-                subscreen.paletted[x],
-                mainscreen.layer[x],
-                subscreen.layer[x],
-                mainscreen.window.math[x],
-                mainscreen.palette[x],
-            );
+            let pixel = match self.get_screen_mode() {
+                // Mode 5/6 do not support color math
+                5 | 6 => mainscreen.paletted[x],
+                _ => self.apply_colormath(
+                    mainscreen.paletted[x],
+                    subscreen.paletted[x],
+                    mainscreen.layer[x],
+                    subscreen.layer[x],
+                    mainscreen.window.math[x],
+                    mainscreen.palette[x],
+                ),
+            };
 
             // Apply master brightness and output
             out.push(pixel.apply_brightness(brightness).to_native());
