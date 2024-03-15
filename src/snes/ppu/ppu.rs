@@ -125,6 +125,10 @@ where
         }
     }
 
+    pub fn set_fps_limit(&mut self, fps: u64) {
+        self.desired_frametime = if fps == 0 { 0 } else { 1_000_000 / fps };
+    }
+
     pub fn get_current_scanline(&self) -> usize {
         self.cycles / Self::CYCLES_PER_SCANLINE
     }

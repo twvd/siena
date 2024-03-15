@@ -5,21 +5,17 @@ use std::time::SystemTime;
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use colored::*;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use serde::Deserialize;
-use serde_json::Deserializer;
 
-use siena::bus::Bus;
-use siena::cpu_65816::cpu::Cpu65816;
 use siena::frontend::channel::ChannelRenderer;
 use siena::frontend::gif::Gif;
 use siena::frontend::sdl::{SDLAudioSink, SDLEventPump, SDLRenderer};
 use siena::frontend::Renderer;
-use siena::snes::bus::mainbus::{BusTrace, Mainbus};
+use siena::snes::bus::mainbus::BusTrace;
 use siena::snes::cartridge::{Cartridge, Mapper, VideoFormat};
-use siena::snes::joypad::{Button, Joypad, JoypadEvent};
+use siena::snes::emulator::Emulator;
+use siena::snes::joypad::{Button, JoypadEvent};
 use siena::snes::ppu::ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
 /// Maps an SDL keycode to a controller input for a specific controller.
@@ -120,12 +116,6 @@ struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    // Set up joypad inputs
-    let (mut joypads, joypad_senders) = Joypad::new_channel_all();
-    for j in joypads.iter_mut() {
-        j.sticky_enabled = args.sticky;
-    }
-
     // Set up the display and events
     let mut display = SDLRenderer::new(SCREEN_WIDTH, SCREEN_HEIGHT)?;
     let mut displaychannel = ChannelRenderer::new(SCREEN_WIDTH, SCREEN_HEIGHT)?;
@@ -148,82 +138,32 @@ fn main() -> Result<()> {
     };
     let fn_title = cartridge.get_title_clean();
 
-    // Determine video format (PAL/NTSC)
-    let videoformat = match args.videoformat {
-        Some(f) => f,
-        None => cartridge.get_video_format(),
-    };
-
-    // Determine frame rate limit, either based on the video format
-    // or what the user specified.
-    let fps = match args.fps {
-        None => match videoformat {
-            VideoFormat::NTSC => 60,
-            VideoFormat::PAL => 50,
-        },
-        Some(fps) => fps,
-    };
-
     // Load SPC700 IPL ROM
     let apu_ipl = fs::read(&args.spc_ipl)
         .with_context(|| format!("Failed to load SPC700 IPL ROM from {}", &args.spc_ipl))?;
 
-    // Initialize S-CPU bus
-    let mut bus = Mainbus::<ChannelRenderer>::new(
-        cartridge,
-        args.trace_bus,
-        displaychannel,
-        joypads,
-        &apu_ipl,
-        args.verbose,
-        fps,
-        videoformat,
-    );
+    let mut emulator = Emulator::new(cartridge, &apu_ipl, displaychannel, args.videoformat)?;
+    emulator.set_joypad_sticky(args.sticky);
+    emulator.set_trace_bus(args.trace_bus);
+    emulator.set_verbose_spc(args.spc_verbose);
+    emulator.set_verbose_cpu(args.verbose);
+    emulator.set_trace_apu_comm(args.trace_apu_comm);
 
     // Initialize audio
-    let _audio = SDLAudioSink::init(bus.get_apu());
-
-    #[cfg(not(feature = "apu_blargg"))]
-    {
-        let mut apu = bus.apu.lock().unwrap();
-        apu.verbose = args.spc_verbose;
-        apu.ports.write().unwrap().trace = args.trace_apu_comm;
-    }
-
-    // Fetch reset vector address
-    let reset = bus.read16(0xFFFC);
-    println!(
-        "Reset at PC {:06X}, NMI at {:06X}, IRQ at {:06X}",
-        reset,
-        bus.read16(0xFFEA),
-        bus.read16(0xFFEE)
-    );
-
-    // Initialize S-CPU
-    let mut cpu = Cpu65816::<Mainbus<ChannelRenderer>>::new(bus, reset);
+    let _audio = SDLAudioSink::init(emulator.get_apu());
 
     // Load and deserialize state file
     if let Some(state_filename) = args.state {
         println!("Restoring state from {}", state_filename);
         let json = fs::read_to_string(state_filename)?;
-        let mut deserializer = Deserializer::from_str(&json);
-
-        // TODO Pending https://github.com/serde-rs/serde/issues/2512
-        //Deserialize::deserialize_in_place(&mut deserializer, &mut cpu)?;
-
-        // Until then..
-        let mut new_cpu: Cpu65816<Mainbus<ChannelRenderer>> =
-            Deserialize::deserialize(&mut deserializer)?;
-        // ..and move all the non-serializable stuff over.
-        new_cpu.bus.ppu.renderer = std::mem::replace(&mut cpu.bus.ppu.renderer, None);
-        new_cpu.bus.joypads = std::mem::replace(&mut cpu.bus.joypads, None);
-
-        cpu = new_cpu;
+        emulator.load_state(&json)?;
     }
+
+    // Joypad event channels
+    let joypad_senders = emulator.get_joypad_senders()?;
 
     // Spin up emulation thread and communication channel
     let (emuthread_tx, emuthread_rx) = crossbeam_channel::unbounded();
-    let mut t_verbose = args.verbose;
     let emuthread = thread::spawn(move || loop {
         // Handle signals from main thread
         match emuthread_rx.try_recv() {
@@ -237,29 +177,23 @@ fn main() -> Result<()> {
                         .as_secs()
                 );
                 let file = fs::File::create(&filename).unwrap();
-                serde_json::to_writer(file, &cpu).unwrap();
-                println!("State dumped to {}", filename);
+                match emulator.dump_state(&file) {
+                    Ok(()) => println!("State dumped to {}", filename),
+                    Err(e) => println!("Failed to dump state: {:?}", e),
+                }
             }
-            Ok(EmuThreadSignal::ToggleVerbose) => t_verbose = !t_verbose,
+            Ok(EmuThreadSignal::ToggleVerbose) => emulator.toggle_verbose_cpu(),
             #[cfg(not(feature = "apu_blargg"))]
             Ok(EmuThreadSignal::ToggleVerboseSPC) => {
-                let mut apu = cpu.bus.apu.lock().unwrap();
-                apu.verbose = !apu.verbose;
+                emulator.toggle_verbose_spc();
             }
             Ok(EmuThreadSignal::ToggleVerboseGSU) => {
-                if let Some(sfx) = cpu.bus.cartridge.co_superfx.as_mut() {
-                    let mut gsu = sfx.cpu.borrow_mut();
-                    gsu.verbose = !gsu.verbose;
-                }
+                emulator.toggle_verbose_gsu();
             }
             _ => (),
         }
 
-        // Step the CPU
-        if t_verbose {
-            println!("{}", cpu.dump_state().green());
-        }
-        cpu.step().unwrap();
+        emulator.tick().unwrap();
     });
 
     // Presentation / event thread below
@@ -330,7 +264,7 @@ fn main() -> Result<()> {
                         recording = Some(Gif::new(
                             SCREEN_WIDTH,
                             SCREEN_HEIGHT,
-                            fps,
+                            50,
                             fs::File::create(&filename)?,
                         )?);
                         println!("Started recording to {}", filename);
