@@ -18,9 +18,6 @@ pub struct Apu {
 }
 
 impl Apu {
-    /// One SPC cycle = 3 master cycles
-    const SPC_MASTER_FACTOR: Ticks = 24;
-
     const SAMPLE_BUFFER_SIZE: usize = 256;
 
     const IPL_SIZE: usize = 64;
@@ -45,18 +42,17 @@ impl Apu {
 }
 
 impl Tickable for Apu {
-    fn tick(&mut self, ticks: Ticks) -> Result<()> {
+    fn tick(&mut self, ticks: Ticks) -> Result<Ticks> {
         self.ticks += ticks;
 
         if self.ticks >= 100 {
             if let Some(spc) = &self.spc {
-                spc.borrow_mut()
-                    .end_frame((self.ticks / Self::SPC_MASTER_FACTOR) as SpcTime);
+                spc.borrow_mut().end_frame(self.ticks as SpcTime);
             }
             self.ticks = 0;
         }
 
-        Ok(())
+        Ok(ticks)
     }
 }
 
@@ -69,11 +65,7 @@ impl BusMember<Address> for Apu {
                 let ch = (addr - 0x2140) % 4;
 
                 if let Some(spc) = &self.spc {
-                    Some(
-                        spc.borrow_mut()
-                            .read_port((self.ticks / Self::SPC_MASTER_FACTOR) as SpcTime, ch as u8)
-                            as u8,
-                    )
+                    Some(spc.borrow_mut().read_port(self.ticks as SpcTime, ch as u8) as u8)
                 } else {
                     Some(0)
                 }
@@ -89,11 +81,8 @@ impl BusMember<Address> for Apu {
             0x2140..=0x217F => {
                 let ch = (addr - 0x2140) % 4;
                 if let Some(spc) = &self.spc {
-                    spc.borrow_mut().write_port(
-                        (self.ticks / Self::SPC_MASTER_FACTOR) as SpcTime,
-                        ch as u8,
-                        val,
-                    );
+                    spc.borrow_mut()
+                        .write_port(self.ticks as SpcTime, ch as u8, val);
                 }
                 Some(())
             }

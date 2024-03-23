@@ -139,7 +139,7 @@ impl Bus<SpcAddress> for Apubus {
 }
 
 impl Tickable for Apubus {
-    fn tick(&mut self, ticks: Ticks) -> Result<()> {
+    fn tick(&mut self, ticks: Ticks) -> Result<Ticks> {
         // This ticks at the speed of the APU CPU,
         // not the CPU clock!
 
@@ -148,6 +148,6 @@ impl Tickable for Apubus {
                 self.timers[t].tick(ticks);
             }
         }
-        Ok(())
+        Ok(ticks)
     }
 }

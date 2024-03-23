@@ -79,7 +79,8 @@ where
         }
 
         self.cycles += cycles;
-        self.bus.tick(cycles)
+        self.bus.tick(cycles)?;
+        Ok(())
     }
 
     /// Reads a memory location while ticking peripherals

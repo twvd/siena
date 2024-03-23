@@ -804,20 +804,7 @@ impl<TRenderer> Tickable for Mainbus<TRenderer>
 where
     TRenderer: Renderer,
 {
-    fn tick(&mut self, ticks: Ticks) -> Result<()> {
-        self.cartridge.tick(ticks)?;
-
-        // APU deals with its own stuff
-        {
-            let mut apu = self.apu.lock().unwrap();
-            apu.tick(ticks)?;
-        }
-
-        // The PPU is supposed to run at 5.3/5.6 MHz dot clock
-        // for a 3.5 MHz CPU.
-        // TODO this is not right
-        self.ppu.tick(8)?;
-
+    fn tick(&mut self, ticks: Ticks) -> Result<Ticks> {
         let entered_vblank = self.ppu.get_clr_intreq_vblank();
         let entered_hblank = self.ppu.get_clr_intreq_hblank();
 
@@ -862,7 +849,7 @@ where
             self.intreq_int = true;
         }
 
-        Ok(())
+        Ok(ticks)
     }
 }
 

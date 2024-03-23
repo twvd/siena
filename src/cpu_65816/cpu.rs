@@ -5,7 +5,7 @@ use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
 use crate::bus::{Address, Bus, BusIterator, ADDRESS_MASK};
-use crate::tickable::Ticks;
+use crate::tickable::{Tickable, Ticks};
 
 use super::alu;
 use super::instruction::{AddressingMode, Instruction, InstructionType, MAX_INSTRUCTION_LEN};
@@ -124,7 +124,8 @@ where
     }
 
     /// Executes one CPU step (one instruction).
-    pub fn step(&mut self) -> Result<()> {
+    pub fn step(&mut self) -> Result<Ticks> {
+        let start_cycles = self.cycles;
         if self.bus.get_clr_nmi() {
             self.wait_for_int = false;
             self.dispatch_interrupt(Self::INTVEC_NMI)?;
@@ -133,15 +134,16 @@ where
             self.dispatch_interrupt(Self::INTVEC_INT)?;
         } else if self.wait_for_int {
             self.tick_bus(1)?;
-            return Ok(());
+            return Ok(1);
         }
 
         let instr = self.fetch_next_instr()?;
 
         self.regs.pc = self.regs.pc.wrapping_add(instr.len as u16);
-        let _cycles = self.execute_instruction(&instr)?;
+        self.execute_instruction(&instr)?;
+        let cycles = self.cycles - start_cycles;
 
-        Ok(())
+        Ok(cycles)
     }
 
     /// Tick peripherals
@@ -150,8 +152,9 @@ where
             return Ok(());
         }
 
-        self.cycles += cycles;
-        self.bus.tick(cycles)
+        let cycles_taken = self.bus.tick(cycles)?;
+        self.cycles += cycles_taken;
+        Ok(())
     }
 
     /// Reads a memory location while ticking peripherals
@@ -1593,5 +1596,14 @@ where
         }
 
         Ok(())
+    }
+}
+
+impl<TBus> Tickable for Cpu65816<TBus>
+where
+    TBus: Bus<Address>,
+{
+    fn tick(&mut self, ticks: Ticks) -> Result<Ticks> {
+        self.step()
     }
 }

@@ -10,7 +10,6 @@ use super::coprocessor::dsp1::DSP1;
 use super::coprocessor::superfx::SuperFX;
 
 use crate::bus::{Address, BusMember};
-use crate::tickable::{Tickable, Ticks};
 
 const HDR_TITLE_OFFSET: usize = 0x00;
 const HDR_TITLE_SIZE: usize = 21;
@@ -97,7 +96,7 @@ pub struct Cartridge {
     rom_mask: usize,
 
     /// DSP-1 co-processor
-    co_dsp1: Option<DSP1>,
+    pub co_dsp1: Option<DSP1>,
 
     /// SuperFX co-processor
     pub co_superfx: Option<SuperFX>,
@@ -626,17 +625,5 @@ impl BusMember<Address> for Cartridge {
             Mapper::SuperFX => self.write_superfx(fulladdr, val),
             Mapper::SuperFX2 => self.write_superfx2(fulladdr, val),
         }
-    }
-}
-
-impl Tickable for Cartridge {
-    fn tick(&mut self, ticks: Ticks) -> Result<()> {
-        if let Some(dsp) = self.co_dsp1.as_mut() {
-            dsp.tick(ticks)?;
-        }
-        if let Some(sfx) = self.co_superfx.as_mut() {
-            sfx.tick(ticks)?;
-        }
-        Ok(())
     }
 }

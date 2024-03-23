@@ -17,7 +17,7 @@ macro_rules! test_instr {
                     ".sfc"
                 )),
                 &hex!($hash),
-                20000,
+                60000,
                 true,
                 Mapper::SuperFX,
             );
@@ -33,7 +33,7 @@ macro_rules! test {
             test_display(
                 include_bytes!(concat!("../../../siena_tests/SNES/CHIP/GSU/", $filename)),
                 &hex!($hash),
-                45000,
+                60000,
                 true,
                 Mapper::SuperFX,
             );

@@ -1,8 +1,9 @@
+use std::cmp::min;
 use std::sync::{Arc, Mutex};
 
 use crate::bus::Bus;
 use crate::cpu_65816::cpu::Cpu65816;
-use crate::frontend::channel::ChannelRenderer;
+use crate::frontend::Renderer;
 #[cfg(not(feature = "apu_blargg"))]
 use crate::snes::apu::apu::Apu;
 #[cfg(feature = "apu_blargg")]
@@ -10,22 +11,42 @@ use crate::snes::apu_blargg::Apu;
 use crate::snes::bus::mainbus::{BusTrace, Mainbus};
 use crate::snes::cartridge::{Cartridge, VideoFormat};
 use crate::snes::joypad::{Joypad, JoypadEventSender, JOYPAD_COUNT};
+use crate::tickable::{Tickable, Ticks};
 
 use anyhow::{anyhow, Result};
+use enum_map::{Enum, EnumMap};
 use serde::Deserialize;
 use serde_json::Deserializer;
+use strum::{EnumIter, IntoEnumIterator};
 
-pub struct Emulator {
-    cpu: Cpu65816<Mainbus<ChannelRenderer>>,
-    joypad_senders: Option<[JoypadEventSender; JOYPAD_COUNT]>,
-    cpu_verbose: bool,
+#[derive(Debug, Eq, PartialEq, Enum, EnumIter, Clone, Copy)]
+pub enum Schedule {
+    SCPU = 0,
+    PPU = 1,
+    SPC700 = 2,
+    DSP1 = 3,
+    SuperFX = 4,
 }
 
-impl Emulator {
+pub struct Emulator<T>
+where
+    T: Renderer,
+{
+    cpu: Cpu65816<Mainbus<T>>,
+    joypad_senders: Option<[JoypadEventSender; JOYPAD_COUNT]>,
+    cpu_verbose: bool,
+    schedule_next: EnumMap<Schedule, Ticks>,
+    schedule_ticks: Ticks,
+}
+
+impl<T> Emulator<T>
+where
+    T: Renderer,
+{
     pub fn new(
         cartridge: Cartridge,
         apu_ipl: &[u8],
-        displaychannel: ChannelRenderer,
+        renderer: T,
         ovr_videoformat: Option<VideoFormat>,
     ) -> Result<Self> {
         // Set up joypad inputs
@@ -41,10 +62,10 @@ impl Emulator {
         };
 
         // Initialize S-CPU bus
-        let bus = Mainbus::<ChannelRenderer>::new(
+        let bus = Mainbus::<T>::new(
             cartridge,
             BusTrace::None,
-            displaychannel,
+            renderer,
             joypads,
             apu_ipl,
             false,
@@ -62,13 +83,29 @@ impl Emulator {
         );
 
         // Initialize S-CPU
-        let cpu = Cpu65816::<Mainbus<ChannelRenderer>>::new(bus, reset);
+        let cpu = Cpu65816::<Mainbus<T>>::new(bus, reset);
 
-        Ok(Self {
+        let mut emu = Self {
             cpu,
             joypad_senders: Some(joypad_senders),
             cpu_verbose: false,
-        })
+            schedule_next: EnumMap::default(),
+            schedule_ticks: 0,
+        };
+
+        // Initialize scheduling for co-processors
+        if emu.cpu.bus.cartridge.co_dsp1.is_none() {
+            emu.schedule_next[Schedule::DSP1] = Ticks::MAX;
+        }
+        if emu.cpu.bus.cartridge.co_superfx.is_none() {
+            emu.schedule_next[Schedule::SuperFX] = Ticks::MAX;
+        }
+
+        Ok(emu)
+    }
+
+    pub fn ppu_single_threaded(&mut self) {
+        self.cpu.bus.ppu.single_threaded();
     }
 
     pub fn load_state(&mut self, json: &str) -> Result<()> {
@@ -78,8 +115,7 @@ impl Emulator {
         //Deserialize::deserialize_in_place(&mut deserializer, &mut cpu)?;
 
         // Until then..
-        let mut new_cpu: Cpu65816<Mainbus<ChannelRenderer>> =
-            Deserialize::deserialize(&mut deserializer)?;
+        let mut new_cpu: Cpu65816<Mainbus<T>> = Deserialize::deserialize(&mut deserializer)?;
         // ..and move all the non-serializable stuff over.
         new_cpu.bus.ppu.renderer = std::mem::replace(&mut self.cpu.bus.ppu.renderer, None);
 
@@ -166,8 +202,72 @@ impl Emulator {
     }
 
     pub fn tick(&mut self) -> Result<()> {
-        self.cpu.step()?;
+        // The scheduler assumes a base clock, which is the SNES master clock,
+        // monotonically increasing. This is not based on time; the wall clock time
+        // speed of the emulator is regulated by the frame rate limiter.
+        //
+        // Every cycle-based component receives time to do a step when it
+        // needs to run (based on a divider from the master clock).
+        //
+        // When a step is done, the component returns the amount of cycles
+        // actually used. The next time the component is stepped is then
+        // delayed taking into account the used cycles last time and the
+        // clock divider.
+
+        let mut inc_ticks = usize::MAX;
+        for comp in Schedule::iter() {
+            if self.schedule_next[comp] <= self.schedule_ticks {
+                // This component can take one step now
+                let cycles_spent = self.scheduler_dispatch(comp)?;
+                //println!("{:?}: {} ticks", comp, cycles_spent);
+
+                self.schedule_next[comp] = self.schedule_ticks + cycles_spent;
+                inc_ticks = min(inc_ticks, cycles_spent);
+            }
+        }
+
+        self.schedule_ticks += inc_ticks;
 
         Ok(())
+    }
+
+    fn scheduler_dispatch(&mut self, component: Schedule) -> Result<Ticks> {
+        // Base frequency: ~21 MHz
+        match component {
+            Schedule::SCPU => {
+                // 3.5 MHz (no wait states)
+                if self.cpu_verbose {
+                    println!("{}", self.cpu.dump_state());
+                }
+                Ok(self.cpu.tick(1)? * 6)
+            }
+            Schedule::PPU => {
+                // 5.3 MHz
+                // PPU can batch HBLANK_LEN (264) cycles at a time
+                // TODO tidy this up, make the PPU batch cycles rather than here
+                Ok(self.cpu.bus.ppu.tick(264)? * 4)
+            }
+            Schedule::SPC700 => {
+                // 1.024 MHz
+                let mut apu = self.cpu.bus.apu.lock().unwrap();
+                Ok(apu.tick(1)? * 21)
+            }
+            Schedule::SuperFX => {
+                // 20 MHz (or 10, then CPU will double cycles)
+                Ok(self
+                    .cpu
+                    .bus
+                    .cartridge
+                    .co_superfx
+                    .as_mut()
+                    .unwrap()
+                    .tick(1)?
+                    * 1)
+            }
+            Schedule::DSP1 => {
+                // 7 MHz
+                Ok(self.cpu.bus.cartridge.co_dsp1.as_mut().unwrap().tick(1)? * 3)
+            }
+        }
     }
 }

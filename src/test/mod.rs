@@ -8,30 +8,18 @@ pub mod processortests_spc700;
 use itertools::Itertools;
 use std::time::Instant;
 
-use crate::bus::Bus;
-use crate::cpu_65816::cpu::Cpu65816;
 use crate::frontend::test::TestRenderer;
-use crate::snes::bus::mainbus::{BusTrace, Mainbus};
 use crate::snes::cartridge::{Cartridge, Mapper, VideoFormat};
-use crate::snes::joypad::Joypad;
+use crate::snes::emulator::Emulator;
 use crate::snes::ppu::ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
 fn test_display(rom: &[u8], pass_hash: &[u8], time_limit: u128, stable: bool, mapper: Mapper) {
     let (display, dispstatus) = TestRenderer::new_test(SCREEN_WIDTH, SCREEN_HEIGHT);
-    let (joypads, _) = Joypad::new_channel_all();
     let cart = Cartridge::load_nohdr(rom, mapper);
-    let bus = Mainbus::<TestRenderer>::new(
-        cart,
-        BusTrace::None,
-        display,
-        joypads,
-        &[0; 64],
-        false,
-        0,
-        VideoFormat::PAL,
-    );
-    let reset = bus.read16(0xFFFC);
-    let mut cpu = Cpu65816::<Mainbus<TestRenderer>>::new(bus, reset);
+    let mut emu =
+        Emulator::<TestRenderer>::new(cart, &[0; 64], display, Some(VideoFormat::PAL)).unwrap();
+    emu.set_fps_limit(0);
+    emu.ppu_single_threaded();
 
     let start = Instant::now();
     loop {
@@ -39,7 +27,7 @@ fn test_display(rom: &[u8], pass_hash: &[u8], time_limit: u128, stable: bool, ma
             dbg!(dispstatus.get());
             panic!("Timeout");
         }
-        cpu.step().unwrap();
+        emu.tick().unwrap();
 
         let newstatus = dispstatus.get();
         if !stable && newstatus.hash == pass_hash {

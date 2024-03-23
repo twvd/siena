@@ -106,9 +106,9 @@ impl<T> Tickable for Testbus<T>
 where
     T: PrimInt + WrappingAdd + Hash + Debug,
 {
-    fn tick(&mut self, ticks: Ticks) -> Result<()> {
+    fn tick(&mut self, ticks: Ticks) -> Result<Ticks> {
         self.cycles += ticks;
-        Ok(())
+        Ok(ticks)
     }
 }
 

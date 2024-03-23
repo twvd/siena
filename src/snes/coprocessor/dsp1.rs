@@ -90,7 +90,7 @@ impl DSP1 {
 }
 
 impl Tickable for DSP1 {
-    fn tick(&mut self, _ticks: Ticks) -> Result<()> {
+    fn tick(&mut self, ticks: Ticks) -> Result<Ticks> {
         let mut cpu = self.cpu.borrow_mut();
 
         // Detect busy loops (JRQM $PC)
@@ -99,6 +99,6 @@ impl Tickable for DSP1 {
             cpu.step()?;
         }
 
-        Ok(())
+        Ok(ticks)
     }
 }

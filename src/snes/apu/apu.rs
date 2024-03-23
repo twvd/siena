@@ -47,9 +47,6 @@ pub struct Apu {
 }
 
 impl Apu {
-    /// One SPC cycle = 3 master cycles
-    const SPC_MASTER_FACTOR: Ticks = 3;
-
     const IPL_ENTRYPOINT: SpcAddress = 0xFFC0;
     const IPL_SIZE: usize = 64;
 
@@ -87,24 +84,11 @@ impl Apu {
 }
 
 impl Tickable for Apu {
-    fn tick(&mut self, ticks: Ticks) -> Result<()> {
-        // Step the SPC700 every 3 CPU clock ticks
-        // and wait for every SPC cycle consumed so they
-        // run somewhat in sync.
-        self.spc_master_credit += ticks;
-
-        while self.spc_master_credit >= Self::SPC_MASTER_FACTOR {
-            if self.spc_cycles_taken == 0 {
-                if self.verbose && self.cpu.regs.read(Register::PC) < Self::IPL_ENTRYPOINT {
-                    println!("{}", self.cpu.dump_state().red());
-                }
-                self.spc_cycles_taken += self.cpu.step()?;
-            }
-            self.spc_cycles_taken -= 1;
-            self.spc_master_credit -= Self::SPC_MASTER_FACTOR;
+    fn tick(&mut self, _ticks: Ticks) -> Result<Ticks> {
+        if self.verbose && self.cpu.regs.read(Register::PC) < Self::IPL_ENTRYPOINT {
+            println!("{}", self.cpu.dump_state().red());
         }
-
-        Ok(())
+        self.cpu.step()
     }
 }
 

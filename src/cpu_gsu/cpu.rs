@@ -190,7 +190,7 @@ impl CpuGsu {
         result as u16
     }
 
-    pub fn step(&mut self) -> Result<()> {
+    pub fn step(&mut self) -> Result<Ticks> {
         let instr = self.fetch();
 
         // Note: ALTx is ignored if the opcode following does not
@@ -1022,7 +1022,9 @@ impl CpuGsu {
                 instr, alt1, alt2
             ),
         }
-        Ok(())
+
+        // TODO cycles
+        Ok(1)
     }
 
     fn cycles(&mut self, cycles: Ticks) -> Result<()> {
@@ -1153,13 +1155,12 @@ impl CpuGsu {
 }
 
 impl Tickable for CpuGsu {
-    fn tick(&mut self, _ticks: Ticks) -> Result<()> {
+    fn tick(&mut self, ticks: Ticks) -> Result<Ticks> {
         if !self.regs.test_flag(Flag::G) {
             // GSU stopped
-            return Ok(());
+            return Ok(ticks);
         }
 
-        // TODO credits
         self.step()
     }
 }

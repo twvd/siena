@@ -125,6 +125,10 @@ where
         }
     }
 
+    pub fn single_threaded(&mut self) {
+        self.pool = ThreadPool::new(1, 1, Duration::from_secs(60));
+    }
+
     pub fn set_fps_limit(&mut self, fps: u64) {
         self.desired_frametime = if fps == 0 { 0 } else { 1_000_000 / fps };
     }
@@ -220,7 +224,7 @@ impl<TRenderer> Tickable for PPU<TRenderer>
 where
     TRenderer: Renderer,
 {
-    fn tick(&mut self, ticks: Ticks) -> Result<()> {
+    fn tick(&mut self, ticks: Ticks) -> Result<Ticks> {
         self.cycles =
             (self.cycles + ticks) % (Self::CYCLES_PER_SCANLINE * Self::SCANLINES_PER_FRAME);
 
@@ -288,7 +292,7 @@ where
             }
         }
 
-        Ok(())
+        Ok(ticks)
     }
 }
 

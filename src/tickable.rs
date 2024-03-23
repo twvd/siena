@@ -5,5 +5,5 @@ use anyhow::Result;
 pub type Ticks = usize;
 
 pub trait Tickable {
-    fn tick(&mut self, ticks: Ticks) -> Result<()>;
+    fn tick(&mut self, ticks: Ticks) -> Result<Ticks>;
 }

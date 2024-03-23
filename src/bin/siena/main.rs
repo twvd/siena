@@ -142,12 +142,16 @@ fn main() -> Result<()> {
     let apu_ipl = fs::read(&args.spc_ipl)
         .with_context(|| format!("Failed to load SPC700 IPL ROM from {}", &args.spc_ipl))?;
 
-    let mut emulator = Emulator::new(cartridge, &apu_ipl, displaychannel, args.videoformat)?;
+    let mut emulator =
+        Emulator::<ChannelRenderer>::new(cartridge, &apu_ipl, displaychannel, args.videoformat)?;
     emulator.set_joypad_sticky(args.sticky);
     emulator.set_trace_bus(args.trace_bus);
     emulator.set_verbose_spc(args.spc_verbose);
     emulator.set_verbose_cpu(args.verbose);
     emulator.set_trace_apu_comm(args.trace_apu_comm);
+    if let Some(fps) = args.fps {
+        emulator.set_fps_limit(fps);
+    }
 
     // Initialize audio
     let _audio = SDLAudioSink::init(emulator.get_apu());
