@@ -1,4 +1,4 @@
-name: Build and test
+name: Test coverage
 
 on:
   push:
@@ -26,14 +26,12 @@ jobs:
       run: git submodule update --init --recursive
     - name: Checkout siena_tests
       run: git clone --recurse-submodules https://github.com/twvd/siena_tests.git ../siena_tests
-    - name: Code formatting check
-      run: cargo fmt --check
-    - name: Build
-      run: cargo build --verbose
-    - name: Build release
-      run: cargo build --verbose --release
-    - name: Build release, Blargg S-APU
-      run: cargo build --verbose --release -F apu_blargg
-    - name: Run tests
-      run: cargo test --verbose
+    - name: Generate code coverage
+      run: cargo llvm-cov --workspace --codecov --output-path codecov.json
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: codecov.json
+        fail_ci_if_error: true
 
