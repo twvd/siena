@@ -243,9 +243,7 @@ where
             }
             Schedule::PPU => {
                 // 5.3 MHz
-                // PPU can batch HBLANK_LEN (264) cycles at a time
-                // TODO tidy this up, make the PPU batch cycles rather than here
-                Ok(self.cpu.bus.ppu.tick(264)? * 4)
+                Ok(self.cpu.bus.ppu.tick(1)? * 4)
             }
             Schedule::SPC700 => {
                 // 1.024 MHz

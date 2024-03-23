@@ -292,7 +292,18 @@ where
             }
         }
 
-        Ok(ticks)
+        let batch = if self.vblank {
+            // Next time slice after VBlank
+            (Self::CYCLES_PER_SCANLINE * Self::SCANLINES_PER_FRAME) - self.cycles
+        } else if self.hblank {
+            // Next time slice after HBlank
+            Self::CYCLES_PER_SCANLINE - Self::LINE_HBLANK_START
+        } else {
+            // Next time slice at HBlank
+            Self::LINE_HBLANK_START
+        };
+        self.cycles += (batch - ticks);
+        Ok(batch)
     }
 }
 
