@@ -90,15 +90,15 @@ impl DSP1 {
 }
 
 impl Tickable for DSP1 {
-    fn tick(&mut self, ticks: Ticks) -> Result<Ticks> {
+    fn tick(&mut self, _ticks: Ticks) -> Result<Ticks> {
         let mut cpu = self.cpu.borrow_mut();
 
         // Detect busy loops (JRQM $PC)
         if !cpu.regs.test_sr(SR::RQM) || (cpu.regs.pc != self.last_pc) {
             self.last_pc = cpu.regs.pc;
-            cpu.step()?;
+            Ok(cpu.step()?)
+        } else {
+            Ok(0)
         }
-
-        Ok(ticks)
     }
 }

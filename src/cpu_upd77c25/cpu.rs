@@ -12,7 +12,6 @@ const SR_MASK: u16 = 0x907C;
 #[derive(Serialize, Deserialize)]
 pub struct CpuUpd77c25 {
     pub regs: RegisterFile,
-    pub cycles: Ticks,
     pub rodata: Vec<u16>,
     pub code: Vec<u8>,
     pub ram: Vec<u16>,
@@ -25,7 +24,6 @@ impl CpuUpd77c25 {
     pub fn new() -> Self {
         Self {
             regs: RegisterFile::from_pc(0),
-            cycles: 0,
             code: vec![0xFF; 16 * 1024],
             rodata: vec![0; 1024],
             ram: vec![0; 256],
@@ -36,7 +34,6 @@ impl CpuUpd77c25 {
     }
 
     pub fn load_rom(&mut self, code: &[u8], rodata: &[u8]) {
-        assert_eq!(self.cycles, 0);
         assert_eq!(self.regs.pc, 0);
 
         self.code[0..code.len()].copy_from_slice(code);
@@ -53,12 +50,7 @@ impl CpuUpd77c25 {
     }
 
     pub fn dump_state(&self) -> String {
-        format!(
-            "{} - {}\n --> {}",
-            self.cycles,
-            self.regs,
-            self.peek_next_instr().unwrap()
-        )
+        format!("{}\n --> {}", self.regs, self.peek_next_instr().unwrap())
     }
 
     /// Fetches and decodes the next instruction at PC
@@ -91,7 +83,6 @@ impl CpuUpd77c25 {
 
     /// Executes one CPU step (one instruction).
     pub fn step(&mut self) -> Result<Ticks> {
-        let start_cycles = self.cycles;
         let instr = self.fetch_next_instr()?;
 
         if self.verbose {
@@ -102,7 +93,7 @@ impl CpuUpd77c25 {
         self.execute_instruction(&instr)?;
         self.execute_mul();
 
-        Ok(self.cycles - start_cycles)
+        Ok(1)
     }
 
     /// Executes the multiplication at occurs after every instruction.

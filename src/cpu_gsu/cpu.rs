@@ -1164,10 +1164,10 @@ impl CpuGsu {
 }
 
 impl Tickable for CpuGsu {
-    fn tick(&mut self, ticks: Ticks) -> Result<Ticks> {
+    fn tick(&mut self, _ticks: Ticks) -> Result<Ticks> {
         if !self.regs.test_flag(Flag::G) {
             // GSU stopped
-            return Ok(ticks);
+            return Ok(0);
         }
 
         self.step()

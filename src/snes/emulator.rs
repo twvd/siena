@@ -216,7 +216,7 @@ where
         // delayed taking into account the used cycles last time and the
         // clock divider.
 
-        let mut inc_ticks = usize::MAX;
+        let mut inc_ticks = Ticks::MAX;
         for comp in Schedule::iter() {
             if self.schedule_next[comp] <= self.schedule_ticks {
                 // This component can take one step now
@@ -224,11 +224,20 @@ where
                 //println!("{:?}: {} ticks", comp, cycles_spent);
 
                 self.schedule_next[comp] = self.schedule_ticks + cycles_spent;
-                inc_ticks = min(inc_ticks, cycles_spent);
+                if cycles_spent != 0 {
+                    // Returning 0 will reschedule the component with
+                    // the next non-zero component (e.g. if a component
+                    // is waiting for an interrupt).
+                    inc_ticks = min(inc_ticks, cycles_spent);
+                }
             }
         }
 
-        self.schedule_ticks += inc_ticks;
+        if inc_ticks != Ticks::MAX {
+            self.schedule_ticks += inc_ticks;
+        } else {
+            self.schedule_ticks += 1;
+        }
 
         Ok(())
     }

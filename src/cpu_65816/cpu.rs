@@ -134,7 +134,7 @@ where
             self.dispatch_interrupt(Self::INTVEC_INT)?;
         } else if self.wait_for_int {
             self.tick_bus(1)?;
-            return Ok(1);
+            return Ok(0);
         }
 
         let instr = self.fetch_next_instr()?;
@@ -1603,7 +1603,7 @@ impl<TBus> Tickable for Cpu65816<TBus>
 where
     TBus: Bus<Address>,
 {
-    fn tick(&mut self, ticks: Ticks) -> Result<Ticks> {
+    fn tick(&mut self, _ticks: Ticks) -> Result<Ticks> {
         self.step()
     }
 }
