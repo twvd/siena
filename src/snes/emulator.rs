@@ -254,7 +254,7 @@ where
             }
             Schedule::PPU => {
                 // 5.3 MHz
-                Ok(self.cpu.bus.ppu.tick(1)? * 4)
+                Ok(self.cpu.bus.ppu.tick(24)? * 4)
             }
             Schedule::SPC700 => {
                 // 1.024 MHz
