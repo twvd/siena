@@ -18,8 +18,7 @@ fn test_display(rom: &[u8], pass_hash: &[u8], time_limit: u128, stable: bool, ma
     let cart = Cartridge::load_nohdr(rom, mapper);
     let mut emu =
         Emulator::<TestRenderer>::new(cart, &[0; 64], display, Some(VideoFormat::PAL)).unwrap();
-    emu.set_fps_limit(0);
-    emu.ppu_single_threaded();
+    emu.testmode();
 
     let start = Instant::now();
     loop {

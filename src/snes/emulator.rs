@@ -104,8 +104,10 @@ where
         Ok(emu)
     }
 
-    pub fn ppu_single_threaded(&mut self) {
+    pub fn testmode(&mut self) {
         self.cpu.bus.ppu.single_threaded();
+        self.schedule_next[Schedule::SPC700] = Ticks::MAX;
+        self.set_fps_limit(0);
     }
 
     pub fn load_state(&mut self, json: &str) -> Result<()> {

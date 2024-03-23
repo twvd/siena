@@ -302,7 +302,7 @@ where
             // Next time slice at HBlank
             Self::LINE_HBLANK_START
         };
-        self.cycles += (batch - ticks);
+        self.cycles += batch - ticks;
         Ok(batch)
     }
 }
