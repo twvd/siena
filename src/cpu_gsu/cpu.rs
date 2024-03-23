@@ -190,7 +190,16 @@ impl CpuGsu {
         result as u16
     }
 
+    fn get_speed_factor(&self) -> Ticks {
+        if self.regs.read(Register::CLSR) & 1 != 0 {
+            1
+        } else {
+            2
+        }
+    }
+
     pub fn step(&mut self) -> Result<Ticks> {
+        let start_cycles = self.cycles;
         let instr = self.fetch();
 
         // Note: ALTx is ignored if the opcode following does not
@@ -1023,12 +1032,12 @@ impl CpuGsu {
             ),
         }
 
-        // TODO cycles
-        Ok(1)
+        Ok((self.cycles - start_cycles) * self.get_speed_factor())
     }
 
+    #[inline(always)]
     fn cycles(&mut self, cycles: Ticks) -> Result<()> {
-        // TODO cycles
+        self.cycles += cycles;
 
         Ok(())
     }
