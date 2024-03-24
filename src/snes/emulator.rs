@@ -250,11 +250,24 @@ where
                 if self.cpu_verbose {
                     println!("{}", self.cpu.dump_state());
                 }
-                Ok(self.cpu.tick(1)? * 6)
+
+                let cpu_ticks = self.cpu.tick(1)? * 6;
+
+                // Things like DMA and WRAM refresh may pause the
+                // CPU for a certain amount of master cycles.
+                let pause_ticks = self.cpu.bus.pause_cycles;
+                self.cpu.bus.pause_cycles = 0;
+
+                Ok(cpu_ticks + pause_ticks)
             }
             Schedule::PPU => {
                 // 5.3 MHz
-                Ok(self.cpu.bus.ppu.tick(24)? * 4)
+
+                // Tick the bus too to make sure we're hitting all
+                // the HDMA slots.
+                self.cpu.bus.tick(1)?;
+
+                Ok(self.cpu.bus.ppu.tick(4)? * 4)
             }
             Schedule::SPC700 => {
                 // 1.024 MHz

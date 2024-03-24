@@ -91,6 +91,10 @@ where
 
     /// Clearable VBlank flag in RDNMI
     rdnmi_vblank: Cell<bool>,
+
+    /// If set, the scheduler will pause the CPU for X master cycles
+    /// to implement DMA cycles.
+    pub pause_cycles: Ticks,
 }
 
 enum DMADirection {
@@ -275,6 +279,7 @@ where
             timeup: Cell::new(false),
 
             rdnmi_vblank: Cell::new(false),
+            pause_cycles: 0,
         }
     }
 
@@ -296,6 +301,10 @@ where
             if self.trace == BusTrace::All {
                 dbg_hex!(&self.dma[ch]);
             }
+
+            // DMA timing in master cycles
+            // 8 cycles overhead, 8 cycles per byte (approximately)
+            self.pause_cycles += 8 * ((self.dma[ch].len() as Ticks) + 1);
 
             for i in 0..self.dma[ch].len() {
                 let a_addr = self.dma[ch].a_addr();
