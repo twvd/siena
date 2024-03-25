@@ -2,7 +2,15 @@ use super::ppu::*;
 use super::render::*;
 use super::state::*;
 
+use super::color::SnesColor;
+
 impl PPUState {
+    #[inline(always)]
+    /// Maps mode 7 direct color value to on-screen color
+    fn mode7_directcolor(dc: u8) -> SnesColor {
+        SnesColor::from_rgb5((dc & 7) << 2, ((dc >> 3) & 7) << 2, ((dc >> 6) & 3) << 3)
+    }
+
     /// Maps mode 7 VRAM coordinate to a color
     #[inline(always)]
     fn mode7_vram_to_color(&self, vram_x: i32, vram_y: i32) -> u8 {
@@ -104,7 +112,12 @@ impl PPUState {
             let c = self.mode7_vram_to_color(vram_x, vram_y);
             if state.idx[x] == 0 {
                 state.idx[x] = c;
-                state.paletted[x] = self.cgram_to_color(c);
+                state.paletted[x] = if self.cgwsel & (1 << 0) != 0 && bg == 0 {
+                    // Direct color (BG1 only)
+                    Self::mode7_directcolor(c)
+                } else {
+                    self.cgram_to_color(c)
+                };
                 state.layer[x] = bg as u8;
             }
             (vram_x, vram_y) = self.mode7_next_vramxy(vram_x, vram_y);
