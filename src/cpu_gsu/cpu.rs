@@ -31,6 +31,7 @@ pub struct CpuGsu {
     pub cache: Vec<u8>,
     pub rom: Vec<u8>,
     pub ram: Vec<u8>,
+    pub bram: Vec<u8>,
 
     pub sreg: usize,
     pub dreg: usize,
@@ -49,6 +50,7 @@ impl CpuGsu {
             cache: vec![0; CACHE_SIZE],
             rom: vec![0xFF; 8 * 1024 * 1024],
             ram: vec![0xFF; 0x20000],
+            bram: vec![0xFF; 128 * 1024],
             sreg: 0,
             dreg: 0,
             last_ramaddr: 0,
@@ -85,6 +87,7 @@ impl CpuGsu {
             (0x00..=0x3F, 0x8000..=0xFFFF) => GsuBus::ROM,
             (0x40..=0x5F, _) => GsuBus::ROM,
             (0x70..=0x71, _) => GsuBus::RAM,
+            (0x78, _) => GsuBus::RAM,
             _ => panic!("Unmapped address {:06X}", fulladdr),
         }
     }
@@ -108,6 +111,7 @@ impl CpuGsu {
             (0x00..=0x3F, 0x8000..=0xFFFF) => self.rom[addr - 0x8000 + bank * 0x8000],
             (0x40..=0x5F, _) => self.rom[((bank - 0x40) * 0x10000 + addr) % self.rom.len()],
             (0x70..=0x71, _) => self.ram[(bank - 0x70) * 0x10000 + addr],
+            (0x78, _) => self.bram[(bank - 0x78) * 0x10000 + addr],
             _ => panic!("Unmapped address {:06X}", fulladdr),
         }
     }

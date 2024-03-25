@@ -362,6 +362,11 @@ impl Cartridge {
             }
 
             // Backup RAM
+            (0x78, 0x0000..=0xFFFF) => {
+                let sfx = self.co_superfx.as_ref().unwrap();
+                let cpu = sfx.cpu.borrow();
+                Some(cpu.bram[(bank - 0x78) * 0x10000 + addr])
+            }
             (0x7C..=0x7D, 0x0000..=0xFFFF) => Some(self.ram[(bank - 0x7C) * 0x10000 + addr]),
 
             // SuperFX co-processor
@@ -447,6 +452,11 @@ impl Cartridge {
             }
 
             // Backup RAM
+            (0x78, 0x0000..=0xFFFF) => {
+                let sfx = self.co_superfx.as_ref().unwrap();
+                let mut cpu = sfx.cpu.borrow_mut();
+                Some(cpu.bram[(bank - 0x78) * 0x10000 + addr] = val)
+            }
             (0x7C..=0x7D, 0x0000..=0xFFFF) => Some(self.ram[(bank - 0x7C) * 0x10000 + addr] = val),
 
             // SuperFX co-processor
