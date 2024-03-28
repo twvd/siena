@@ -127,9 +127,16 @@ where
     pub fn step(&mut self) -> Result<Ticks> {
         let start_cycles = self.cycles;
         if self.bus.get_clr_nmi() {
-            self.wait_for_int = false;
+            if self.wait_for_int {
+                self.tick_bus(2)?;
+                self.wait_for_int = false;
+            }
             self.dispatch_interrupt(Self::INTVEC_NMI)?;
         } else if self.bus.get_clr_int() && !self.regs.test_flag(Flag::I) {
+            if self.wait_for_int {
+                self.tick_bus(2)?;
+                self.wait_for_int = false;
+            }
             self.wait_for_int = false;
             self.dispatch_interrupt(Self::INTVEC_INT)?;
         } else if self.wait_for_int {
