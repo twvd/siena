@@ -247,16 +247,17 @@ where
         match component {
             Schedule::SCPU => {
                 // 3.5 MHz (no wait states)
+                // Wait states are added to the time the S-CPU is
+                // scheduled next.
                 if self.cpu_verbose {
                     println!("{}", self.cpu.dump_state());
                 }
 
                 let cpu_ticks = self.cpu.tick(1)? * 6;
 
-                // Things like DMA and WRAM refresh may pause the
-                // CPU for a certain amount of master cycles.
-                let pause_ticks = self.cpu.bus.pause_cycles;
-                self.cpu.bus.pause_cycles = 0;
+                // Things like DMA, wait states, WRAM refresh
+                // may pause the CPU for a certain amount of master cycles.
+                let pause_ticks = self.cpu.bus.pause_cycles.replace(0);
 
                 Ok(cpu_ticks + pause_ticks)
             }
@@ -287,8 +288,9 @@ where
                     * 1)
             }
             Schedule::DSP1 => {
-                // 7 MHz
-                Ok(self.cpu.bus.cartridge.co_dsp1.as_mut().unwrap().tick(1)? * 3)
+                // 7.6 - 8 MHz ?
+                // 2 master cycles leans towards faster, but works well..
+                Ok(self.cpu.bus.cartridge.co_dsp1.as_mut().unwrap().tick(1)? * 2)
             }
         }
     }

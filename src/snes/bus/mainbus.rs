@@ -94,7 +94,10 @@ where
 
     /// If set, the scheduler will pause the CPU for X master cycles
     /// to implement DMA cycles.
-    pub pause_cycles: Ticks,
+    pub pause_cycles: Cell<Ticks>,
+
+    /// Set if WRAM refresh delay was done this scanline
+    wram_refreshed: bool,
 }
 
 enum DMADirection {
@@ -279,7 +282,8 @@ where
             timeup: Cell::new(false),
 
             rdnmi_vblank: Cell::new(false),
-            pause_cycles: 0,
+            pause_cycles: Cell::new(0),
+            wram_refreshed: false,
         }
     }
 
@@ -304,7 +308,8 @@ where
 
             // DMA timing in master cycles
             // 8 cycles overhead, 8 cycles per byte (approximately)
-            self.pause_cycles += 8 * ((self.dma[ch].len() as Ticks) + 1);
+            self.pause_cycles
+                .set(self.pause_cycles.get() + 6 + 8 * ((self.dma[ch].len() as Ticks) + 2));
 
             for i in 0..self.dma[ch].len() {
                 let a_addr = self.dma[ch].a_addr();
@@ -328,6 +333,9 @@ where
         let mut c = 0;
         while self.dma_transfer_step(ch, a_addr.wrapping_add(c), b_addr, c) > 0 {
             c += 1;
+
+            // HDMA byte transfer overhead
+            self.pause_cycles.set(self.pause_cycles.get() + 8);
         }
         c + 1
     }
@@ -369,12 +377,12 @@ where
         // Transfer the byte in whichever direction
         match self.dma[ch].direction() {
             DMADirection::CPUToIO => {
-                let v = self.read(a_addr);
-                self.write(b_addr, v);
+                let v = self.read_no_ws(a_addr);
+                self.write_no_ws(b_addr, v);
             }
             DMADirection::IOToCPU => {
-                let v = self.read(b_addr);
-                self.write(a_addr, v);
+                let v = self.read_no_ws(b_addr);
+                self.write_no_ws(a_addr, v);
             }
         }
 
@@ -382,6 +390,9 @@ where
     }
 
     fn hdma_reset(&mut self) {
+        // Overall overhead
+        self.pause_cycles.set(self.pause_cycles.get() + 18);
+
         for ch in 0..DMA_CHANNELS {
             if self.hdmaen & (1 << ch) == 0 {
                 continue;
@@ -391,14 +402,31 @@ where
             self.dma[ch].a2a = self.dma[ch].a1t;
 
             self.hdma_load_next_entry(ch);
+
+            // Channel reset overhead
+            if self.dma[ch].hdma_is_indirect() {
+                self.pause_cycles.set(self.pause_cycles.get() + 24);
+            } else {
+                self.pause_cycles.set(self.pause_cycles.get() + 8);
+            }
         }
     }
 
     fn hdma_run(&mut self) {
+        if self.hdmaen == 0 {
+            return;
+        }
+
+        // Overall overhead
+        self.pause_cycles.set(self.pause_cycles.get() + 18);
+
         for ch in 0..DMA_CHANNELS {
             if self.hdmaen & (1 << ch) == 0 {
                 continue;
             }
+
+            // Channel enabled overhead
+            self.pause_cycles.set(self.pause_cycles.get() + 8);
 
             // Current cycle ended?
             if !self.dma[ch].hdma_repeat && self.dma[ch].hdma_lines == 0 {
@@ -425,7 +453,7 @@ where
 
     fn hdma_load_next_entry(&mut self, ch: usize) {
         // Load flags (line count + repeat) from table (A1B + A2A)
-        let replc = self.read(self.dma[ch].hdma_current_a_addr_direct());
+        let replc = self.read_no_ws(self.dma[ch].hdma_current_a_addr_direct());
 
         self.dma[ch].hdma_repeat = replc & (1 << 7) != 0;
         self.dma[ch].hdma_lines = replc & !(1 << 7);
@@ -435,26 +463,20 @@ where
 
         if self.dma[ch].hdma_is_indirect() {
             // Read from table (A1B + A2A)
-            let indirect_addr = self.read16(self.dma[ch].hdma_current_a_addr_direct());
+            let indirect_addr = self.read16_no_ws(self.dma[ch].hdma_current_a_addr_direct());
 
             // Next table entry
             self.dma[ch].a2a = self.dma[ch].a2a.wrapping_add(2);
             self.dma[ch].das = indirect_addr;
+
+            // Indirect re-load overhead
+            self.pause_cycles.set(self.pause_cycles.get() + 16);
         }
 
         self.dma[ch].hdma_dotransfer = true;
     }
-}
 
-impl<TRenderer> Bus<Address> for Mainbus<TRenderer>
-where
-    TRenderer: Renderer,
-{
-    fn get_mask(&self) -> Address {
-        ADDRESS_MASK
-    }
-
-    fn read(&self, fulladdr: Address) -> u8 {
+    fn read_no_ws(&self, fulladdr: Address) -> u8 {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
         if let Some(v) = self.cartridge.read(fulladdr) {
@@ -632,7 +654,7 @@ where
         }
     }
 
-    fn write(&mut self, fulladdr: Address, val: u8) {
+    fn write_no_ws(&mut self, fulladdr: Address, val: u8) {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
         if let Some(v) = self.cartridge.write(fulladdr, val) {
@@ -796,6 +818,72 @@ where
         }
     }
 
+    fn apply_waitstates(&self, fulladdr: Address) {
+        let (bank, addr) = ((fulladdr >> 16) as u8, (fulladdr & 0xFFFF) as u16);
+
+        // 3.58 MHz = 0 wait state (6 master clocks/CPU clock)
+        // 2.68 MHz = 2 wait state (8 master clocks/CPU clock)
+        // 1.78 MHz = 6 wait states (12 master clocks/CPU clock)
+
+        let ws2 = if self.memsel & 1 != 0 { 0 } else { 2 };
+
+        let ws = match (bank, addr) {
+            // WRAM
+            (0x00..=0x3F | 0x80..=0xBF, 0x0000..=0x1FFF) => 2,
+            // Unused
+            (0x00..=0x3F | 0x80..=0xBF, 0x2000..=0x20FF) => 0,
+            // B-bus I/O
+            (0x00..=0x3F | 0x80..=0xBF, 0x2100..=0x21FF) => 0,
+            // Unused
+            (0x00..=0x3F | 0x80..=0xBF, 0x2200..=0x3FFF) => 0,
+            // Joypad I/O
+            (0x00..=0x3F | 0x80..=0xBF, 0x4000..=0x41FF) => 6,
+            // I/O
+            (0x00..=0x3F | 0x80..=0xBF, 0x4200..=0x5FFF) => 0,
+            // Expansion
+            (0x00..=0x3F | 0x80..=0xBF, 0x6000..=0x7FFF) => 2,
+            // WS1 LoROM
+            (0x00..=0x3F, 0x8000..=0xFFFF) => 2,
+            // WS1 HiROM
+            (0x40..=0x7D, _) => 2,
+            // WRAM
+            (0x7E..=0x7F, _) => 2,
+            // WS2 LoROM
+            (0x80..=0xBF, 0x8000..=0xFFFF) => ws2,
+            // WS2 HiROM
+            (0xC0..=0xFF, _) => ws2,
+        };
+
+        self.pause_cycles.set(self.pause_cycles.get() + ws);
+    }
+
+    /// Read 16-bits from addr and addr + 1,
+    /// from little endian, no wait states.
+    fn read16_no_ws(&self, addr: Address) -> u16 {
+        let l = self.read_no_ws(addr);
+        let h = self.read_no_ws(addr.wrapping_add(1));
+        l as u16 | (h as u16) << 8
+    }
+}
+
+impl<TRenderer> Bus<Address> for Mainbus<TRenderer>
+where
+    TRenderer: Renderer,
+{
+    fn get_mask(&self) -> Address {
+        ADDRESS_MASK
+    }
+
+    fn read(&self, fulladdr: Address) -> u8 {
+        self.apply_waitstates(fulladdr);
+        self.read_no_ws(fulladdr)
+    }
+
+    fn write(&mut self, fulladdr: Address, val: u8) {
+        self.apply_waitstates(fulladdr);
+        self.write_no_ws(fulladdr, val)
+    }
+
     fn get_clr_nmi(&mut self) -> bool {
         let v = self.intreq_nmi;
         self.intreq_nmi = false;
@@ -832,6 +920,15 @@ where
             self.rdnmi_vblank.set(true);
         } else if !self.ppu.in_vblank() {
             self.rdnmi_vblank.set(false);
+        }
+
+        // WRAM refresh; occurs every scanline for 40 master cycles
+        if self.ppu.get_current_scanline() != self.last_scanline {
+            self.wram_refreshed = false;
+        }
+        if !self.wram_refreshed && self.ppu.get_current_h() >= 40 {
+            self.pause_cycles.set(self.pause_cycles.get() + 40);
+            self.wram_refreshed = true;
         }
 
         // H/V interrupt
