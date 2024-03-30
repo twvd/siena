@@ -56,10 +56,13 @@ impl BusMember<Address> for SuperFX {
             }
             0x3030 => {
                 let v = cpu.regs.read(Register::SFR) as u8;
-                cpu.regs.write_flags(&[(Flag::IRQ, false)]);
                 Some(v)
             }
-            0x3031 => Some((cpu.regs.read(Register::SFR) >> 8) as u8),
+            0x3031 => {
+                let v = cpu.regs.read(Register::SFR);
+                cpu.regs.write_flags(&[(Flag::IRQ, false)]);
+                Some((v >> 8) as u8)
+            }
             // 0x3032 unused
             0x3033 => Some(cpu.regs.read8(Register::BRAMBR)),
             0x3034 => Some(cpu.regs.read8(Register::PBR)),
