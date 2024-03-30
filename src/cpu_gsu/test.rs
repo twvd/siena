@@ -10,8 +10,10 @@ const BRA: u8 = 0x05;
 const TO: u8 = 0x10;
 const WITH: u8 = 0x20;
 const FROM: u8 = 0xB0;
+const IBT: u8 = 0xA0;
 const IWT: u8 = 0xF0;
 const LDW: u8 = 0x40; // 0..11
+const LINK: u8 = 0x90;
 const STW: u8 = 0x30; // 0..11
 const STB: u8 = 0x30; // 0..11
 const LM: u8 = 0xF0;
@@ -19,6 +21,8 @@ const LMS: u8 = 0xA0;
 const SM: u8 = 0xF0;
 const SMS: u8 = 0xA0;
 const SBK: u8 = 0x90;
+const ROMB: u8 = 0xDF;
+const GETB: u8 = 0xEF;
 
 fn cpu(code: &[u8]) -> CpuGsu {
     let c = CpuGsu::new(code);
@@ -320,4 +324,57 @@ fn op_stb() {
     );
     assert_eq!(c.ram[0x1122], 0xBB);
     assert_eq!(c.ram[0x1123], 0xFF);
+}
+
+#[test]
+fn op_link() {
+    let c = cpu_steps(&[LINK | 1], 1);
+    assert_eq!(c.regs.read(Register::R11), 0x02);
+    let c = cpu_steps(&[LINK | 4], 1);
+    assert_eq!(c.regs.read(Register::R11), 0x05);
+}
+
+#[test]
+fn rom_buffer() {
+    let prog = [
+        // R1 = ROM bank 1
+        IBT | 1,
+        0x41,
+        // R2 = ROM bank 2
+        IBT | 2,
+        0x42,
+        // ROMBR = 0x41
+        FROM | 1,
+        ALT3,
+        ROMB,
+        // R14 = 0x01
+        IBT | 14,
+        0x01,
+        // R3 = result 1 (should be 0x10, because we wrote R14)
+        TO | 3,
+        GETB,
+        // ROMBR = 0x42
+        FROM | 2,
+        ALT3,
+        ROMB,
+        // R4 = result 2 (still 0x10, R14 not written yet)
+        TO | 4,
+        GETB,
+        // R14 = 0x01
+        IBT | 14,
+        0x01,
+        // R5 = result 3 (now 0x20)
+        TO | 5,
+        GETB,
+        STOP,
+    ];
+    let mut code = vec![0; 0x2FFFF];
+    code[0..prog.len()].copy_from_slice(&prog);
+    code[0x10001] = 0x10;
+    code[0x20001] = 0x20;
+    let c = cpu_run(&code);
+
+    assert_eq!(c.regs.read(Register::R3), 0x10);
+    assert_eq!(c.regs.read(Register::R4), 0x10);
+    assert_eq!(c.regs.read(Register::R5), 0x20);
 }

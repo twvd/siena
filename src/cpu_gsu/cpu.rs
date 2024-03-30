@@ -39,6 +39,7 @@ pub struct CpuGsu {
     last_ramaddr: u16,
 
     pub cache_valid: [bool; CACHE_LINES],
+    rom_buffer: u8,
 }
 
 impl CpuGsu {
@@ -56,6 +57,7 @@ impl CpuGsu {
             last_ramaddr: 0,
             cache_valid: [false; CACHE_LINES],
             irq_pending: false,
+            rom_buffer: 0,
         };
 
         c.rom[0..rom.len()].copy_from_slice(rom);
@@ -239,6 +241,15 @@ impl CpuGsu {
             self.dreg = 0;
             self.regs
                 .write_flags(&[(Flag::ALT1, false), (Flag::ALT2, false), (Flag::B, false)]);
+        }
+
+        if self.regs.r14_written {
+            // Update ROM buffer
+            // (note: purposely not checking ROMBR for changes to emulate the glitch)
+            let addr = (GsuAddress::from(self.regs.read(Register::ROMBR)) << 16)
+                | GsuAddress::from(self.regs.read(Register::R14));
+            self.rom_buffer = self.read_bus_tick(addr);
+            self.regs.r14_written = false;
         }
 
         match (instr, alt1, alt2) {
@@ -926,10 +937,7 @@ impl CpuGsu {
             }
             (0xDF, false, false) => {
                 // GETC
-                let addr = (GsuAddress::from(self.regs.read(Register::ROMBR)) << 16)
-                    | GsuAddress::from(self.regs.read(Register::R14));
-                // TODO ROM cache
-                self.set_color(self.read_bus_tick(addr));
+                self.set_color(self.rom_buffer);
                 self.cycles(1)?;
             }
             (0xDF, false, true) => {
@@ -955,10 +963,7 @@ impl CpuGsu {
             }
             (0xEF, _, _) => {
                 // GETBx
-                let addr = (GsuAddress::from(self.regs.read(Register::ROMBR)) << 16)
-                    | GsuAddress::from(self.regs.read(Register::R14));
-                // TODO ROM cache
-                let val = self.read_bus_tick(addr) as u16;
+                let val = self.rom_buffer as u16;
                 let d = self.regs.read_r(dreg);
                 self.regs.write_r(
                     dreg,
