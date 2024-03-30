@@ -1052,8 +1052,8 @@ impl CpuGsu {
     }
 
     fn pixel_draw(&mut self) {
-        let x = self.regs.read(Register::R1) as usize;
-        let y = self.regs.read(Register::R2) as usize;
+        let x = (self.regs.read(Register::R1) as usize) & 0xFF;
+        let y = (self.regs.read(Register::R2) as usize) & 0xFF;
         let ocolor = self.regs.read(Register::COLR);
         let color = if self.regs.test_por(PORFlag::Dither)
             && ((x ^ y) & 1) == 1
