@@ -10,6 +10,7 @@ use super::coprocessor::dsp1::DSP1;
 use super::coprocessor::superfx::SuperFX;
 
 use crate::bus::{Address, BusMember};
+use crate::cpu_gsu::cpu::GsuMap;
 
 const HDR_TITLE_OFFSET: usize = 0x00;
 const HDR_TITLE_SIZE: usize = 21;
@@ -74,7 +75,8 @@ pub enum Mapper {
     HiROM,
     LoROMDSP1,
     HiROMDSP1,
-    SuperFX,
+    SuperFXMC1,
+    SuperFX1,
     SuperFX2,
 }
 
@@ -244,7 +246,21 @@ impl Cartridge {
             }
             Some(CoProcessor::SuperFX) => {
                 println!("SuperFX co-processor detected");
-                c.co_superfx = Some(SuperFX::new(rom));
+                let (sfx_map, map, ram_mask) = match c.get_title().as_str() {
+                    "DIRT TRAX FX" => (GsuMap::SuperFX1, Mapper::SuperFX1, 0x1FFFF),
+                    "DOOM" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0xFFFF),
+                    "FX SKIING NINTENDO 96" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0x1FFFF),
+                    "STAR FOX" => (GsuMap::SuperFX1, Mapper::SuperFXMC1, 0x7FFF),
+                    "STARFOX2" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0x1FFFF),
+                    "YOSHI'S ISLAND" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0x1FFFF),
+                    _ => panic!("Unknown SuperFX game \"{}\"", c.get_title()),
+                };
+                println!(
+                    "Cartridge map {:?}, GSU map {:?}, shared RAM mask {:06X}",
+                    map, sfx_map, ram_mask
+                );
+                c.co_superfx = Some(SuperFX::new(rom, sfx_map, ram_mask));
+                c.mapper = map;
             }
             Some(c) => println!("Warning: unimplemented co-processor: {:?}", c),
             None => (),
@@ -256,7 +272,7 @@ impl Cartridge {
             (MapMode::HiROM, None) => Mapper::HiROM,
             (MapMode::LoROM, Some(CoProcessor::DSPx)) => Mapper::LoROMDSP1,
             (MapMode::HiROM, Some(CoProcessor::DSPx)) => Mapper::HiROMDSP1,
-            (MapMode::LoROM, Some(CoProcessor::SuperFX)) => Mapper::SuperFX,
+            (_, Some(CoProcessor::SuperFX)) => c.mapper,
             _ => panic!("Cannot determine mapper"),
         };
         println!("Selected mapper: {}", c.mapper);
@@ -273,6 +289,7 @@ impl Cartridge {
 
     /// Loads a cartridge but does not do header detection
     pub fn load_nohdr(rom: &[u8], mapper: Mapper) -> Self {
+        println!("Selected mapper: {}", mapper);
         Self {
             rom: Vec::from(rom),
             ram: vec![0; RAM_SIZE],
@@ -281,8 +298,8 @@ impl Cartridge {
             ram_mask: RAM_SIZE - 1,
             rom_mask: rom.len() - 1,
             co_dsp1: None,
-            co_superfx: if mapper == Mapper::SuperFX || mapper == Mapper::SuperFX2 {
-                Some(SuperFX::new(rom))
+            co_superfx: if mapper == Mapper::SuperFX1 {
+                Some(SuperFX::new(rom, GsuMap::SuperFX1, 0x1FFFF))
             } else {
                 None
             },
@@ -341,7 +358,7 @@ impl Cartridge {
         }
     }
 
-    fn read_superfx(&self, fulladdr: Address) -> Option<u8> {
+    fn read_superfx_mc1(&self, fulladdr: Address) -> Option<u8> {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
         match (bank, addr) {
@@ -350,27 +367,44 @@ impl Cartridge {
                 Some(self.rom[(addr - 0x8000 + (bank & !0x80) * 0x8000) & self.rom_mask])
             }
 
-            // HiROM
-            (0x40..=0x6F, _) => Some(self.rom[(addr + ((bank - 0x40) * 0x10000)) & self.rom_mask]),
-            (0xC0..=0xFF, _) => Some(self.rom[(addr + ((bank - 0xC0) * 0x10000)) & self.rom_mask]),
-
             // Shared SRAM
-            (0x70..=0x71, 0x0000..=0xFFFF) => {
+            (0x60..=0x7D | 0xE0..=0xFF, 0x0000..=0xFFFF) => {
                 let sfx = self.co_superfx.as_ref().unwrap();
                 let cpu = sfx.cpu.borrow();
-                Some(cpu.ram[(bank - 0x70) * 0x10000 + addr])
+                Some(cpu.ram[((bank & 0x1F) * 0x10000 + addr) & cpu.ram_mask])
             }
-
-            // Backup RAM
-            (0x78, 0x0000..=0xFFFF) => {
-                let sfx = self.co_superfx.as_ref().unwrap();
-                let cpu = sfx.cpu.borrow();
-                Some(cpu.bram[(bank - 0x78) * 0x10000 + addr])
-            }
-            (0x7C..=0x7D, 0x0000..=0xFFFF) => Some(self.ram[(bank - 0x7C) * 0x10000 + addr]),
 
             // SuperFX co-processor
-            (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x32FF) => {
+            (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x347F) => {
+                let sfx = self.co_superfx.as_ref().unwrap();
+                sfx.read(fulladdr)
+            }
+            _ => None,
+        }
+    }
+
+    fn read_superfx1(&self, fulladdr: Address) -> Option<u8> {
+        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+
+        match (bank, addr) {
+            // LoROM
+            (0x00..=0x3F | 0x80..=0xBF, 0x8000..=0xFFFF) => {
+                Some(self.rom[(addr - 0x8000 + (bank & !0x80) * 0x8000) & self.rom_mask])
+            }
+
+            // HiROM
+            (0x40..=0x5F, _) => Some(self.rom[(addr + ((bank - 0x40) * 0x10000)) & self.rom_mask]),
+            (0xC0..=0xDF, _) => Some(self.rom[(addr + ((bank - 0xC0) * 0x10000)) & self.rom_mask]),
+
+            // Shared SRAM
+            (0x70..=0x71 | 0xF0..=0xF1, 0x0000..=0xFFFF) => {
+                let sfx = self.co_superfx.as_ref().unwrap();
+                let cpu = sfx.cpu.borrow();
+                Some(cpu.ram[(bank & 1) * 0x10000 + addr])
+            }
+
+            // SuperFX co-processor
+            (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x34FF) => {
                 let sfx = self.co_superfx.as_ref().unwrap();
                 sfx.read(fulladdr)
             }
@@ -394,18 +428,23 @@ impl Cartridge {
             (0x70..=0x71, 0x0000..=0xFFFF) => {
                 let sfx = self.co_superfx.as_ref().unwrap();
                 let cpu = sfx.cpu.borrow();
-                Some(cpu.ram[(bank - 0x70) * 0x10000 + addr])
+                Some(cpu.ram[(((bank & !0x80) - 0x70) * 0x10000 + addr) & cpu.ram_mask])
             }
 
-            // RAM
+            // Shared RAM mirror
             (0x00..=0x3F | 0x80..=0xBF, 0x6000..=0x7FFF) => {
-                Some(self.ram[(bank & !0x80) * 0x2000 + addr])
+                let sfx = self.co_superfx.as_ref().unwrap();
+                let cpu = sfx.cpu.borrow();
+                Some(cpu.ram[addr - 0x6000])
             }
+
+            // Backup RAM
+            (0x78..=0x79, 0x0000..=0xFFFF) => Some(self.ram[(bank - 0x78) * 0x10000 + addr]),
 
             // SuperFX co-processor
             (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x34FF) => {
                 let sfx = self.co_superfx.as_ref().unwrap();
-                sfx.read(fulladdr & !0x200)
+                sfx.read(fulladdr)
             }
             _ => None,
         }
@@ -441,26 +480,46 @@ impl Cartridge {
         }
     }
 
-    fn write_superfx(&mut self, fulladdr: Address, val: u8) -> Option<()> {
+    fn write_superfx_mc1(&mut self, fulladdr: Address, val: u8) -> Option<()> {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
         match (bank, addr) {
             // Shared SRAM
+            (0x60..=0x7D | 0xE0..=0xFF, 0x0000..=0xFFFF) => {
+                let sfx = self.co_superfx.as_ref().unwrap();
+                let mut cpu = sfx.cpu.borrow_mut();
+                let mask = cpu.ram_mask;
+
+                Some(cpu.ram[((bank & 0x1F) * 0x10000 + addr) & mask] = val)
+            }
+
+            // SuperFX co-processor
+            (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x347F) => {
+                let sfx = self.co_superfx.as_mut().unwrap();
+                sfx.write(fulladdr, val)
+            }
+
+            _ => None,
+        }
+    }
+
+    fn write_superfx1(&mut self, fulladdr: Address, val: u8) -> Option<()> {
+        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+        match (bank, addr) {
+            // Shared SRAM
+            (0x00..=0x3F | 0x80..=0xBF, 0x6000..=0x7FFF) => {
+                let sfx = self.co_superfx.as_ref().unwrap();
+                let mut cpu = sfx.cpu.borrow_mut();
+                Some(cpu.ram[addr - 0x6000] = val)
+            }
             (0x70..=0x71, 0x0000..=0xFFFF) => {
                 let sfx = self.co_superfx.as_ref().unwrap();
                 let mut cpu = sfx.cpu.borrow_mut();
-                Some(cpu.ram[(bank - 0x70) * 0x10000 + addr] = val)
+                let mask = cpu.ram_mask;
+                Some(cpu.ram[((bank & 1) * 0x10000 + addr) & mask] = val)
             }
-
-            // Backup RAM
-            (0x78, 0x0000..=0xFFFF) => {
-                let sfx = self.co_superfx.as_ref().unwrap();
-                let mut cpu = sfx.cpu.borrow_mut();
-                Some(cpu.bram[(bank - 0x78) * 0x10000 + addr] = val)
-            }
-            (0x7C..=0x7D, 0x0000..=0xFFFF) => Some(self.ram[(bank - 0x7C) * 0x10000 + addr] = val),
 
             // SuperFX co-processor
-            (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x32FF) => {
+            (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x34FF) => {
                 let sfx = self.co_superfx.as_mut().unwrap();
                 sfx.write(fulladdr, val)
             }
@@ -476,18 +535,24 @@ impl Cartridge {
             (0x70..=0x71, 0x0000..=0xFFFF) => {
                 let sfx = self.co_superfx.as_ref().unwrap();
                 let mut cpu = sfx.cpu.borrow_mut();
-                Some(cpu.ram[(bank - 0x70) * 0x10000 + addr] = val)
+                let mask = cpu.ram_mask;
+                Some(cpu.ram[(((bank & !0x80) - 0x70) * 0x10000 + addr) & mask] = val)
             }
 
             // RAM
             (0x00..=0x3F | 0x80..=0xBF, 0x6000..=0x7FFF) => {
-                Some(self.ram[(bank & !0x80) * 0x2000 + addr] = val)
+                let sfx = self.co_superfx.as_ref().unwrap();
+                let mut cpu = sfx.cpu.borrow_mut();
+                Some(cpu.ram[addr - 0x6000] = val)
             }
+
+            // Backup RAM
+            (0x78..=0x79, _) => Some(self.ram[(bank - 0x78) * 0x10000 + addr] = val),
 
             // SuperFX co-processor
             (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x34FF) => {
                 let sfx = self.co_superfx.as_mut().unwrap();
-                sfx.write(fulladdr & !0x200, val)
+                sfx.write(fulladdr, val)
             }
 
             _ => None,
@@ -621,7 +686,8 @@ impl BusMember<Address> for Cartridge {
             Mapper::HiROM => self.read_hirom(fulladdr),
             Mapper::LoROMDSP1 => self.read_lorom_dsp(fulladdr),
             Mapper::HiROMDSP1 => self.read_hirom_dsp(fulladdr),
-            Mapper::SuperFX => self.read_superfx(fulladdr),
+            Mapper::SuperFXMC1 => self.read_superfx_mc1(fulladdr),
+            Mapper::SuperFX1 => self.read_superfx1(fulladdr),
             Mapper::SuperFX2 => self.read_superfx2(fulladdr),
         }
     }
@@ -632,7 +698,8 @@ impl BusMember<Address> for Cartridge {
             Mapper::HiROM => self.write_hirom(fulladdr, val),
             Mapper::LoROMDSP1 => self.write_lorom_dsp(fulladdr, val),
             Mapper::HiROMDSP1 => self.write_hirom_dsp(fulladdr, val),
-            Mapper::SuperFX => self.write_superfx(fulladdr, val),
+            Mapper::SuperFXMC1 => self.write_superfx_mc1(fulladdr, val),
+            Mapper::SuperFX1 => self.write_superfx1(fulladdr, val),
             Mapper::SuperFX2 => self.write_superfx2(fulladdr, val),
         }
     }

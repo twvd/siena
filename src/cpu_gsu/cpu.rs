@@ -15,6 +15,12 @@ pub const CACHE_LINES: usize = 32;
 pub const CACHE_LINE_SIZE: usize = 16;
 pub const CACHE_SIZE: usize = CACHE_LINES * CACHE_LINE_SIZE;
 
+#[derive(Debug, Serialize, Deserialize)]
+pub enum GsuMap {
+    SuperFX1,
+    SuperFX2,
+}
+
 #[derive(Serialize, Deserialize)]
 pub enum GsuBus {
     ROM,
@@ -40,10 +46,12 @@ pub struct CpuGsu {
 
     pub cache_valid: [bool; CACHE_LINES],
     rom_buffer: u8,
+    map: GsuMap,
+    pub ram_mask: usize,
 }
 
 impl CpuGsu {
-    pub fn new(rom: &[u8]) -> Self {
+    pub fn new(rom: &[u8], map: GsuMap, ram_mask: usize) -> Self {
         let mut c = Self {
             verbose: false,
             regs: RegisterFile::new(),
@@ -58,6 +66,8 @@ impl CpuGsu {
             cache_valid: [false; CACHE_LINES],
             irq_pending: false,
             rom_buffer: 0,
+            map,
+            ram_mask,
         };
 
         c.rom[0..rom.len()].copy_from_slice(rom);
@@ -85,12 +95,20 @@ impl CpuGsu {
             }
         }
 
-        match (bank & !0x80, addr) {
-            (0x00..=0x3F, 0x8000..=0xFFFF) => GsuBus::ROM,
-            (0x40..=0x5F, _) => GsuBus::ROM,
-            (0x70..=0x71, _) => GsuBus::RAM,
-            (0x78, _) => GsuBus::RAM,
-            _ => panic!("Unmapped address {:06X}", fulladdr),
+        match self.map {
+            GsuMap::SuperFX1 => match (bank & !0x80, addr) {
+                (0x00..=0x3F, 0x8000..=0xFFFF) => GsuBus::ROM,
+                (0x40..=0x5F, _) => GsuBus::ROM,
+                (0x70..=0x71, _) => GsuBus::RAM,
+                (0x78, _) => GsuBus::RAM,
+                _ => panic!("Unmapped address {:06X}", fulladdr),
+            },
+            GsuMap::SuperFX2 => match (bank & !0x80, addr) {
+                (0x00..=0x3F, _) => GsuBus::ROM,
+                (0x40..=0x5F, _) => GsuBus::ROM,
+                (0x70..=0x71, _) => GsuBus::RAM,
+                _ => panic!("Unmapped address {:06X}", fulladdr),
+            },
         }
     }
 
@@ -108,13 +126,21 @@ impl CpuGsu {
         }
 
         let bank = bank & !0x80;
-        match (bank, addr) {
-            (0x00..=0x3F, 0x0000..=0x7FFF) => self.rom[addr + bank * 0x8000],
-            (0x00..=0x3F, 0x8000..=0xFFFF) => self.rom[addr - 0x8000 + bank * 0x8000],
-            (0x40..=0x5F, _) => self.rom[((bank - 0x40) * 0x10000 + addr) % self.rom.len()],
-            (0x70..=0x71, _) => self.ram[(bank - 0x70) * 0x10000 + addr],
-            (0x78, _) => self.bram[(bank - 0x78) * 0x10000 + addr],
-            _ => panic!("Unmapped address {:06X}", fulladdr),
+        match self.map {
+            GsuMap::SuperFX1 => match (bank, addr) {
+                (0x00..=0x3F, 0x0000..=0x7FFF) => self.rom[addr + bank * 0x8000],
+                (0x00..=0x3F, 0x8000..=0xFFFF) => self.rom[addr - 0x8000 + bank * 0x8000],
+                (0x40..=0x5F, _) => self.rom[((bank - 0x40) * 0x10000 + addr) % self.rom.len()],
+                (0x70..=0x71, _) => self.ram[(bank - 0x70) * 0x10000 + addr],
+                _ => panic!("Unmapped address {:06X}", fulladdr),
+            },
+            GsuMap::SuperFX2 => match (bank, addr) {
+                (0x00..=0x3F, 0x0000..=0x7FFF) => self.rom[addr + bank * 0x8000],
+                (0x00..=0x3F, 0x8000..=0xFFFF) => self.rom[addr - 0x8000 + bank * 0x8000],
+                (0x40..=0x5F, _) => self.rom[((bank - 0x40) * 0x10000 + addr) % self.rom.len()],
+                (0x70..=0x71, _) => self.ram[((bank - 0x70) * 0x10000 + addr) & self.ram_mask],
+                _ => panic!("Unmapped address {:06X}", fulladdr),
+            },
         }
     }
 

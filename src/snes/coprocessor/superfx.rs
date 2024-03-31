@@ -4,7 +4,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::bus::{Address, BusMember};
-use crate::cpu_gsu::cpu::{CpuGsu, GsuAddress, CACHE_LINE_SIZE};
+use crate::cpu_gsu::cpu::{CpuGsu, GsuAddress, GsuMap, CACHE_LINE_SIZE};
 use crate::cpu_gsu::regs::{Flag, Register};
 use crate::tickable::{Tickable, Ticks};
 
@@ -16,9 +16,9 @@ pub struct SuperFX {
 }
 
 impl SuperFX {
-    pub fn new(rom: &[u8]) -> Self {
+    pub fn new(rom: &[u8], map: GsuMap, ram_mask: usize) -> Self {
         Self {
-            cpu: RefCell::new(CpuGsu::new(rom)),
+            cpu: RefCell::new(CpuGsu::new(rom, map, ram_mask)),
         }
     }
 
@@ -132,6 +132,13 @@ impl BusMember<Address> for SuperFX {
             }
             0x3030 => {
                 let curval = cpu.regs.read(Register::SFR);
+                if curval & 0x10 == 0 && val & 0x10 != 0 {
+                    println!(
+                        "SuperFX resume {:02X} {:04X}",
+                        cpu.regs.pbr,
+                        cpu.regs.read(Register::R15)
+                    );
+                }
                 Some(
                     cpu.regs
                         .write(Register::SFR, (curval & 0xFF00) | (val as u16)),

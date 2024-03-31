@@ -1,4 +1,4 @@
-use super::cpu::CpuGsu;
+use super::cpu::{CpuGsu, GsuMap};
 use super::regs::{Flag, Register};
 
 const STOP: u8 = 0x00;
@@ -25,12 +25,12 @@ const ROMB: u8 = 0xDF;
 const GETB: u8 = 0xEF;
 
 fn cpu(code: &[u8]) -> CpuGsu {
-    let c = CpuGsu::new(code);
+    let c = CpuGsu::new(code, GsuMap::SuperFX1, usize::MAX);
     c
 }
 
 fn cpu_ram(code: &[u8], ram: &[(usize, u8)]) -> CpuGsu {
-    let mut c = CpuGsu::new(code);
+    let mut c = cpu(code);
     for (addr, val) in ram {
         c.ram[*addr] = *val;
     }

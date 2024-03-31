@@ -19,7 +19,7 @@ macro_rules! test_instr {
                 &hex!($hash),
                 120000,
                 true,
-                Mapper::SuperFX,
+                Mapper::SuperFX1,
             );
         }
     };
@@ -35,7 +35,7 @@ macro_rules! test {
                 &hex!($hash),
                 120000,
                 true,
-                Mapper::SuperFX,
+                Mapper::SuperFX1,
             );
         }
     };
