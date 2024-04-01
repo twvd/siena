@@ -379,3 +379,23 @@ fn rom_buffer() {
     assert_eq!(c.regs.read(Register::R4), 0x10);
     assert_eq!(c.regs.read(Register::R5), 0x20);
 }
+
+#[test]
+fn delay_slot_mb_op() {
+    let c = cpu_run(&[
+        BRA,
+        0x04,
+        // delay slot, which should be one fetch
+        IWT | 1,
+        // Below should not happen
+        IWT | 2,
+        0x11,
+        0x22,
+        // fetching continues here
+        0x01,
+        0x02,
+        STOP,
+    ]);
+    assert_eq!(c.regs.read(Register::R1), 0x0201);
+    assert_eq!(c.regs.read(Register::R2), 0);
+}
