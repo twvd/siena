@@ -250,11 +250,11 @@ impl Cartridge {
                     "DIRT RACER" => (GsuMap::SuperFX1, Mapper::SuperFX1, 0x1FFFF),
                     "DIRT TRAX FX" => (GsuMap::SuperFX1, Mapper::SuperFX1, 0x1FFFF),
                     "DOOM" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0xFFFF),
-                    "FX SKIING NINTENDO 96" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0x1FFFF),
+                    "FX SKIING NINTENDO 96" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0xFFFF),
                     "STAR FOX" => (GsuMap::SuperFX1, Mapper::SuperFXMC1, 0x7FFF),
-                    "STARFOX2" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0x1FFFF),
-                    "VORTEX" => (GsuMap::SuperFX1, Mapper::SuperFX1, 0x1FFFF),
-                    "YOSHI'S ISLAND" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0x1FFFF),
+                    "STARFOX2" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0xFFFF),
+                    "VORTEX" => (GsuMap::SuperFX1, Mapper::SuperFX1, 0x7FFF),
+                    "YOSHI'S ISLAND" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0x7FFF),
                     _ => panic!("Unknown SuperFX game \"{}\"", c.get_title()),
                 };
                 println!(
@@ -402,7 +402,7 @@ impl Cartridge {
             (0x70..=0x71 | 0xF0..=0xF1, 0x0000..=0xFFFF) => {
                 let sfx = self.co_superfx.as_ref().unwrap();
                 let cpu = sfx.cpu.borrow();
-                Some(cpu.ram[(bank & 1) * 0x10000 + addr])
+                Some(cpu.ram[((bank & 1) * 0x10000 + addr) & cpu.ram_mask])
             }
 
             // SuperFX co-processor
@@ -420,7 +420,7 @@ impl Cartridge {
         match (bank, addr) {
             // LoROM
             (0x00..=0x3F | 0x80..=0xBF, 0x8000..=0xFFFF) => {
-                Some(self.rom[addr - 0x8000 + (bank & !0x80) * 0x8000])
+                Some(self.rom[(addr - 0x8000 + (bank & !0x80) * 0x8000) & self.rom_mask])
             }
 
             // HiROM

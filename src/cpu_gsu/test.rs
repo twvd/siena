@@ -25,7 +25,8 @@ const ROMB: u8 = 0xDF;
 const GETB: u8 = 0xEF;
 
 fn cpu(code: &[u8]) -> CpuGsu {
-    let c = CpuGsu::new(code, GsuMap::SuperFX1, usize::MAX);
+    let mut c = CpuGsu::new(code, GsuMap::SuperFX1, usize::MAX);
+    c.rom_mask = usize::MAX;
     c
 }
 

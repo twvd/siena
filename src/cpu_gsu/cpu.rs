@@ -48,6 +48,7 @@ pub struct CpuGsu {
     rom_buffer: u8,
     map: GsuMap,
     pub ram_mask: usize,
+    pub rom_mask: usize,
 }
 
 impl CpuGsu {
@@ -68,6 +69,7 @@ impl CpuGsu {
             rom_buffer: 0,
             map,
             ram_mask,
+            rom_mask: (rom.len() - 1),
         };
 
         c.rom[0..rom.len()].copy_from_slice(rom);
@@ -128,19 +130,23 @@ impl CpuGsu {
         let bank = bank & !0x80;
         match self.map {
             GsuMap::SuperFX1 => match (bank, addr) {
-                (0x00..=0x3F, 0x0000..=0x7FFF) => self.rom[addr + bank * 0x8000],
-                (0x00..=0x3F, 0x8000..=0xFFFF) => self.rom[addr - 0x8000 + bank * 0x8000],
-                (0x40..=0x5F, _) => self.rom[((bank - 0x40) * 0x10000 + addr) % self.rom.len()],
-                (0x70..=0x71, _) => self.ram[(bank - 0x70) * 0x10000 + addr],
+                (0x00..=0x3F, 0x0000..=0x7FFF) => self.rom[(addr + bank * 0x8000) & self.rom_mask],
+                (0x00..=0x3F, 0x8000..=0xFFFF) => {
+                    self.rom[(addr - 0x8000 + bank * 0x8000) & self.rom_mask]
+                }
+                (0x40..=0x5F, _) => self.rom[((bank - 0x40) * 0x10000 + addr) & self.rom_mask],
+                (0x70..=0x71, _) => self.ram[((bank - 0x70) * 0x10000 + addr) & self.ram_mask],
                 _ => {
                     println!("GSU reading unmapped address: {:06X}", fulladdr);
                     0
                 }
             },
             GsuMap::SuperFX2 => match (bank, addr) {
-                (0x00..=0x3F, 0x0000..=0x7FFF) => self.rom[addr + bank * 0x8000],
-                (0x00..=0x3F, 0x8000..=0xFFFF) => self.rom[addr - 0x8000 + bank * 0x8000],
-                (0x40..=0x5F, _) => self.rom[((bank - 0x40) * 0x10000 + addr) % self.rom.len()],
+                (0x00..=0x3F, 0x0000..=0x7FFF) => self.rom[(addr + bank * 0x8000) & self.rom_mask],
+                (0x00..=0x3F, 0x8000..=0xFFFF) => {
+                    self.rom[(addr - 0x8000 + bank * 0x8000) & self.rom_mask]
+                }
+                (0x40..=0x5F, _) => self.rom[((bank - 0x40) * 0x10000 + addr) & self.rom_mask],
                 (0x70..=0x71, _) => self.ram[((bank - 0x70) * 0x10000 + addr) & self.ram_mask],
                 _ => {
                     println!("GSU reading unmapped address: {:06X}", fulladdr);
