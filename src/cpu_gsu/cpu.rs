@@ -625,8 +625,8 @@ impl CpuGsu {
             }
             (0x70, _, _) => {
                 // MERGE
-                let result = (self.regs.read(Register::R7) & 0xFF00)
-                    .wrapping_add(self.regs.read(Register::R8) / 0x0100);
+                let result =
+                    (self.regs.read(Register::R7) & 0xFF00) | (self.regs.read(Register::R8) >> 8);
                 self.regs.write_r(dreg, result);
                 self.regs.write_flags(&[
                     (Flag::S, result & 0x8080 != 0),
@@ -1002,24 +1002,18 @@ impl CpuGsu {
             (0xEF, _, _) => {
                 // GETBx
                 let val = self.rom_buffer as u16;
-                let d = self.regs.read_r(dreg);
+                let s = self.regs.read_r(sreg);
                 self.regs.write_r(
                     dreg,
                     match (alt1, alt2) {
                         // GETB
                         (false, false) => val,
                         // GETBH
-                        (true, false) => (val << 8) | (d & 0x00FF),
+                        (true, false) => (val << 8) | (s & 0x00FF),
                         // GETBL
-                        (false, true) => val | (val & 0xFF00),
+                        (false, true) => val | (s & 0xFF00),
                         // GETBS
-                        (true, true) => {
-                            if val & 0x80 != 0 {
-                                val | 0xFF00
-                            } else {
-                                val
-                            }
-                        }
+                        (true, true) => val as i8 as i16 as u16,
                     },
                 );
                 self.cycles(1)?;
