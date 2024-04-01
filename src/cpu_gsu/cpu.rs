@@ -101,13 +101,13 @@ impl CpuGsu {
                 (0x40..=0x5F, _) => GsuBus::ROM,
                 (0x70..=0x71, _) => GsuBus::RAM,
                 (0x78, _) => GsuBus::RAM,
-                _ => panic!("Unmapped address {:06X}", fulladdr),
+                _ => GsuBus::Cache, // ? open bus
             },
             GsuMap::SuperFX2 => match (bank & !0x80, addr) {
                 (0x00..=0x3F, _) => GsuBus::ROM,
                 (0x40..=0x5F, _) => GsuBus::ROM,
                 (0x70..=0x71, _) => GsuBus::RAM,
-                _ => panic!("Unmapped address {:06X}", fulladdr),
+                _ => GsuBus::Cache, // ? open bus
             },
         }
     }
@@ -132,14 +132,20 @@ impl CpuGsu {
                 (0x00..=0x3F, 0x8000..=0xFFFF) => self.rom[addr - 0x8000 + bank * 0x8000],
                 (0x40..=0x5F, _) => self.rom[((bank - 0x40) * 0x10000 + addr) % self.rom.len()],
                 (0x70..=0x71, _) => self.ram[(bank - 0x70) * 0x10000 + addr],
-                _ => panic!("Unmapped address {:06X}", fulladdr),
+                _ => {
+                    println!("GSU reading unmapped address: {:06X}", fulladdr);
+                    0
+                }
             },
             GsuMap::SuperFX2 => match (bank, addr) {
                 (0x00..=0x3F, 0x0000..=0x7FFF) => self.rom[addr + bank * 0x8000],
                 (0x00..=0x3F, 0x8000..=0xFFFF) => self.rom[addr - 0x8000 + bank * 0x8000],
                 (0x40..=0x5F, _) => self.rom[((bank - 0x40) * 0x10000 + addr) % self.rom.len()],
                 (0x70..=0x71, _) => self.ram[((bank - 0x70) * 0x10000 + addr) & self.ram_mask],
-                _ => panic!("Unmapped address {:06X}", fulladdr),
+                _ => {
+                    println!("GSU reading unmapped address: {:06X}", fulladdr);
+                    0
+                }
             },
         }
     }

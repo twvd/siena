@@ -247,11 +247,13 @@ impl Cartridge {
             Some(CoProcessor::SuperFX) => {
                 println!("SuperFX co-processor detected");
                 let (sfx_map, map, ram_mask) = match c.get_title().as_str() {
+                    "DIRT RACER" => (GsuMap::SuperFX1, Mapper::SuperFX1, 0x1FFFF),
                     "DIRT TRAX FX" => (GsuMap::SuperFX1, Mapper::SuperFX1, 0x1FFFF),
                     "DOOM" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0xFFFF),
                     "FX SKIING NINTENDO 96" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0x1FFFF),
                     "STAR FOX" => (GsuMap::SuperFX1, Mapper::SuperFXMC1, 0x7FFF),
                     "STARFOX2" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0x1FFFF),
+                    "VORTEX" => (GsuMap::SuperFX1, Mapper::SuperFX1, 0x1FFFF),
                     "YOSHI'S ISLAND" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0x1FFFF),
                     _ => panic!("Unknown SuperFX game \"{}\"", c.get_title()),
                 };
