@@ -1105,7 +1105,7 @@ impl CpuGsu {
         let tilenum = if self.regs.get_scmr_height() == ScreenHeight::Obj
             || self.regs.test_por(PORFlag::ObjMode)
         {
-            (y / 0x80) * 0x200 + (x / 0x80) * 0x100 + ((y / 8) & 0x0F) + ((x / 8) & 0x0F)
+            (y / 0x80) * 0x200 + (x / 0x80) * 0x100 + ((y / 8) & 0x0F) * 0x10 + ((x / 8) & 0x0F)
         } else {
             match self.regs.get_scmr_height() {
                 ScreenHeight::H128 => (x / 8) * 0x10 + (y / 8),
@@ -1122,7 +1122,7 @@ impl CpuGsu {
         };
 
         const BITPLANE_OFFSETS: [usize; 8] = [0x00, 0x01, 0x10, 0x11, 0x20, 0x21, 0x30, 0x31];
-        let bit = 1 << (7 - (x % 8));
+        let bit = 1 << (7 - (x & 7));
 
         for bitp in 0..(bpp.num_bitplanes()) {
             let addr = row_addr + BITPLANE_OFFSETS[bitp];
