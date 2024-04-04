@@ -268,7 +268,7 @@ where
                 // the HDMA slots.
                 self.cpu.bus.tick(1)?;
 
-                Ok(self.cpu.bus.ppu.tick(4)? * 4)
+                Ok(self.cpu.bus.ppu.tick(1)? * 4)
             }
             Schedule::SPC700 => {
                 // 1.024 MHz

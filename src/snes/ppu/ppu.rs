@@ -89,10 +89,10 @@ impl<TRenderer> PPU<TRenderer>
 where
     TRenderer: Renderer,
 {
-    const CYCLES_PER_SCANLINE: usize = 340 * 4;
+    const CYCLES_PER_SCANLINE: usize = 341; // including H-blank
     const SCANLINES_PER_FRAME: usize = 262; // including V-blank
-    const VBLANK_START: usize = 0xE1;
-    const LINE_HBLANK_START: usize = 274 * 4;
+    const VBLANK_START: usize = 225;
+    const LINE_HBLANK_START: usize = 274;
 
     pub fn new(renderer: TRenderer, fps: u64, videoformat: VideoFormat) -> Self {
         let desired_frametime = if fps == 0 { 0 } else { 1_000_000 / fps };
