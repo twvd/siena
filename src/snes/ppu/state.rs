@@ -406,10 +406,10 @@ impl PPUState {
         // T+00 T+01
         // T+16 T+17
         let mut tilenr = entry.charnr() as usize;
-        if self.get_bg_tile_size(bg) == 16 && px_x > TILE_WIDTH {
+        if self.get_bg_tile_size(bg) == 16 && (px_x >= TILE_WIDTH) == !entry.flip_x() {
             tilenr += 1;
         }
-        if self.get_bg_tile_size(bg) == 16 && px_y > TILE_HEIGHT {
+        if self.get_bg_tile_size(bg) == 16 && (px_y >= TILE_HEIGHT) == !entry.flip_y() {
             tilenr += 16;
         }
 
