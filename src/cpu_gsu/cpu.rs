@@ -284,6 +284,14 @@ impl CpuGsu {
             // (note: purposely not checking ROMBR for changes to emulate the glitch)
             let addr = (GsuAddress::from(self.regs.read(Register::ROMBR)) << 16)
                 | GsuAddress::from(self.regs.read(Register::R14));
+
+            if self.regs.read(Register::ROMBR) > 0x5F {
+                println!(
+                    "GSU: ROMBR out of range ({:02X})!",
+                    self.regs.read(Register::ROMBR)
+                );
+            }
+
             self.rom_buffer = self.read_bus_tick(addr);
             self.regs.r14_written = false;
         }
@@ -304,7 +312,7 @@ impl CpuGsu {
                 // NOP
                 self.cycles(1)?;
             }
-            (0x02, false, false) => {
+            (0x02, _, _) => {
                 // CACHE
                 let pc = self.regs.read(Register::R15);
                 let cbr = self.regs.read(Register::CBR);
@@ -1010,7 +1018,7 @@ impl CpuGsu {
                         // GETBL
                         (false, true) => val | (s & 0xFF00),
                         // GETBS
-                        (true, true) => val as i8 as i16 as u16,
+                        (true, true) => self.rom_buffer as i8 as i16 as u16,
                     },
                 );
                 self.cycles(1)?;
