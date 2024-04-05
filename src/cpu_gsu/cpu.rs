@@ -41,7 +41,6 @@ pub struct CpuGsu {
 
     pub sreg: usize,
     pub dreg: usize,
-    irq_pending: bool,
     last_ramaddr: u16,
 
     pub cache_valid: [bool; CACHE_LINES],
@@ -65,7 +64,6 @@ impl CpuGsu {
             dreg: 0,
             last_ramaddr: 0,
             cache_valid: [false; CACHE_LINES],
-            irq_pending: false,
             rom_buffer: 0,
             map,
             ram_mask,
@@ -298,7 +296,6 @@ impl CpuGsu {
 
                 if !self.regs.test_cfgr(CFGRFlag::IRQ) {
                     self.regs.write_flags(&[(Flag::IRQ, true)]);
-                    self.irq_pending = true;
                 }
 
                 self.cycles(1)?;
@@ -1153,10 +1150,8 @@ impl CpuGsu {
         // TODO cycles
     }
 
-    pub fn get_clr_int(&mut self) -> bool {
-        let v = self.irq_pending;
-        self.irq_pending = false;
-        v
+    pub fn get_int(&mut self) -> bool {
+        self.regs.test_flag(Flag::IRQ)
     }
 
     pub fn instr_str(

@@ -657,9 +657,9 @@ impl Cartridge {
         }
     }
 
-    pub fn get_clr_int(&mut self) -> bool {
+    pub fn get_int(&mut self) -> bool {
         if let Some(sfx) = self.co_superfx.as_mut() {
-            return sfx.get_clr_int();
+            return sfx.get_int();
         }
 
         false

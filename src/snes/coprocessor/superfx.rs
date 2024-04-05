@@ -22,9 +22,9 @@ impl SuperFX {
         }
     }
 
-    pub fn get_clr_int(&mut self) -> bool {
+    pub fn get_int(&mut self) -> bool {
         let mut cpu = self.cpu.borrow_mut();
-        cpu.get_clr_int()
+        cpu.get_int()
     }
 }
 

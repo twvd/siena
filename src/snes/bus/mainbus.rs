@@ -71,9 +71,6 @@ where
     /// NMI request
     intreq_nmi: bool,
 
-    /// Interrupt request
-    intreq_int: bool,
-
     /// NMITIMEN register
     nmitimen: u8,
 
@@ -268,7 +265,6 @@ where
             openbus: Cell::new(0),
 
             intreq_nmi: false,
-            intreq_int: false,
             nmitimen: 0,
 
             wrmpya: 0,
@@ -706,10 +702,10 @@ where
                 }
                 // HTIMEL/HTIMEH - H-Count timer setting (W)
                 0x4207 => Some(self.htime = ((self.htime & 0xFF00) | val as u16) & 0x1FF),
-                0x4208 => Some(self.htime = ((self.htime & 0x00FF) | (val as u16) << 8) & 0x1FF),
+                0x4208 => Some(self.htime = (self.htime & 0x00FF) | ((val as u16) << 8) & 0x1FF),
                 // VTIMEL/VTIMEH - V-Count timer setting (W)
                 0x4209 => Some(self.vtime = ((self.vtime & 0xFF00) | val as u16) & 0x1FF),
-                0x420A => Some(self.vtime = ((self.vtime & 0x00FF) | (val as u16) << 8) & 0x1FF),
+                0x420A => Some(self.vtime = (self.vtime & 0x00FF) | ((val as u16) << 8) & 0x1FF),
                 // JOYWR - Joypad Output (W)
                 0x4016 => {
                     let joypads = self.joypads.as_mut().unwrap();
@@ -890,10 +886,8 @@ where
         v
     }
 
-    fn get_clr_int(&mut self) -> bool {
-        let v = self.intreq_int;
-        self.intreq_int = false;
-        v
+    fn get_int(&mut self) -> bool {
+        self.timeup.get() || self.cartridge.get_int()
     }
 }
 
@@ -932,29 +926,27 @@ where
         }
 
         // H/V interrupt
-        // TODO stop at EXACT H rather than at 0
         let hvint = match (self.nmitimen >> 4) & 0x03 {
             // Disabled
             0 => false,
             // H=H + V=*
-            1 => self.ppu.get_current_scanline() != self.last_scanline,
+            1 => self.ppu.get_current_h() == usize::from(self.htime),
             // H=0, V=V (2) + H=H, V=V (3)
-            2 | 3 => {
-                self.ppu.get_current_scanline() != self.last_scanline
+            2 => {
+                self.ppu.get_current_h() == 0
                     && self.ppu.get_current_scanline() == usize::from(self.vtime)
+            }
+            3 => {
+                self.ppu.get_current_scanline() == usize::from(self.vtime)
+                    && self.ppu.get_current_h() == usize::from(self.htime)
             }
             _ => unreachable!(),
         };
-        self.last_scanline = self.ppu.get_current_scanline();
         if hvint {
-            self.intreq_int = true;
             self.timeup.set(true);
         }
 
-        if self.cartridge.get_clr_int() {
-            self.intreq_int = true;
-        }
-
+        self.last_scanline = self.ppu.get_current_scanline();
         Ok(ticks)
     }
 }

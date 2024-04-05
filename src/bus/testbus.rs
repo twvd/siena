@@ -97,7 +97,7 @@ where
     fn get_clr_nmi(&mut self) -> bool {
         false
     }
-    fn get_clr_int(&mut self) -> bool {
+    fn get_int(&mut self) -> bool {
         false
     }
 }

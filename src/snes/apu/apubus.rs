@@ -132,7 +132,7 @@ impl Bus<SpcAddress> for Apubus {
         unreachable!()
     }
 
-    fn get_clr_int(&mut self) -> bool {
+    fn get_int(&mut self) -> bool {
         // TODO refactor this trait to remove this
         unreachable!()
     }
