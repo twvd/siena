@@ -1086,7 +1086,7 @@ impl CpuGsu {
     fn pixel_draw(&mut self) {
         let x = (self.regs.read(Register::R1) as usize) & 0xFF;
         let y = (self.regs.read(Register::R2) as usize) & 0xFF;
-        let ocolor = self.regs.read(Register::COLR);
+        let ocolor = self.regs.read(Register::COLR) as u8;
         let color = if self.regs.test_por(PORFlag::Dither)
             && ((x ^ y) & 1) == 1
             && self.regs.get_scmr_bpp() != BPP::Eight
@@ -1097,11 +1097,18 @@ impl CpuGsu {
         };
 
         // Transparency
-        if !self.regs.test_por(PORFlag::NotTransparent) && color == 0 {
-            return;
+        let bpp = self.regs.get_scmr_bpp();
+        if !self.regs.test_por(PORFlag::NotTransparent) {
+            let trans_mask = if self.regs.test_por(PORFlag::ColorHighFreeze) {
+                bpp.color_mask() & 0x0F
+            } else {
+                bpp.color_mask()
+            };
+            if (color & trans_mask) == 0 {
+                return;
+            }
         }
 
-        let bpp = self.regs.get_scmr_bpp();
         let tilenum = if self.regs.get_scmr_height() == ScreenHeight::Obj
             || self.regs.test_por(PORFlag::ObjMode)
         {

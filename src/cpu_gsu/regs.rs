@@ -73,6 +73,9 @@ impl BPP {
             BPP::Eight => 8,
         }
     }
+    pub fn color_mask(&self) -> u8 {
+        ((1 << self.num_bitplanes()) - 1) as u8
+    }
 }
 
 const SCMR_HEIGHT_MASK: u8 = 0b00100100;
