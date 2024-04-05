@@ -34,7 +34,6 @@ where
 {
     cpu: Cpu65816<Mainbus<T>>,
     joypad_senders: Option<[JoypadEventSender; JOYPAD_COUNT]>,
-    cpu_verbose: bool,
     schedule_next: EnumMap<Schedule, Ticks>,
     schedule_ticks: Ticks,
 }
@@ -88,7 +87,6 @@ where
         let mut emu = Self {
             cpu,
             joypad_senders: Some(joypad_senders),
-            cpu_verbose: false,
             schedule_next: EnumMap::default(),
             schedule_ticks: 0,
         };
@@ -167,11 +165,11 @@ where
     }
 
     pub fn set_verbose_cpu(&mut self, v: bool) {
-        self.cpu_verbose = v;
+        self.cpu.verbose = v;
     }
 
     pub fn toggle_verbose_cpu(&mut self) {
-        self.cpu_verbose = !self.cpu_verbose;
+        self.cpu.verbose = !self.cpu.verbose;
     }
 
     pub fn set_verbose_spc(&mut self, v: bool) {
@@ -249,10 +247,6 @@ where
                 // 3.5 MHz (no wait states)
                 // Wait states are added to the time the S-CPU is
                 // scheduled next.
-                if self.cpu_verbose {
-                    println!("{}", self.cpu.dump_state());
-                }
-
                 let cpu_ticks = self.cpu.tick(1)? * 6;
 
                 // Things like DMA, wait states, WRAM refresh

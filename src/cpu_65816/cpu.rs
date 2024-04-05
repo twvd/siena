@@ -22,6 +22,8 @@ fn _clean_cache() -> InstrCache {
 /// Main SNES CPU (65816)
 #[derive(Serialize, Deserialize)]
 pub struct Cpu65816<TBus: Bus<Address>> {
+    pub verbose: bool,
+    verbose_wai: bool,
     pub bus: TBus,
     pub regs: RegisterFile,
     pub cycles: Ticks,
@@ -42,6 +44,8 @@ where
 
     pub fn new(bus: TBus, reset_addr: u16) -> Self {
         let mut cpu = Self {
+            verbose: false,
+            verbose_wai: false,
             bus,
             regs: RegisterFile::new(),
             cycles: 0,
@@ -128,20 +132,35 @@ where
         let start_cycles = self.cycles;
         if self.bus.get_clr_nmi() {
             if self.wait_for_int {
+                if self.verbose {
+                    println!("{} CPU awoken (NMI)", self.cycles);
+                }
                 self.tick_bus(2)?;
                 self.wait_for_int = false;
+                self.verbose_wai = false;
             }
             self.dispatch_interrupt(Self::INTVEC_NMI)?;
-        } else if self.bus.get_clr_int() && !self.regs.test_flag(Flag::I) {
+        } else if self.bus.get_int() && !self.regs.test_flag(Flag::I) {
             if self.wait_for_int {
+                if self.verbose {
+                    println!("{} CPU awoken (INT)", self.cycles);
+                }
                 self.tick_bus(2)?;
                 self.wait_for_int = false;
+                self.verbose_wai = false;
             }
-            self.wait_for_int = false;
             self.dispatch_interrupt(Self::INTVEC_INT)?;
         } else if self.wait_for_int {
+            if self.verbose && !self.verbose_wai {
+                println!("{} CPU waiting for interrupt...", self.cycles);
+                self.verbose_wai = true;
+            }
             self.tick_bus(1)?;
             return Ok(0);
+        }
+
+        if self.verbose {
+            println!("{}", self.dump_state());
         }
 
         let instr = self.fetch_next_instr()?;
