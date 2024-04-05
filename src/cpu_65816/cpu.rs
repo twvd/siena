@@ -140,7 +140,7 @@ where
                 self.verbose_wai = false;
             }
             self.dispatch_interrupt(Self::INTVEC_NMI)?;
-        } else if self.bus.get_int() && !self.regs.test_flag(Flag::I) {
+        } else if self.bus.get_int() {
             if self.wait_for_int {
                 if self.verbose {
                     println!("{} CPU awoken (INT)", self.cycles);
@@ -149,9 +149,12 @@ where
                 self.wait_for_int = false;
                 self.verbose_wai = false;
             }
-            self.dispatch_interrupt(Self::INTVEC_INT)?;
+            if !self.regs.test_flag(Flag::I) {
+                self.dispatch_interrupt(Self::INTVEC_INT)?;
+            }
         } else if self.wait_for_int {
             if self.verbose && !self.verbose_wai {
+                println!("{}", self.dump_state());
                 println!("{} CPU waiting for interrupt...", self.cycles);
                 self.verbose_wai = true;
             }
