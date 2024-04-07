@@ -333,7 +333,7 @@ impl Cartridge {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
         match (bank, addr) {
             (0x00..=0x3F | 0x80..=0xFF, 0x8000..=0xFFFF) => {
-                Some(self.rom[addr - 0x8000 + (bank & !0x80) * 0x8000])
+                Some(self.rom[(addr - 0x8000 + (bank & !0x80) * 0x8000) & self.rom_mask])
             }
             (0x70..=0x7D, 0x0000..=0x7FFF) if self.has_ram() => {
                 Some(self.ram[(bank - 0x70) * 0x8000 + addr & self.ram_mask])
