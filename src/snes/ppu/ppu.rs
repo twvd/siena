@@ -75,8 +75,16 @@ pub struct PPU<TRenderer: Renderer> {
     pool: ThreadPool,
 
     // H/V latches
-    pub(super) hlatch: Cell<u8>,
-    pub(super) vlatch: Cell<u8>,
+    /// Current value latched in OPHCT
+    pub(super) hlatch: Cell<u16>,
+    /// Current value latched in OPVCT
+    pub(super) vlatch: Cell<u16>,
+    /// OPHCT MSB read flip-flop
+    pub(super) hlatch_msb: Cell<bool>,
+    /// OPVCT MSB read flip-flop
+    pub(super) vlatch_msb: Cell<bool>,
+    /// H/V latched indicator, for STAT78.6
+    pub(super) hvlatched: Cell<bool>,
 
     pub(super) vmadd: Cell<u16>,
     pub(super) vmain: u8,
@@ -114,6 +122,9 @@ where
 
             hlatch: Cell::new(0),
             vlatch: Cell::new(0),
+            hlatch_msb: Cell::new(false),
+            vlatch_msb: Cell::new(false),
+            hvlatched: Cell::new(false),
 
             vmadd: Cell::new(0),
             vmain: 0,
@@ -324,26 +335,57 @@ where
             }
             // SLHV - Latch H/V-Counter by Software (R)
             0x2137 => {
-                self.hlatch.set(self.get_current_h() as u8);
-                self.vlatch.set(self.get_current_scanline() as u8);
+                // Note: flip-flops are not reset when latching occurs
+                self.hlatch.set(self.get_current_h() as u16);
+                self.vlatch.set(self.get_current_scanline() as u16);
+                self.hvlatched.set(true);
 
                 // Read openbus
                 None
             }
             // OPHCT - Horizontal Counter Latch (R)
-            0x213C => Some(self.hlatch.get()),
+            0x213C => {
+                let v = if !self.hlatch_msb.get() {
+                    self.hlatch.get() as u8
+                } else {
+                    (self.hlatch.get() >> 8) as u8
+                };
+                self.hlatch_msb.set(!self.hlatch_msb.get());
+
+                Some(v)
+            }
             // OPVCT - Vertical Counter Latch (R)
-            0x213D => Some(self.vlatch.get()),
+            0x213D => {
+                let v = if !self.vlatch_msb.get() {
+                    self.vlatch.get() as u8
+                } else {
+                    (self.vlatch.get() >> 8) as u8
+                };
+                self.vlatch_msb.set(!self.vlatch_msb.get());
+
+                Some(v)
+            }
             // STAT78 - PPU2 Status and Version Number (R)
             0x213F => {
-                // TODO latches, open bus
-                let mut val = match self.videoformat {
-                    VideoFormat::NTSC => 3,
-                    VideoFormat::PAL => (1 << 4) | 3,
-                };
+                // PPU2 version
+                let mut val = 1;
+
                 if self.interlace_frame {
                     val |= 1 << 7;
                 }
+                if self.hvlatched.get() {
+                    val |= 1 << 6;
+                }
+                // Bit 5 is open bus
+                val |= match self.videoformat {
+                    VideoFormat::NTSC => 3,
+                    VideoFormat::PAL => (1 << 4) | 3,
+                };
+
+                // Read clears all latches
+                self.hlatch_msb.set(false);
+                self.vlatch_msb.set(false);
+                self.hvlatched.set(false);
 
                 Some(val)
             }
