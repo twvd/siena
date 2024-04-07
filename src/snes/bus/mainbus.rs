@@ -701,11 +701,11 @@ where
                     Some(())
                 }
                 // HTIMEL/HTIMEH - H-Count timer setting (W)
-                0x4207 => Some(self.htime = ((self.htime & 0xFF00) | val as u16) & 0x1FF),
-                0x4208 => Some(self.htime = (self.htime & 0x00FF) | ((val as u16) << 8) & 0x1FF),
+                0x4207 => Some(self.htime = ((self.htime & 0xFF00) | (val as u16)) & 0x1FF),
+                0x4208 => Some(self.htime = ((self.htime & 0x00FF) | ((val as u16) << 8)) & 0x1FF),
                 // VTIMEL/VTIMEH - V-Count timer setting (W)
-                0x4209 => Some(self.vtime = ((self.vtime & 0xFF00) | val as u16) & 0x1FF),
-                0x420A => Some(self.vtime = (self.vtime & 0x00FF) | ((val as u16) << 8) & 0x1FF),
+                0x4209 => Some(self.vtime = ((self.vtime & 0xFF00) | (val as u16)) & 0x1FF),
+                0x420A => Some(self.vtime = ((self.vtime & 0x00FF) | ((val as u16) << 8)) & 0x1FF),
                 // JOYWR - Joypad Output (W)
                 0x4016 => {
                     let joypads = self.joypads.as_mut().unwrap();
@@ -931,11 +931,12 @@ where
             0 => false,
             // H=H + V=*
             1 => self.ppu.get_current_h() == usize::from(self.htime),
-            // H=0, V=V (2) + H=H, V=V (3)
+            // H=0, V=V
             2 => {
                 self.ppu.get_current_h() == 0
                     && self.ppu.get_current_scanline() == usize::from(self.vtime)
             }
+            // H=H, V=V
             3 => {
                 self.ppu.get_current_scanline() == usize::from(self.vtime)
                     && self.ppu.get_current_h() == usize::from(self.htime)

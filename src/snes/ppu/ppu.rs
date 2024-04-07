@@ -378,8 +378,8 @@ where
                 }
                 // Bit 5 is open bus
                 val |= match self.videoformat {
-                    VideoFormat::NTSC => 3,
-                    VideoFormat::PAL => (1 << 4) | 3,
+                    VideoFormat::NTSC => 0,
+                    VideoFormat::PAL => 1 << 4,
                 };
 
                 // Read clears all latches
