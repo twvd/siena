@@ -141,7 +141,11 @@ impl Cartridge {
     }
 
     fn get_chipset(&self) -> Chipset {
-        Chipset::from_u8(self.rom[self.header_offset + HDR_CHIPSET_OFFSET] & 0x0F).unwrap()
+        if self.rom[self.header_offset + HDR_CHIPSET_OFFSET] & 0x0F == 0x0A {
+            Chipset::RomRamCoBat
+        } else {
+            Chipset::from_u8(self.rom[self.header_offset + HDR_CHIPSET_OFFSET] & 0x0F).unwrap()
+        }
     }
 
     fn get_rom_size(&self) -> usize {
@@ -253,6 +257,8 @@ impl Cartridge {
                     "FX SKIING NINTENDO 96" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0xFFFF),
                     "STAR FOX" => (GsuMap::SuperFX1, Mapper::SuperFXMC1, 0x7FFF),
                     "STARFOX2" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0xFFFF),
+                    "Stunt Race FX" => (GsuMap::SuperFX1, Mapper::SuperFX1, 0xFFFFF),
+                    "SUPER FX TEST" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0xFFFFF),
                     "VORTEX" => (GsuMap::SuperFX1, Mapper::SuperFX1, 0x7FFF),
                     "YOSHI'S ISLAND" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0x7FFF),
                     _ => panic!("Unknown SuperFX game \"{}\"", c.get_title()),
