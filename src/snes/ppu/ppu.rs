@@ -191,14 +191,18 @@ where
         });
     }
 
-    pub(super) fn vram_autoinc(&self, upper: bool) {
+    pub(super) fn vram_autoinc(&self, upper: bool, write: bool) {
         let inc_on_upper = self.vmain & VMAIN_HIGH != 0;
         if upper != inc_on_upper {
             return;
         }
 
-        // Prefetch glitch: prefetch is updated BEFORE the address
-        self.vram_update_prefetch();
+        // VRAM writes do NOT load the prefetch buffer (so a read after
+        // a write would yield the same address as the previous read).
+        if !write {
+            // Prefetch glitch: prefetch is updated BEFORE the address
+            self.vram_update_prefetch();
+        }
 
         let inc = match self.vmain & VMAIN_INC_MASK {
             0 => 1,
@@ -324,13 +328,13 @@ where
             // RDVRAML - VRAM Data Read (lower 8bit)
             0x2139 => {
                 let v = self.vram_prefetch.get() as u8;
-                self.vram_autoinc(false);
+                self.vram_autoinc(false, false);
                 Some(v)
             }
             // RDVRAMH - VRAM Data Read (upper 8bit)
             0x213A => {
                 let v = (self.vram_prefetch.get() >> 8) as u8;
-                self.vram_autoinc(true);
+                self.vram_autoinc(true, false);
                 Some(v)
             }
             // SLHV - Latch H/V-Counter by Software (R)
@@ -416,7 +420,7 @@ where
             // VMDATAL - VRAM Data write (lower 8bit)
             0x2118 => {
                 let addr = usize::from(self.vram_addr_translate(self.vmadd.get())) & VRAM_ADDRMASK;
-                self.vram_autoinc(false);
+                self.vram_autoinc(false, true);
 
                 let cur = self.vram[addr];
                 Some(self.vram[addr] = (cur & 0xFF00) | val as u16)
@@ -424,7 +428,7 @@ where
             // VMDATAH - VRAM Data write (upper 8bit)
             0x2119 => {
                 let addr = usize::from(self.vram_addr_translate(self.vmadd.get())) & VRAM_ADDRMASK;
-                self.vram_autoinc(true);
+                self.vram_autoinc(true, true);
 
                 let cur = self.vram[addr];
                 Some(self.vram[addr] = (cur & 0xFF) | (val as u16) << 8)
