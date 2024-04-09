@@ -287,7 +287,14 @@ impl Cartridge {
         if c.get_ram_size() > 0 {
             c.ram_mask = c.get_ram_size() - 1;
         }
-        c.rom_mask = c.get_rom_size() - 1;
+        if c.get_rom_size() != rom.len() {
+            println!(
+                "WARNING! ROM size in header ({}) doesn't match actual length ({})",
+                c.get_rom_size(),
+                rom.len()
+            );
+        }
+        c.rom_mask = rom.len() - 1;
         println!(
             "ROM mask: {:06X} - RAM mask: {:06X}",
             c.rom_mask, c.ram_mask
