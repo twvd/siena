@@ -97,10 +97,10 @@ impl<TRenderer> PPU<TRenderer>
 where
     TRenderer: Renderer,
 {
-    const CYCLES_PER_SCANLINE: usize = 341; // including H-blank
-    const SCANLINES_PER_FRAME: usize = 262; // including V-blank
-    const VBLANK_START: usize = 225;
-    const LINE_HBLANK_START: usize = 274;
+    pub const CYCLES_PER_SCANLINE: usize = 341; // including H-blank
+    pub const SCANLINES_PER_FRAME: usize = 262; // including V-blank
+    pub const VBLANK_START: usize = 225;
+    pub const LINE_HBLANK_START: usize = 274;
 
     pub fn new(renderer: TRenderer, fps: u64, videoformat: VideoFormat) -> Self {
         let desired_frametime = if fps == 0 { 0 } else { 1_000_000 / fps };
@@ -134,6 +134,10 @@ where
             last_frame: Instant::now(),
             desired_frametime,
         }
+    }
+
+    pub fn get_cycles(&self) -> Ticks {
+        self.cycles
     }
 
     pub fn single_threaded(&mut self) {

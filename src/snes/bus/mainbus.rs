@@ -239,6 +239,12 @@ impl<TRenderer> Mainbus<TRenderer>
 where
     TRenderer: Renderer,
 {
+    /// Start of auto joypad read (in PPU cycles)
+    const AUTOJOY_START: Ticks =
+        ((PPU::<TRenderer>::VBLANK_START * PPU::<TRenderer>::CYCLES_PER_SCANLINE) + 34);
+    /// End of auto joypad read (in PPU cycles)
+    const AUTOJOY_END: Ticks = Self::AUTOJOY_START + (4224 / 4);
+
     pub fn new(
         cartridge: Cartridge,
         trace: BusTrace,
@@ -540,13 +546,21 @@ where
                 }
                 // HVBJOY - H/V-Blank flag and Joypad Busy flag (R)
                 0x4212 => {
-                    // TODO auto-joypad-read busy
                     let mut result = self.openbus.get() & 0x3E;
                     if self.ppu.in_vblank() {
                         result |= 1 << 7;
                     }
+
                     if self.ppu.in_hblank() {
                         result |= 1 << 6;
+                    }
+
+                    // Auto joypad read busy
+                    if self.nmitimen & (1 << 0) != 0
+                        && self.ppu.get_cycles() >= Self::AUTOJOY_START
+                        && self.ppu.get_cycles() < Self::AUTOJOY_END
+                    {
+                        result |= 1 << 0;
                     }
 
                     Some(result)
