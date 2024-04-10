@@ -10,7 +10,7 @@ use crate::snes::apu::apu::Apu;
 use crate::snes::apu_blargg::Apu;
 use crate::snes::bus::mainbus::{BusTrace, Mainbus};
 use crate::snes::cartridge::{Cartridge, VideoFormat};
-use crate::snes::joypad::{Joypad, JoypadEventSender, JOYPAD_COUNT};
+use crate::snes::joypad::{Joypad, JoypadEvent, JoypadEventSender, JOYPAD_COUNT};
 use crate::tickable::{Tickable, Ticks};
 
 use anyhow::{anyhow, Result};
@@ -50,6 +50,7 @@ where
     ) -> Result<Self> {
         // Set up joypad inputs
         let (joypads, joypad_senders) = Joypad::new_channel_all();
+        joypad_senders[0].send(JoypadEvent::Connect)?;
 
         // Determine video format (PAL/NTSC)
         let videoformat = ovr_videoformat.unwrap_or(cartridge.get_video_format());

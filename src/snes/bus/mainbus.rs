@@ -95,6 +95,9 @@ where
 
     /// Set if WRAM refresh delay was done this scanline
     wram_refreshed: bool,
+
+    /// Set if auto joypad read was done this frame
+    autojoy_advance: bool,
 }
 
 enum DMADirection {
@@ -286,6 +289,7 @@ where
             rdnmi_vblank: Cell::new(false),
             pause_cycles: Cell::new(0),
             wram_refreshed: false,
+            autojoy_advance: false,
         }
     }
 
@@ -514,12 +518,12 @@ where
                 // JOYA - Joypad Input Register A (R)
                 0x4016 => {
                     let joypads = self.joypads.as_ref().unwrap();
-                    Some(joypads[0].read() | joypads[2].read() << 1)
+                    Some(joypads[0].read() | (joypads[2].read() << 1))
                 }
                 // JOYB - Joypad Input Register B (R)
                 0x4017 => {
                     let joypads = self.joypads.as_ref().unwrap();
-                    Some(joypads[1].read() | joypads[3].read() << 1 | 0x0C)
+                    Some(joypads[1].read() | (joypads[3].read() << 1) | 0x0C)
                 }
                 // MDMAEN - Select General Purpose DMA Channel(s) and Start Transfer
                 0x420B => Some(0xFF),
@@ -727,7 +731,6 @@ where
                 }
                 // NMITIMEN - Interrupt Enable and Joypad Request (W)
                 0x4200 => {
-                    // TODO joypad
                     if (val >> 4) & 0x03 == 0 {
                         // TIMEUP gets cleared when disabling H/V interrupts
                         self.timeup.set(false);
@@ -937,6 +940,20 @@ where
         if !self.wram_refreshed && self.ppu.get_current_h() >= 40 {
             self.pause_cycles.set(self.pause_cycles.get() + 40);
             self.wram_refreshed = true;
+        }
+
+        // Advance joypad shift register for auto joypad read
+        if self.ppu.get_cycles() >= Self::AUTOJOY_START && self.nmitimen & (1 << 0) != 0 {
+            if !self.autojoy_advance {
+                let joypads = self.joypads.as_ref().unwrap();
+                for j in joypads {
+                    j.strobe();
+                    j.advance(16);
+                }
+                self.autojoy_advance = true;
+            }
+        } else {
+            self.autojoy_advance = false;
         }
 
         // H/V interrupt

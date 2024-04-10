@@ -30,8 +30,14 @@ pub enum Button {
 
 #[derive(Debug)]
 pub enum JoypadEvent {
+    /// Button down on joypad
     Down(Button),
+    /// Button up on joypad
     Up(Button),
+    /// Joypad plugged in
+    Connect,
+    /// Joypad unplugged
+    Disconnect,
 }
 
 #[derive(Debug)]
@@ -42,6 +48,7 @@ pub struct Joypad {
     sticky_time: RefCell<BTreeMap<Button, Instant>>,
     pub sticky_enabled: bool,
     pub sticky_state: Cell<u16>,
+    connected: Cell<bool>,
 }
 
 impl Joypad {
@@ -64,6 +71,7 @@ impl Joypad {
             }))),
             sticky_enabled: false,
             sticky_state: Cell::new(0),
+            connected: Cell::new(false),
         }
     }
 
@@ -113,7 +121,13 @@ impl Joypad {
                     self.sticky_state
                         .set(self.sticky_state.get() | (1 << button.to_u16().unwrap()));
                 }
+                JoypadEvent::Connect => self.connected.set(true),
+                JoypadEvent::Disconnect => self.connected.set(false),
             }
+        }
+        if !self.connected.get() {
+            self.sticky_state.set(0);
+            self.state.set(0);
         }
     }
 
@@ -122,14 +136,26 @@ impl Joypad {
         self.scan_pos.set(0);
     }
 
+    pub fn advance(&self, steps: u8) {
+        self.scan_pos.set(self.scan_pos.get().saturating_add(steps));
+    }
+
     pub fn read(&self) -> u8 {
-        let pos = self.scan_pos.get() & 0x0F;
+        let pos = self.scan_pos.get();
         if pos == 0 {
             self.poll_events();
         }
-        let v = ((self.get_state() >> pos) & 1) as u8;
-        self.scan_pos.set(pos + 1);
-        v
+        self.advance(1);
+
+        if pos >= 16 {
+            if self.connected.get() {
+                1
+            } else {
+                0
+            }
+        } else {
+            ((self.get_state() >> pos) & 1) as u8
+        }
     }
 
     fn get_state(&self) -> u16 {
