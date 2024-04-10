@@ -105,6 +105,16 @@ pub struct Cartridge {
 }
 
 impl Cartridge {
+    /// Sets all bits to 1 up to the highest set bit to
+    /// deal with ROMs that aren't a perfect power of X in size.
+    fn saturate_mask(m: usize) -> usize {
+        let mut v = m;
+        for i in 0..m.ilog2() {
+            v |= 1 << i;
+        }
+        v
+    }
+
     fn parse_title(s: &[u8]) -> Result<String> {
         String::from_utf8(s.into_iter().take_while(|&&c| c != 0).copied().collect())
             .map_err(|e| anyhow!(e))
@@ -294,7 +304,7 @@ impl Cartridge {
                 rom.len()
             );
         }
-        c.rom_mask = rom.len() - 1;
+        c.rom_mask = Self::saturate_mask(rom.len() - 1);
         println!(
             "ROM mask: {:06X} - RAM mask: {:06X}",
             c.rom_mask, c.ram_mask
@@ -305,20 +315,27 @@ impl Cartridge {
     /// Loads a cartridge but does not do header detection
     pub fn load_nohdr(rom: &[u8], mapper: Mapper) -> Self {
         println!("Selected mapper: {}", mapper);
-        Self {
+        let c = Self {
             rom: Vec::from(rom),
             ram: vec![0; RAM_SIZE],
             mapper: mapper,
             header_offset: 0,
             ram_mask: RAM_SIZE - 1,
-            rom_mask: rom.len() - 1,
+            rom_mask: Self::saturate_mask(rom.len() - 1),
             co_dsp1: None,
             co_superfx: if mapper == Mapper::SuperFX1 {
                 Some(SuperFX::new(rom, GsuMap::SuperFX1, 0x1FFFF))
             } else {
                 None
             },
-        }
+        };
+
+        println!(
+            "ROM mask: {:06X} - RAM mask: {:06X}",
+            c.rom_mask, c.ram_mask
+        );
+
+        c
     }
 
     /// Creates an empty new cartridge (for tests)
