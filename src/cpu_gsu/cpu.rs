@@ -766,8 +766,7 @@ impl CpuGsu {
             (0x95, false, false) => {
                 // SEX
                 let s = self.regs.read_r(sreg) & 0xFF;
-                let sgn = if s & 0x80 != 0 { 0xFF00_u16 } else { 0_u16 };
-                let result = sgn | s;
+                let result = s as i8 as i16 as u16;
 
                 self.regs.write_r(dreg, result);
                 self.regs
