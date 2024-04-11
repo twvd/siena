@@ -51,6 +51,9 @@ pub struct CpuGsu {
 }
 
 impl CpuGsu {
+    /// Offsets of color bitplanes in a single tile pixel
+    const BITPLANE_OFFSETS: [usize; 8] = [0x00, 0x01, 0x10, 0x11, 0x20, 0x21, 0x30, 0x31];
+
     pub fn new(rom: &[u8], map: GsuMap, ram_mask: usize) -> Self {
         let mut c = Self {
             verbose: false,
@@ -329,6 +332,7 @@ impl CpuGsu {
                 self.regs.write_r(dreg, result);
                 self.regs.write_flags(&[
                     (Flag::Z, result == 0),
+                    // Upper bit can never be set after right shift
                     (Flag::S, false),
                     (Flag::C, s & 0x01 != 0),
                 ]);
@@ -507,11 +511,19 @@ impl CpuGsu {
                 // PLOT
                 self.pixel_draw();
                 let _ = self.regs.read_inc(Register::R1);
+                // TODO real cycle count
                 self.cycles(1)?;
             }
             (0x4C, true, false) => {
                 // RPIX
                 // TODO pixel cache
+
+                let result = self.pixel_read();
+                self.regs.write_r(dreg, result);
+                self.regs
+                    .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
+                // TODO real cycle count
+                self.cycles(1)?;
             }
             (0x4D, false, false) => {
                 // SWAP
@@ -1114,6 +1126,42 @@ impl CpuGsu {
             }
         }
 
+        let row_addr = self.xy_to_row_addr(x, y);
+        let bit = 1 << (7 - (x & 7));
+
+        for bitp in 0..(bpp.num_bitplanes()) {
+            let addr = row_addr + Self::BITPLANE_OFFSETS[bitp];
+
+            if color & (1 << bitp) != 0 {
+                self.ram[addr] |= bit;
+            } else {
+                self.ram[addr] &= !bit;
+            }
+        }
+    }
+
+    fn pixel_read(&mut self) -> u16 {
+        let x = (self.regs.read(Register::R1) as usize) & 0xFF;
+        let y = (self.regs.read(Register::R2) as usize) & 0xFF;
+        let bpp = self.regs.get_scmr_bpp();
+
+        let row_addr = self.xy_to_row_addr(x, y);
+        let bit = 1 << (7 - (x & 7));
+
+        let mut ret = 0;
+        for bitp in 0..(bpp.num_bitplanes()) {
+            let addr = row_addr + Self::BITPLANE_OFFSETS[bitp];
+
+            if self.ram[addr] & bit != 0 {
+                ret |= 1 << bitp;
+            }
+        }
+        ret
+    }
+
+    fn xy_to_row_addr(&self, x: usize, y: usize) -> usize {
+        let bpp = self.regs.get_scmr_bpp();
+
         let tilenum = if self.regs.get_scmr_height() == ScreenHeight::Obj
             || self.regs.test_por(PORFlag::ObjMode)
         {
@@ -1127,23 +1175,10 @@ impl CpuGsu {
             }
         };
         let scbr = self.regs.read(Register::SCBR) as usize;
-        let row_addr = match bpp {
+        match bpp {
             BPP::Two => tilenum * 0x10 + scbr * 0x400 + (y & 7) * 2,
             BPP::Four => tilenum * 0x20 + scbr * 0x400 + (y & 7) * 2,
             BPP::Eight => tilenum * 0x40 + scbr * 0x400 + (y & 7) * 2,
-        };
-
-        const BITPLANE_OFFSETS: [usize; 8] = [0x00, 0x01, 0x10, 0x11, 0x20, 0x21, 0x30, 0x31];
-        let bit = 1 << (7 - (x & 7));
-
-        for bitp in 0..(bpp.num_bitplanes()) {
-            let addr = row_addr + BITPLANE_OFFSETS[bitp];
-
-            if color & (1 << bitp) != 0 {
-                self.ram[addr] |= bit;
-            } else {
-                self.ram[addr] &= !bit;
-            }
         }
     }
 
