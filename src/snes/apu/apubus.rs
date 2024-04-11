@@ -80,7 +80,7 @@ impl Bus<SpcAddress> for Apubus {
                     }
                 }
 
-                self.timers_enabled = val & 0x03;
+                self.timers_enabled = val & 0x07;
 
                 if val & (1 << 4) != 0 {
                     let mut ports = self.ports.write().unwrap();
