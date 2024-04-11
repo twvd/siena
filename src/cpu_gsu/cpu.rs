@@ -119,14 +119,14 @@ impl CpuGsu {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
         // Check cache. Note: get_cache_base() includes PBR
-        let cache_base = self.get_cache_base() as usize;
-        if (cache_base..=(cache_base + CACHE_SIZE)).contains(&(fulladdr as usize)) {
-            let cache_line = (fulladdr as usize - cache_base) / CACHE_LINE_SIZE;
-            let cache_line_pos = (fulladdr as usize - cache_base) % CACHE_LINE_SIZE;
-            if self.cache_valid[cache_line] {
-                return self.cache[(cache_line * CACHE_LINE_SIZE) + cache_line_pos];
-            }
-        }
+        //let cache_base = self.get_cache_base() as usize;
+        //if (cache_base..=(cache_base + CACHE_SIZE)).contains(&(fulladdr as usize)) {
+        //    let cache_line = (fulladdr as usize - cache_base) / CACHE_LINE_SIZE;
+        //    let cache_line_pos = (fulladdr as usize - cache_base) % CACHE_LINE_SIZE;
+        //    if self.cache_valid[cache_line] {
+        //        return self.cache[(cache_line * CACHE_LINE_SIZE) + cache_line_pos];
+        //    }
+        //}
 
         let bank = bank & !0x80;
         match self.map {
@@ -320,8 +320,8 @@ impl CpuGsu {
                 let pc = self.regs.read(Register::R15);
                 let cbr = self.regs.read(Register::CBR);
                 if (pc & 0xFFF0) != cbr {
-                    //self.cache_flush();
-                    //self.regs.write(Register::CBR, pc & 0xFFF0);
+                    self.cache_flush();
+                    self.regs.write(Register::CBR, pc & 0xFFF0);
                 }
                 self.cycles(1)?;
             }
@@ -831,7 +831,9 @@ impl CpuGsu {
                 // LJMP Rn
                 let r = (instr & 0x0F) as usize;
                 self.regs.write(Register::R15, self.regs.read_r(sreg));
-                self.regs.write(Register::PBR, self.regs.read_r(r));
+                self.regs.write(Register::PBR, self.regs.read_r(r) & 0x7F);
+                self.regs
+                    .write(Register::CBR, self.regs.read_r(sreg) & 0xFFF0);
                 self.cache_flush();
                 self.cycles(1)?;
             }
