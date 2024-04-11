@@ -875,8 +875,7 @@ impl CpuGsu {
                 // IBT Rn,imm
                 let reg = (instr & 0x0F) as usize;
                 let s = self.fetch() as u16;
-                let sgn = if s & 0x80 != 0 { 0xFF00_u16 } else { 0_u16 };
-                let result = sgn | s;
+                let result = s as i8 as i16 as u16;
 
                 self.regs.write_r(reg, result);
                 self.cycles(2)?;
@@ -884,11 +883,10 @@ impl CpuGsu {
             (0xA0..=0xAF, true, false) => {
                 // LMS Rn,(yy)
                 let reg = (instr & 0x0F) as usize;
-                let yy = (self.fetch() as u16).wrapping_mul(2);
+                let yy = (self.fetch() as u16) << 1;
 
                 let addr_l = (usize::from(self.regs.read(Register::RAMBR)) << 16) | usize::from(yy);
-                let addr_h = (usize::from(self.regs.read(Register::RAMBR)) << 16)
-                    | usize::from(yy.wrapping_add(1));
+                let addr_h = addr_l | 1;
 
                 let val = ((self.ram[addr_h] as u16) << 8) | (self.ram[addr_l] as u16);
                 self.last_ramaddr = yy;
@@ -898,11 +896,10 @@ impl CpuGsu {
             (0xA0..=0xAF, false, true) => {
                 // SMS (yy),Rn
                 let reg = (instr & 0x0F) as usize;
-                let yy = (self.fetch() as u16).wrapping_mul(2);
+                let yy = (self.fetch() as u16) << 1;
 
                 let addr_l = (usize::from(self.regs.read(Register::RAMBR)) << 16) | usize::from(yy);
-                let addr_h = (usize::from(self.regs.read(Register::RAMBR)) << 16)
-                    | usize::from(yy.wrapping_add(1));
+                let addr_h = addr_l | 1;
                 let val = self.regs.read_r(reg);
                 self.ram[addr_l] = val as u8;
                 self.ram[addr_h] = (val >> 8) as u8;
@@ -1005,7 +1002,7 @@ impl CpuGsu {
             (0xDF, true, true) => {
                 // ROMB
                 self.regs
-                    .write(Register::ROMBR, self.regs.read_r(sreg) & 0xFF);
+                    .write(Register::ROMBR, self.regs.read_r(sreg) & 0x7F);
                 self.cycles(1)?;
             }
             (0xE0..=0xEE, false, _) => {
@@ -1073,9 +1070,9 @@ impl CpuGsu {
                 let yy = (hi << 8) | lo;
 
                 let addr_l =
-                    (usize::from(self.regs.read(Register::RAMBR)) << 8) | usize::from(yy & !1);
+                    (usize::from(self.regs.read(Register::RAMBR)) << 16) | usize::from(yy & !1);
                 let addr_h =
-                    (usize::from(self.regs.read(Register::RAMBR)) << 8) | usize::from(yy | 1);
+                    (usize::from(self.regs.read(Register::RAMBR)) << 16) | usize::from(yy | 1);
                 let val = if yy & 1 != 0 {
                     ((self.ram[addr_l] as u16) << 8) | (self.ram[addr_h] as u16)
                 } else {
