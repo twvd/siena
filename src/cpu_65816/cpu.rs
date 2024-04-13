@@ -1,6 +1,5 @@
 use anyhow::Result;
 use arrayvec::ArrayVec;
-use lrumap::LruBTreeMap;
 use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
@@ -11,14 +10,6 @@ use super::alu;
 use super::instruction::{AddressingMode, Instruction, InstructionType, MAX_INSTRUCTION_LEN};
 use super::regs::{Flag, Register, RegisterFile, RegisterWidth};
 
-type InstrCacheKey = (Address, bool, bool); // Address, M, X
-type InstrCache = LruBTreeMap<InstrCacheKey, Instruction>;
-const INSTRCACHE_SIZE: usize = 100000;
-
-fn _clean_cache() -> InstrCache {
-    InstrCache::new(INSTRCACHE_SIZE)
-}
-
 /// Main SNES CPU (65816)
 #[derive(Serialize, Deserialize)]
 pub struct Cpu65816<TBus: Bus<Address>> {
@@ -28,9 +19,6 @@ pub struct Cpu65816<TBus: Bus<Address>> {
     pub regs: RegisterFile,
     pub cycles: Ticks,
     pub wait_for_int: bool,
-
-    #[serde(skip, default = "_clean_cache")]
-    instr_cache: InstrCache,
 }
 
 impl<TBus> Cpu65816<TBus>
@@ -50,7 +38,6 @@ where
             regs: RegisterFile::new(),
             cycles: 0,
             wait_for_int: false,
-            instr_cache: _clean_cache(),
         };
         cpu.regs.pc = reset_addr;
         cpu.regs.p = (1 << Flag::M.to_u8().unwrap())
@@ -71,22 +58,6 @@ where
         )
     }
 
-    /// Invalidates an entry in the instruction cache
-    fn instrcache_invalidate(&mut self, addr: Address) {
-        self.instr_cache
-            .entry(&(addr, false, false))
-            .and_then(|e| Some(e.take()));
-        self.instr_cache
-            .entry(&(addr, false, true))
-            .and_then(|e| Some(e.take()));
-        self.instr_cache
-            .entry(&(addr, true, false))
-            .and_then(|e| Some(e.take()));
-        self.instr_cache
-            .entry(&(addr, true, true))
-            .and_then(|e| Some(e.take()));
-    }
-
     /// Fetches and decodes the next instruction at PC
     pub fn peek_next_instr(&self) -> Result<Instruction> {
         let mut busiter = BusIterator::new_from(&self.bus, self.regs.get_full_pc());
@@ -99,19 +70,10 @@ where
 
     /// Fetches and decodes the next instruction at PC
     pub fn fetch_next_instr(&mut self) -> Result<Instruction> {
-        let pc = self.regs.get_full_pc();
-        let (m, x) = (self.regs.test_flag(Flag::M), self.regs.test_flag(Flag::X));
-
-        if let Some(instr) = self.instr_cache.get(&(pc, m, x)) {
-            // Instruction cache hit
-            let i = instr.clone();
-            self.tick_bus(i.len)?;
-            return Ok(i);
-        }
-
-        // Instruction cache miss
         let mut fetched: ArrayVec<u8, MAX_INSTRUCTION_LEN> = ArrayVec::new();
+        let (m, x) = (self.regs.test_flag(Flag::M), self.regs.test_flag(Flag::X));
         let mut p = 0;
+
         let instr = loop {
             let pc = (self.regs.k as Address) << 16 | self.regs.pc.wrapping_add(p) as Address;
             p += 1;
@@ -121,8 +83,6 @@ where
                 Ok(i) => break i,
             }
         };
-
-        self.instr_cache.push((pc, m, x), instr.clone());
 
         Ok(instr)
     }
@@ -236,9 +196,6 @@ where
     /// Writes a memory location while ticking peripherals
     /// for the access time.
     fn write_tick(&mut self, addr: Address, val: u8) {
-        // Invalidate instruction cache for this address
-        self.instrcache_invalidate(addr);
-
         self.bus.write(addr, val);
         self.tick_bus(1).unwrap();
     }
