@@ -264,7 +264,7 @@ impl Cartridge {
                     "DIRT RACER" => (GsuMap::SuperFX1, Mapper::SuperFX1, 0x1FFFF),
                     "DIRT TRAX FX" => (GsuMap::SuperFX1, Mapper::SuperFX1, 0x1FFFF),
                     "DOOM" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0xFFFF),
-                    "FX SKIING NINTENDO 96" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0xFFFF),
+                    "FX SKIING NINTENDO 96" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0x3FFFF),
                     "STAR FOX" => (GsuMap::SuperFX1, Mapper::SuperFXMC1, 0x7FFF),
                     "STARFOX2" => (GsuMap::SuperFX2, Mapper::SuperFX2, 0xFFFF),
                     "Stunt Race FX" => (GsuMap::SuperFX1, Mapper::SuperFX1, 0xFFFFF),
@@ -314,14 +314,25 @@ impl Cartridge {
 
     /// Loads a cartridge but does not do header detection
     pub fn load_nohdr(rom: &[u8], mapper: Mapper) -> Self {
+        let load_offset = match rom.len() % 1024 {
+            0 => 0,
+            0x200 => {
+                println!("Cartridge contains 0x200 bytes of weird header");
+                0x200
+            }
+            _ => panic!("Illogical cartridge file size: 0x{:08X}", rom.len()),
+        };
+        let rom = &rom[load_offset..];
+        let rom_mask = Self::saturate_mask(rom.len() - 1);
+
         println!("Selected mapper: {}", mapper);
-        let c = Self {
+        let mut c = Self {
             rom: Vec::from(rom),
             ram: vec![0; RAM_SIZE],
             mapper: mapper,
             header_offset: 0,
             ram_mask: RAM_SIZE - 1,
-            rom_mask: Self::saturate_mask(rom.len() - 1),
+            rom_mask,
             co_dsp1: None,
             co_superfx: if mapper == Mapper::SuperFX1 {
                 Some(SuperFX::new(rom, GsuMap::SuperFX1, 0x1FFFF))
@@ -329,6 +340,7 @@ impl Cartridge {
                 None
             },
         };
+        c.rom.resize(rom_mask + 1, 0xFF);
 
         println!(
             "ROM mask: {:06X} - RAM mask: {:06X}",
@@ -471,7 +483,7 @@ impl Cartridge {
             }
 
             // Backup RAM
-            (0x78..=0x79, 0x0000..=0xFFFF) => Some(self.ram[(bank - 0x78) * 0x10000 + addr]),
+            (0x78..=0x79, 0x0000..=0xFFFF) => Some(self.ram[((bank - 0x78) * 0x10000 + addr) & self.ram_mask]),
 
             // SuperFX co-processor
             (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x34FF) => {
@@ -579,7 +591,7 @@ impl Cartridge {
             }
 
             // Backup RAM
-            (0x78..=0x79, _) => Some(self.ram[(bank - 0x78) * 0x10000 + addr] = val),
+            (0x78..=0x79, _) => Some(self.ram[((bank - 0x78) * 0x10000 + addr) & self.ram_mask] = val),
 
             // SuperFX co-processor
             (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x34FF) => {
