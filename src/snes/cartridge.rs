@@ -483,7 +483,9 @@ impl Cartridge {
             }
 
             // Backup RAM
-            (0x78..=0x79, 0x0000..=0xFFFF) => Some(self.ram[((bank - 0x78) * 0x10000 + addr) & self.ram_mask]),
+            (0x78..=0x79, 0x0000..=0xFFFF) => {
+                Some(self.ram[((bank - 0x78) * 0x10000 + addr) & self.ram_mask])
+            }
 
             // SuperFX co-processor
             (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x34FF) => {
@@ -591,7 +593,9 @@ impl Cartridge {
             }
 
             // Backup RAM
-            (0x78..=0x79, _) => Some(self.ram[((bank - 0x78) * 0x10000 + addr) & self.ram_mask] = val),
+            (0x78..=0x79, _) => {
+                Some(self.ram[((bank - 0x78) * 0x10000 + addr) & self.ram_mask] = val)
+            }
 
             // SuperFX co-processor
             (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x34FF) => {
