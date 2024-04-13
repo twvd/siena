@@ -30,6 +30,12 @@ pub struct Apubus {
 
     /// If true, ROM is mapped to FFC0-FFFF
     rom_mapped: bool,
+
+    /// S-DSP address pointer
+    dsp_addr: usize,
+
+    /// Stubbed S-DSP registers
+    dsp_stub: [u8; 0x80],
 }
 
 impl Apubus {
@@ -49,6 +55,8 @@ impl Apubus {
                 Timer::new(1_024_000 / 64_000),
             ],
             timers_enabled: 0,
+            dsp_addr: 0,
+            dsp_stub: [0; 0x80],
         }
     }
 }
@@ -56,13 +64,20 @@ impl Apubus {
 impl Bus<SpcAddress> for Apubus {
     fn read(&self, addr: SpcAddress) -> u8 {
         match addr {
+            // DSP register address
+            0x00F2 => self.dsp_addr as u8,
+            // DSP data out
+            0x00F3 => self.dsp_stub[self.dsp_addr],
             // Ports
             0x00F4..=0x00F7 => {
                 let ports = self.ports.read().unwrap();
                 ports.apu[addr as usize - 0x00F4]
             }
+            // Timer 1 counter out
             0x00FD => self.timers[0].get_cnt(),
+            // Timer 2 counter out
             0x00FE => self.timers[1].get_cnt(),
+            // Timer 3 counter out
             0x00FF => self.timers[2].get_cnt(),
 
             // ROM (IPL)
@@ -73,6 +88,7 @@ impl Bus<SpcAddress> for Apubus {
 
     fn write(&mut self, addr: SpcAddress, val: u8) {
         match addr {
+            // Control register
             0x00F1 => {
                 for t in 0..APU_TIMERS {
                     if (self.timers_enabled & val) & (1 << t) == 0 {
@@ -98,6 +114,10 @@ impl Bus<SpcAddress> for Apubus {
                     println!("SPC700 ROM mapped: {}", self.rom_mapped);
                 }
             }
+            // DSP register address
+            0x00F2 => self.dsp_addr = usize::from(val & 0x7F),
+            // DSP data out
+            0x00F3 => self.dsp_stub[self.dsp_addr] = val,
             // Ports
             0x00F4..=0x00F7 => {
                 let mut ports = self.ports.write().unwrap();
@@ -113,8 +133,11 @@ impl Bus<SpcAddress> for Apubus {
                 }
                 ports.cpu[addr as usize - 0x00F4] = val;
             }
+            // Timer 1 top value
             0x00FA => self.timers[0].set_top(val),
+            // Timer 2 top value
             0x00FB => self.timers[1].set_top(val),
+            // Timer 3 top value
             0x00FC => self.timers[2].set_top(val),
             _ => (),
         }
