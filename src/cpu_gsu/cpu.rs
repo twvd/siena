@@ -303,11 +303,8 @@ impl CpuGsu {
             (0x00, false, false) => {
                 // STOP
                 println!("sfx stopped");
-                self.regs.write_flags(&[(Flag::G, false)]);
-
-                if !self.regs.test_cfgr(CFGRFlag::IRQ) {
-                    self.regs.write_flags(&[(Flag::IRQ, true)]);
-                }
+                self.regs
+                    .write_flags(&[(Flag::G, false), (Flag::IRQ, true)]);
 
                 self.cycles(1)?;
             }
@@ -1192,7 +1189,7 @@ impl CpuGsu {
     }
 
     pub fn get_int(&mut self) -> bool {
-        self.regs.test_flag(Flag::IRQ)
+        self.regs.test_flag(Flag::IRQ) && !self.regs.test_cfgr(CFGRFlag::IRQ)
     }
 
     pub fn instr_str(
