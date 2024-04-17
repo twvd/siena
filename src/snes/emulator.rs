@@ -9,7 +9,7 @@ use crate::snes::apu::apu::Apu;
 #[cfg(feature = "apu_blargg")]
 use crate::snes::apu_blargg::Apu;
 use crate::snes::bus::mainbus::{BusTrace, Mainbus};
-use crate::snes::cartridge::{Cartridge, VideoFormat};
+use crate::snes::cartridge::{empty_ram, Cartridge, VideoFormat};
 use crate::snes::joypad::{Joypad, JoypadEvent, JoypadEventSender, JOYPAD_COUNT};
 use crate::tickable::{Tickable, Ticks};
 
@@ -119,8 +119,8 @@ where
         let mut new_cpu: Cpu65816<Mainbus<T>> = Deserialize::deserialize(&mut deserializer)?;
         // ..and move all the non-serializable stuff over.
         new_cpu.bus.ppu.renderer = std::mem::replace(&mut self.cpu.bus.ppu.renderer, None);
-
         new_cpu.bus.joypads = std::mem::replace(&mut self.cpu.bus.joypads, None);
+        new_cpu.bus.cartridge.ram = std::mem::replace(&mut self.cpu.bus.cartridge.ram, empty_ram());
 
         self.cpu = new_cpu;
         Ok(())

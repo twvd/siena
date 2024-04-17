@@ -1,6 +1,7 @@
 use std::fmt;
 
 use anyhow::{anyhow, Result};
+use memmap::MmapMut;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -80,11 +81,20 @@ pub enum Mapper {
     SuperFX2,
 }
 
+pub fn empty_ram() -> MmapMut {
+    MmapMut::map_anon(RAM_SIZE).unwrap()
+}
+
 /// A mounted SNES cartridge
 #[derive(Serialize, Deserialize)]
 pub struct Cartridge {
+    /// Cartridge ROM
     rom: Vec<u8>,
-    ram: Vec<u8>,
+
+    /// Cartridge SRAM as memory mapped file (or anonymous mapping)
+    #[serde(skip, default = "empty_ram")]
+    pub ram: MmapMut,
+
     header_offset: usize,
 
     /// Mapper implementation to use
@@ -162,7 +172,7 @@ impl Cartridge {
         (1 << self.rom[self.header_offset + HDR_ROMSIZE_OFFSET]) * 1024
     }
 
-    fn get_ram_size(&self) -> usize {
+    pub fn get_ram_size(&self) -> usize {
         match self.get_chipset() {
             Chipset::RomOnly | Chipset::RomCo | Chipset::RomCoBat => 0,
             _ => (1 << self.rom[self.header_offset + HDR_RAMSIZE_OFFSET]) * 1024,
@@ -179,7 +189,7 @@ impl Cartridge {
         }
     }
 
-    fn has_ram(&self) -> bool {
+    pub fn has_ram(&self) -> bool {
         self.ram_mask != 0
     }
 
@@ -206,13 +216,13 @@ impl Cartridge {
 
     /// Loads a cartridge.
     /// Fails if it cannot find the cartridge header.
-    pub fn load(rom: &[u8], co_rom: Option<&[u8]>) -> Self {
+    pub fn load(rom: &[u8], co_rom: Option<&[u8]>) -> Result<Self> {
         Self::load_with_save(rom, &[], co_rom)
     }
 
     /// Loads a cartridge and a save.
     /// Fails if it cannot find the cartridge header.
-    pub fn load_with_save(rom: &[u8], _save: &[u8], co_rom: Option<&[u8]>) -> Self {
+    pub fn load_with_save(rom: &[u8], _save: &[u8], co_rom: Option<&[u8]>) -> Result<Self> {
         let load_offset = match rom.len() % 1024 {
             0 => 0,
             0x200 => {
@@ -237,7 +247,7 @@ impl Cartridge {
 
         let mut c = Self {
             rom: Vec::from(rom),
-            ram: vec![0; RAM_SIZE],
+            ram: MmapMut::map_anon(RAM_SIZE)?,
             header_offset: header_offset.expect("Could not locate header"),
             ram_mask: 0,
             rom_mask: 0,
@@ -309,11 +319,11 @@ impl Cartridge {
             "ROM mask: {:06X} - RAM mask: {:06X}",
             c.rom_mask, c.ram_mask
         );
-        c
+        Ok(c)
     }
 
     /// Loads a cartridge but does not do header detection
-    pub fn load_nohdr(rom: &[u8], mapper: Mapper) -> Self {
+    pub fn load_nohdr(rom: &[u8], mapper: Mapper) -> Result<Self> {
         let load_offset = match rom.len() % 1024 {
             0 => 0,
             0x200 => {
@@ -328,7 +338,7 @@ impl Cartridge {
         println!("Selected mapper: {}", mapper);
         let mut c = Self {
             rom: Vec::from(rom),
-            ram: vec![0; RAM_SIZE],
+            ram: MmapMut::map_anon(RAM_SIZE)?,
             mapper: mapper,
             header_offset: 0,
             ram_mask: RAM_SIZE - 1,
@@ -347,22 +357,22 @@ impl Cartridge {
             c.rom_mask, c.ram_mask
         );
 
-        c
+        Ok(c)
     }
 
     /// Creates an empty new cartridge (for tests)
     /// Does not do header detection
-    pub fn new_empty() -> Self {
-        Self {
+    pub fn new_empty() -> Result<Self> {
+        Ok(Self {
             rom: vec![],
-            ram: vec![0; RAM_SIZE],
+            ram: MmapMut::map_anon(RAM_SIZE)?,
             mapper: Mapper::LoROM,
             header_offset: 0,
             ram_mask: RAM_SIZE - 1,
             rom_mask: usize::MAX,
             co_dsp1: None,
             co_superfx: None,
-        }
+        })
     }
 
     fn read_lorom(&self, fulladdr: Address) -> Option<u8> {
@@ -709,6 +719,10 @@ impl Cartridge {
         }
 
         false
+    }
+
+    pub fn set_ram_buffer(&mut self, ram: MmapMut) {
+        self.ram = ram;
     }
 }
 

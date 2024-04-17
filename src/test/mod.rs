@@ -15,7 +15,7 @@ use crate::snes::ppu::ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
 fn test_display(rom: &[u8], pass_hash: &[u8], time_limit: u128, stable: bool, mapper: Mapper) {
     let (display, dispstatus) = TestRenderer::new_test(SCREEN_WIDTH, SCREEN_HEIGHT);
-    let cart = Cartridge::load_nohdr(rom, mapper);
+    let cart = Cartridge::load_nohdr(rom, mapper).unwrap();
     let mut emu =
         Emulator::<TestRenderer>::new(cart, &[0; 64], display, Some(VideoFormat::PAL)).unwrap();
     emu.testmode();

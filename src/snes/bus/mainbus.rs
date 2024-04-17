@@ -991,7 +991,7 @@ mod tests {
     fn mainbus() -> Mainbus<NullRenderer> {
         let (joypads, _) = Joypad::new_channel_all();
         Mainbus::<NullRenderer>::new(
-            Cartridge::new_empty(),
+            Cartridge::new_empty().unwrap(),
             BusTrace::All,
             NullRenderer::new(0, 0).unwrap(),
             joypads,

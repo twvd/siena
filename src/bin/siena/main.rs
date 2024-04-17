@@ -1,10 +1,12 @@
 use std::fs;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
 use std::time::SystemTime;
 
 use anyhow::{Context, Result};
 use clap::Parser;
+use memmap::MmapMut;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 
@@ -123,18 +125,40 @@ fn main() -> Result<()> {
     let eventpump = SDLEventPump::new();
 
     // Initialize cartridge
-    let f = fs::read(args.filename)?;
+    let f = fs::read(&args.filename)?;
     let f_co = if let Some(filename) = args.corom {
         Some(fs::read(filename)?)
     } else {
         None
     };
     let cartridge = if args.mapper.is_none() {
-        let c = Cartridge::load(&f, f_co.as_deref());
+        let mut c = Cartridge::load(&f, f_co.as_deref())?;
         println!("Cartridge: {}", &c);
+
+        if c.has_ram() {
+            // Determine filename of save file
+            let save_filename = {
+                let mut path = PathBuf::from(&args.filename);
+                path.set_extension("srm");
+                path
+            };
+
+            // Initialize memory-mapped save file
+            let savef = fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .open(&save_filename)?;
+            savef.set_len(c.get_ram_size().try_into()?)?;
+
+            let save_mmap = unsafe { MmapMut::map_mut(&savef)? };
+            c.set_ram_buffer(save_mmap);
+            println!("Loaded save file {:?}", save_filename);
+        }
+
         c
     } else {
-        Cartridge::load_nohdr(&f, args.mapper.unwrap())
+        Cartridge::load_nohdr(&f, args.mapper.unwrap())?
     };
     let fn_title = cartridge.get_title_clean();
 
