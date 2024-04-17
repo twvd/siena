@@ -76,6 +76,15 @@ enum WindowMask {
 
 impl PPUState {
     #[inline(always)]
+    /// Maps direct color value to on-screen color
+    fn directcolor(dc: u8, palette: u8) -> SnesColor {
+        SnesColor::from_rgb5(
+            ((dc & 7) << 2) | ((palette & 1) << 1),
+            (((dc >> 3) & 7) << 2) | (palette & 2),
+            (((dc >> 6) & 3) << 3) | (palette & 4),
+        )
+    }
+    #[inline(always)]
     pub fn cgram_to_color(&self, addr: u8) -> SnesColor {
         SnesColor::from(self.cgram[addr as usize])
     }
@@ -89,7 +98,11 @@ impl PPUState {
             BPP::Four => paletteidx * 16,
             BPP::Eight => 0,
         };
-        self.cgram_to_color(palette + idx)
+        if self.cgwsel & (1 << 0) != 0 && self.get_layer_bpp(bg) == BPP::Eight {
+            Self::directcolor(idx, palette)
+        } else {
+            self.cgram_to_color(palette + idx)
+        }
     }
 
     fn sprite_cindex_to_color(&self, tile: &SpriteTile, idx: u8) -> SnesColor {

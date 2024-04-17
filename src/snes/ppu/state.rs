@@ -85,7 +85,7 @@ impl OptEntry {
     }
 }
 
-#[derive(Clone, Copy, Debug, ToPrimitive)]
+#[derive(Clone, Copy, Debug, ToPrimitive, Eq, PartialEq)]
 pub enum BPP {
     // BPP == number of bitplanes
     Two = 2,   // 4 colors
