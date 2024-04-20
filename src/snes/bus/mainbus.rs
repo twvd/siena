@@ -143,12 +143,6 @@ struct DMAChannel {
 
     /// HDMA state: do transfer
     hdma_dotransfer: bool,
-
-    /// HDMA state: repeat
-    hdma_repeat: bool,
-
-    /// HDMA state: line counter
-    hdma_lines: u8,
 }
 
 impl DMAChannel {
@@ -164,8 +158,6 @@ impl DMAChannel {
             ntrl: 0xFF,
             unused: 0xFF,
             hdma_dotransfer: false,
-            hdma_repeat: false,
-            hdma_lines: 0,
         }
     }
 
@@ -235,6 +227,18 @@ impl DMAChannel {
 
     pub fn hdma_is_indirect(&self) -> bool {
         self.dmap & (1 << 6) != 0
+    }
+
+    pub fn hdma_get_lines(&self) -> usize {
+        (self.ntrl & 0x7F) as usize
+    }
+
+    pub fn hdma_dec_lines(&mut self) {
+        self.ntrl = (self.ntrl & 0x80) | ((self.ntrl & !0x80).wrapping_sub(1));
+    }
+
+    pub fn hdma_get_repeat(&self) -> bool {
+        (self.ntrl & 0x80) != 0
     }
 }
 
@@ -401,6 +405,8 @@ where
 
         for ch in 0..DMA_CHANNELS {
             if self.hdmaen & (1 << ch) == 0 {
+                // Set this channel up so if it is activated mid-frame, it is in the expected state.
+                self.dma[ch].hdma_dotransfer = false;
                 continue;
             }
 
@@ -435,7 +441,7 @@ where
             self.pause_cycles.set(self.pause_cycles.get() + 8);
 
             // Current cycle ended?
-            if !self.dma[ch].hdma_repeat && self.dma[ch].hdma_lines == 0 {
+            if !self.dma[ch].hdma_get_repeat() && self.dma[ch].hdma_get_lines() == 0 {
                 continue;
             }
 
@@ -447,10 +453,10 @@ where
                 self.dma[ch].hdma_set_current_a_addr(a_addr.wrapping_add(len));
             }
 
-            self.dma[ch].hdma_lines -= 1;
-            self.dma[ch].hdma_dotransfer = self.dma[ch].hdma_repeat;
+            self.dma[ch].hdma_dec_lines();
+            self.dma[ch].hdma_dotransfer = self.dma[ch].hdma_get_repeat();
 
-            if self.dma[ch].hdma_lines == 0 {
+            if self.dma[ch].hdma_get_lines() == 0 {
                 // Next entry
                 self.hdma_load_next_entry(ch);
             }
@@ -459,10 +465,7 @@ where
 
     fn hdma_load_next_entry(&mut self, ch: usize) {
         // Load flags (line count + repeat) from table (A1B + A2A)
-        let replc = self.read_no_ws(self.dma[ch].hdma_current_a_addr_direct());
-
-        self.dma[ch].hdma_repeat = replc & (1 << 7) != 0;
-        self.dma[ch].hdma_lines = replc & !(1 << 7);
+        self.dma[ch].ntrl = self.read_no_ws(self.dma[ch].hdma_current_a_addr_direct());
 
         // Bump address to next table entry
         self.dma[ch].a2a = self.dma[ch].a2a.wrapping_add(1);
