@@ -209,10 +209,8 @@ impl DMAChannel {
 
     pub fn hdma_set_current_a_addr(&mut self, addr: Address) {
         if self.hdma_is_indirect() {
-            self.dasb = (addr >> 16) as u8;
             self.das = addr as u16;
         } else {
-            self.a1b = (addr >> 16) as u8;
             self.a2a = addr as u16;
         }
     }
@@ -467,14 +465,14 @@ where
         // Load flags (line count + repeat) from table (A1B + A2A)
         self.dma[ch].ntrl = self.read_no_ws(self.dma[ch].hdma_current_a_addr_direct());
 
-        // Bump address to next table entry
+        // Bump address past the NTRL value
         self.dma[ch].a2a = self.dma[ch].a2a.wrapping_add(1);
 
         if self.dma[ch].hdma_is_indirect() {
             // Read from table (A1B + A2A)
             let indirect_addr = self.read16_no_ws(self.dma[ch].hdma_current_a_addr_direct());
 
-            // Next table entry
+            // Bump direct address to next table entry
             self.dma[ch].a2a = self.dma[ch].a2a.wrapping_add(2);
             self.dma[ch].das = indirect_addr;
 
