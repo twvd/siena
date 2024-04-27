@@ -1,6 +1,5 @@
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
-use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use num_derive::ToPrimitive;
@@ -10,7 +9,7 @@ use strum::{EnumCount, EnumIter, IntoEnumIterator};
 pub const JOYPAD_COUNT: usize = 4;
 
 pub type Joypads = [Joypad; JOYPAD_COUNT];
-pub type JoypadEventSender = mpsc::Sender<JoypadEvent>;
+pub type JoypadEventSender = crossbeam_channel::Sender<JoypadEvent>;
 
 #[derive(Debug, ToPrimitive, EnumCount, EnumIter, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
 pub enum Button {
@@ -44,7 +43,7 @@ pub enum JoypadEvent {
 pub struct Joypad {
     pub state: Cell<u16>,
     pub scan_pos: Cell<u8>,
-    event_recv: mpsc::Receiver<JoypadEvent>,
+    event_recv: crossbeam_channel::Receiver<JoypadEvent>,
     sticky_time: RefCell<BTreeMap<Button, Instant>>,
     pub sticky_enabled: bool,
     pub sticky_state: Cell<u16>,
@@ -55,7 +54,7 @@ impl Joypad {
     /// Time an input remains asserted after a key press in sticky mode
     const STICKY_KEYDOWN_TIME: u128 = 200;
 
-    pub fn new(event_recv: mpsc::Receiver<JoypadEvent>) -> Self {
+    pub fn new(event_recv: crossbeam_channel::Receiver<JoypadEvent>) -> Self {
         Self {
             state: Cell::new(0),
             scan_pos: Cell::new(0),
@@ -76,7 +75,7 @@ impl Joypad {
     }
 
     pub fn new_channel() -> (Joypad, JoypadEventSender) {
-        let (tx, rx) = mpsc::channel();
+        let (tx, rx) = crossbeam_channel::unbounded();
         (Self::new(rx), tx)
     }
 
@@ -107,6 +106,11 @@ impl Joypad {
                     .set(self.sticky_state.get() & !(1 << b.to_u16().unwrap()));
             }
         }
+
+        if self.event_recv.is_empty() {
+            return;
+        }
+
         while let Ok(e) = self.event_recv.try_recv() {
             match &e {
                 JoypadEvent::Up(button) => self
