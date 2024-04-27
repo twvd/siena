@@ -91,6 +91,10 @@ pub struct PPU<TRenderer: Renderer> {
     pub(super) vram_prefetch: Cell<u16>,
 
     pub(super) interlace_frame: bool,
+
+    vi_count: u64,
+    #[serde(skip, default = "Instant::now")]
+    vi_time: Instant,
 }
 
 impl<TRenderer> PPU<TRenderer>
@@ -133,6 +137,9 @@ where
 
             last_frame: Instant::now(),
             desired_frametime,
+
+            vi_count: 0,
+            vi_time: Instant::now(),
         }
     }
 
@@ -296,6 +303,16 @@ where
                         sleep(Duration::from_micros(self.desired_frametime - frametime));
                     }
                     self.last_frame = Instant::now();
+
+                    self.vi_count += 1;
+                    if self.vi_time.elapsed().as_secs() >= 2 {
+                        println!(
+                            "PPU: {:0.2} VBlank/sec",
+                            self.vi_count as f32 / self.vi_time.elapsed().as_secs_f32()
+                        );
+                        self.vi_count = 0;
+                        self.vi_time = Instant::now();
+                    }
                 }
 
                 // Scanline 0 is discarded by the original hardware, so
