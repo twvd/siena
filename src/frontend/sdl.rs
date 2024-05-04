@@ -89,8 +89,8 @@ impl Renderer for SDLRenderer {
             let window = video_subsystem
                 .window(
                     "Siena SNES emulator",
-                    (width * 3).try_into()?,
-                    (height * 3).try_into()?,
+                    (width * 2).try_into()?,
+                    (height * 2).try_into()?,
                 )
                 .position_centered()
                 .build()?;

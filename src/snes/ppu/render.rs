@@ -169,10 +169,11 @@ impl PPUState {
 
         let bghofs = self.bgxhofs[bg] as usize;
         let bgvofs = self.bgxvofs[bg] as usize;
-        let tilesize = self.get_bg_tile_size(bg);
+        let (tilewidth, tileheight) = self.get_bg_tile_size(bg);
+        let scale = self.get_screen_mode_scale_bg();
 
         let mut x = 0;
-        'line: while x < SCREEN_WIDTH {
+        'line: while x < (SCREEN_WIDTH / scale) {
             // Get adjusted offsets for offset-per-tile (if applicable)
             let (thofs, tvofs) = self.adjust_offsets_opt(bg, x, bghofs, bgvofs);
 
@@ -190,8 +191,8 @@ impl PPUState {
 
             // Determine coordinates within the tile. This is
             // a full tile (so either 8x8 or 16x16).
-            let px_x = (x + thofs) % tilesize;
-            let px_y = (scanline + tvofs) % tilesize;
+            let px_x = (x + thofs) % tilewidth;
+            let px_y = (scanline + tvofs) % tileheight;
             // get_bg_tile will select the sub-tile (for 16x16).
             let tile = self.get_bg_tile(bg, &entry, px_x, px_y);
 
@@ -246,6 +247,8 @@ impl PPUState {
         // This is also why scanline 0 is never rendered.
         let scanline = scanline - 1;
 
+        let scale = self.get_screen_mode_scale_sprites();
+
         for idx in 0..OAM_ENTRIES {
             let prio_idx = if self.oam_priority {
                 // Priority rotation enabled
@@ -261,7 +264,7 @@ impl PPUState {
 
             if (e.y..(e.y + e.height)).contains(&scanline) {
                 for x in e.x..(e.x + e.width as i32) {
-                    if x >= state.idx.len() as i32 || x < 0 {
+                    if (x * scale as i32) >= state.idx.len() as i32 || x < 0 {
                         // Outside of visible area.
                         continue;
                     }
@@ -284,7 +287,7 @@ impl PPUState {
                         ((scanline - e.y) / TILE_HEIGHT) as usize,
                     );
                     // Should be positive from here on
-                    let x = x as usize;
+                    let x = (x as usize) * scale;
 
                     let sprite = self.get_sprite_tile(&e, t_x, t_y);
 
@@ -292,10 +295,13 @@ impl PPUState {
                     if coloridx == 0 || state.idx[x] != 0 {
                         continue;
                     }
-                    state.idx[x] = coloridx;
-                    state.palette[x] = sprite.oam.palette();
-                    state.paletted[x] = self.sprite_cindex_to_color(&sprite, coloridx);
-                    state.layer[x] = LAYER_SPRITES;
+
+                    for ix in x..(x + scale) {
+                        state.idx[ix] = coloridx;
+                        state.palette[ix] = sprite.oam.palette();
+                        state.paletted[ix] = self.sprite_cindex_to_color(&sprite, coloridx);
+                        state.layer[ix] = LAYER_SPRITES;
+                    }
                 }
             }
         }
@@ -507,10 +513,11 @@ impl PPUState {
         );
 
         // Send line to screen buffer
+        let scale = self.get_screen_mode_scale_bg();
         let brightness = (self.inidisp & 0x0F) as usize;
 
         let mut out: ArrayVec<Color, SCREEN_WIDTH> = ArrayVec::new();
-        for x in 0..SCREEN_WIDTH {
+        for x in 0..(SCREEN_WIDTH / scale) {
             if brightness == 0 || self.inidisp & 0x80 != 0 {
                 // Force blank or no brightness
                 out.push(SnesColor::BLACK.to_native());
@@ -531,7 +538,9 @@ impl PPUState {
             };
 
             // Apply master brightness and output
-            out.push(pixel.apply_brightness(brightness).to_native());
+            for _ in 0..scale {
+                out.push(pixel.apply_brightness(brightness).to_native());
+            }
         }
 
         out

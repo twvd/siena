@@ -38,27 +38,27 @@ macro_rules! ppu_test_ns {
 ppu_test!(
     BGMAP_8x8BG1Map2BPP32x328PAL,
     "BGMAP/8x8/2BPP/8x8BG1Map2BPP32x328PAL/8x8BG1Map2BPP32x328PAL.sfc",
-    "7168d73281a2ac2fa148be6299a27b6658bea7336dbbd9e1d64a4777354d0298"
+    "41d8648bd8f446360a380356bbb2d89ec0fe49271c507c894edd3c0536adcff2"
 );
 ppu_test!(
     BGMAP_8x8BG2Map2BPP32x328PAL,
     "BGMAP/8x8/2BPP/8x8BG2Map2BPP32x328PAL/8x8BG2Map2BPP32x328PAL.sfc",
-    "ed04e4f004d43093b4e05909219f15f473256b837f8b8e8eb55f2e4d517af203"
+    "31178df307556b79d0f8f3d3aa1aa7303d4d7e773e620ff26fc232509358befd"
 );
 ppu_test!(
     BGMAP_8x8BG3Map2BPP32x328PAL,
     "BGMAP/8x8/2BPP/8x8BG3Map2BPP32x328PAL/8x8BG3Map2BPP32x328PAL.sfc",
-    "ed04e4f004d43093b4e05909219f15f473256b837f8b8e8eb55f2e4d517af203"
+    "31178df307556b79d0f8f3d3aa1aa7303d4d7e773e620ff26fc232509358befd"
 );
 ppu_test!(
     BGMAP_8x8BG4Map2BPP32x328PAL,
     "BGMAP/8x8/2BPP/8x8BG4Map2BPP32x328PAL/8x8BG4Map2BPP32x328PAL.sfc",
-    "ed04e4f004d43093b4e05909219f15f473256b837f8b8e8eb55f2e4d517af203"
+    "31178df307556b79d0f8f3d3aa1aa7303d4d7e773e620ff26fc232509358befd"
 );
 ppu_test!(
     BGMAP_8x8BG4Map4BPP32x328PAL,
     "BGMAP/8x8/4BPP/8x8BGMap4BPP32x328PAL/8x8BGMap4BPP32x328PAL.sfc",
-    "376c8e27eb22a1885e434eefd5ca24144ee48b93d2938eaba2e959667aae8bb7"
+    "e15d3050d9d9b0d81a64755b76360b2b5e241ba861e69b807b8f8e7178e5e73b"
 );
 //ppu_test_ns!(
 //    // This test moves automatically
@@ -70,47 +70,47 @@ ppu_test!(
 ppu_test!(
     Rings,
     "Rings/Rings.sfc",
-    "24ad228f589fccfa8882fcd9a594366a0a517972a7114f2d964b34025f0b355a"
+    "78e55f33bd71d44aa0c3d2a65435298fe8317e346b1c0ad2e1d35793c8458f67"
 );
 
 // Color math tests
 ppu_test!(
     HiColor1241DLair,
     "Blend/HiColor/HiColor1241DLair/HiColor1241DLair.sfc",
-    "7342e56437c435e7236fe69c283b4e8e4ce17b2c6d5a0f6e85ac915dce16be02"
+    "fe4f5d8fce894905e66fa0b26fd21c009b80a63b190b5ad448937e1404b622ba"
 );
 ppu_test!(
     HiColor3840,
     "Blend/HiColor/HiColor3840/HiColor3840.sfc",
-    "0759ec270966298ed871806502c6ffda3131213a87e67edbe4396ff2e49bc03d"
+    "8e4b2b3bab0167b25126d1bff6391d0138cb8c00c5f0a443c720107624dd31f9"
 );
 ppu_test!(
     HiColor575Myst,
     "Blend/HiColor/HiColor575Myst/HiColor575Myst.sfc",
-    "8f9117eaf0bc0e3efd2f2ba81f3cef7f02646f9586eaedd8dea3d01c3742ad8b"
+    "887de33880a6d7719544097009238e7ebc09d1e80cbe93e1023e927fb6eeedba"
 );
 
 // Window/HDMA tests
 ppu_test!(
     WindowHDMA,
     "Window/WindowHDMA/WindowHDMA.sfc",
-    "7484ab6f1e88835267bcdbadc9e7ee0568f730d4849e6208ee3683e35ad3e175"
+    "643e601d8c5ebbd0314566fe355ec377990c6604b5fddf56644c4bbda3eff54d"
 );
 ppu_test!(
     WindowMultiHDMA,
     "Window/WindowMultiHDMA/WindowMultiHDMA.sfc",
-    "688de105142b1b28b1c0bb0473e518f1beada64623c9352e58f71341da1dbf19"
+    "da4ad21e28680c799409a35eebbbbf09a85284a08d15415977a2c29bb5aa867c"
 );
 
 // Mode 7 tests
 ppu_test!(
     Mode7RotZoom,
     "Mode7/RotZoom/RotZoom.sfc",
-    "4235ddbbc79e0a5f3f2ebe075eb23e328a63a8ba0de6949d320747668790ab91"
+    "9cc7010be5454eb794178fc676145b81912349a115b18d6e46b63cee63f2d7f6"
 );
 ppu_test!(
     // Tests screenover (transoarent)
     Mode7Perspective,
     "Mode7/Perspective/Perspective.sfc",
-    "48993ffece6707ea3c64ad4a9c3096ec81215fd5dda1f9a5aaff18ee31e6c616"
+    "0b607da41c14acb1145e5656f1c40af542a2198b4433da414d1b97e1224fc711"
 );

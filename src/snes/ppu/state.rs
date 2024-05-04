@@ -271,8 +271,29 @@ impl PPUState {
         TilemapEntry(self.vram[self.get_tilemap_offset(bg, tileidx)])
     }
 
+    /// Returns the active PPU mode.
     pub(super) fn get_screen_mode(&self) -> u8 {
         self.bgmode & 0x07
+    }
+
+    /// Returns the horizontal scaling factor of the active PPU mode,
+    /// for backgrounds, based on the full resolution (512).
+    /// Does not look at pseudo high res.
+    pub(super) fn get_screen_mode_scale_bg(&self) -> usize {
+        match self.get_screen_mode() {
+            5 | 6 => 1,
+            _ => 2,
+        }
+    }
+
+    /// Returns the horizontal scaling factor of the active PPU mode,
+    /// for sprites, based on the full resolution (512).
+    /// Does not look at pseudo high res.
+    pub(super) fn get_screen_mode_scale_sprites(&self) -> usize {
+        match self.get_screen_mode() {
+            5 | 6 => 2,
+            _ => 1,
+        }
     }
 
     pub(super) fn get_tilemap_dimensions(&self, bg: usize) -> TilemapDimensions {
@@ -289,7 +310,7 @@ impl PPUState {
     ) -> TilemapEntry {
         debug_assert!(self.get_screen_mode() != 7);
 
-        let tilesize = self.get_bg_tile_size(bg);
+        let (tilewidth, tileheight) = self.get_bg_tile_size(bg);
 
         // AA BB CC DD, size = 0x800 per sub-map
         // 00  32x32   AA
@@ -306,8 +327,8 @@ impl PPUState {
             TilemapDimensions::D64x32 => (true, false),
             TilemapDimensions::D64x64 => (true, true),
         };
-        let tm_x = (bghofs + x) / tilesize;
-        let tm_y = (bgvofs + y) / tilesize;
+        let tm_x = (bghofs + x) / tilewidth;
+        let tm_y = (bgvofs + y) / tileheight;
 
         // 32 tiles per row in the sub-map, 0-31
         let mut idx = ((tm_y & 0x1F) << 5) + (tm_x & 0x1F);
@@ -406,10 +427,11 @@ impl PPUState {
         // T+00 T+01
         // T+16 T+17
         let mut tilenr = entry.charnr() as usize;
-        if self.get_bg_tile_size(bg) == 16 && (px_x >= TILE_WIDTH) == !entry.flip_x() {
+        let (tilewidth, tileheight) = self.get_bg_tile_size(bg);
+        if tilewidth == 16 && (px_x >= TILE_WIDTH) == !entry.flip_x() {
             tilenr += 1;
         }
-        if self.get_bg_tile_size(bg) == 16 && (px_y >= TILE_HEIGHT) == !entry.flip_y() {
+        if tileheight == 16 && (px_y >= TILE_HEIGHT) == !entry.flip_y() {
             tilenr += 16;
         }
 
@@ -421,11 +443,15 @@ impl PPUState {
         }
     }
 
-    pub(super) fn get_bg_tile_size(&self, bg: usize) -> usize {
-        if self.bgmode & (1 << (4 + bg)) != 0 {
-            16
-        } else {
-            8
+    /// Returns the size in pixels (width, height) of a bg tile
+    pub(super) fn get_bg_tile_size(&self, bg: usize) -> (usize, usize) {
+        match self.get_screen_mode() {
+            0..=5 if self.bgmode & (1 << (4 + bg)) != 0 => (16, 16),
+            0..=4 => (8, 8),
+            5 => (16, 8),
+            6 => (16, 16),
+            7 => (8, 8),
+            _ => unreachable!(),
         }
     }
 }

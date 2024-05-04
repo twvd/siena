@@ -36,25 +36,25 @@ macro_rules! hirom_test {
 hirom_test!(
     BANKHiROMFastROM,
     "HiROMFastROM/BANKHiROMFastROM.sfc",
-    "2ab4871e60935c6fcaf06a40849912f7b8ad23f8e850bb0f03d2576e96664536"
+    "d777408bf78b94b7cde5331f9b2669de066b4df1f744751c1aff4205f290f35a"
 );
 hirom_test!(
     BANKHiROMSlowROM,
     "HiROMSlowROM/BANKHiROMSlowROM.sfc",
-    "36ab039767172d7a452d6337f7703627e912e8ffc833b10e3eb3467b1cc38e60"
+    "af47aefcfd6f0a0842d7ef117d4539d8d3c1ae1e97ea713df8167fce8b81458c"
 );
 lorom_test!(
     BANKLoROMFastROM,
     "LoROMFastROM/BANKLoROMFastROM.sfc",
-    "1f2385252686bc02246eed8d670ee46d1bd01e25ad3c0a217dcb84a180e2f045"
+    "ba0b954785794fd831d84de131fb022b252aceab6fe1d2dbf154fcbab9ac0f41"
 );
 lorom_test!(
     BANKLoROMSlowROM,
     "LoROMSlowROM/BANKLoROMSlowROM.sfc",
-    "89b0ae2ce790bceaa0ea97f780b78e69546e812c0539a39b810d6e87f7d2f379"
+    "09e7951a9d0ccee76f6e7c388a452d7e107a46703ae61e1272af661e1540973c"
 );
 lorom_test!(
     BANKWRAM,
     "WRAM/BANKWRAM.sfc",
-    "c54861d958c14c00b9eadfe2727b0ce9c4b6e25411cf1b833efe337714b61a6c"
+    "fa69f0d486b66e4825fcc1a9c94a70ef4a748c748ae9c75e888302543209470e"
 );

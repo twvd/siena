@@ -43,261 +43,261 @@ macro_rules! test {
 
 test_instr!(
     ADC,
-    "37f2762099429d75055f307c9b1d5e82e204b0e431279c8036a9d108b5fb07eb"
+    "57357b1d4eef094e5e7c5a577e5af357f98e4ce7548afa6208b87e4d71d6d981"
 );
 test_instr!(
     ADD,
-    "de9f72e11f37844212389e9a90a5275ad54ac437b1d0c73b684f26a180228b2a"
+    "9464afd9a6e5b5b7e82820e3ec9a19d6b332f778ae91fbfe6d130bb94b29ab80"
 );
 test_instr!(
     AND,
-    "cd8cfe5d386d79c67599942f6f35403a8cca101b5337ac4e83e3ceacb6798bc8"
+    "bfaa13ea4f1fa94aa865217c7081ba68b7509c5d68a88164a5a8ae78eb753e00"
 );
 test_instr!(
     ASR,
-    "b03a1771af6fce6739dd63c944253bd575fe83676b98e724fa96e822c0ef3c23"
+    "9b95c4d0b4748b9bad1d25291eb8c134cde5b7f68b2d53a68b1a84f015a04093"
 );
 test_instr!(
     BIC,
-    "06aa897653bc52e02cf37f65b0bc71951a440b465aeed2d839e28dacaea1261e"
+    "8b63a6305c0720e36a3c243ab0343b59b1d64001a1174dbd574b412ae6791a2b"
 );
 test_instr!(
     CACHEINJECT,
-    "41a020ec5fd22d07947240ef200e47045c2cf4e4745fdec331dd88dfc190223c"
+    "223972bb8f80aa9c7cb1a8ed0888bc6a5b547aa6000eba3e5d98124b9e20be77"
 );
 test_instr!(
     CMP,
-    "f358269ca59fd8fde0b92b5bf2e112c6fab6423f7df96b3ee9a4029a1e485596"
+    "b956679b98b69b2a352cbd8c4aee148209cf862bfcd9b19aa18fa55762b92290"
 );
 test_instr!(
     DEC,
-    "299a3ae2e890d3df6b9b08d5801a34b570f9f175756bdd2095d3598616a3888d"
+    "97de2ae05bc5c9fd33050e5b404d582a4776f0c158fcddd0d5de9a2787e2259e"
 );
 test_instr!(
     DIV2,
-    "914bb1eeffb13f4e960c862330570da7d8e3900a85721931877e833c4f6ca2b4"
+    "e2c85bf15bda0ba0a09b9a41c8d8051c20523744482651332a369c1cb6d88bca"
 );
 test_instr!(
     FMULT,
-    "0727c7275a04d23b5eda5cc5a08cb781cec92ce48af709029811bca6af50cd30"
+    "aa11adbb7311853a47641e3496e794ce408b6b46c40c01cba0e604b3ce4fa096"
 );
 test_instr!(
     HIB,
-    "007cc9321ac216460fa3827b590cd9e320206da8e87049ad82c17ff62c049c0a"
+    "4ad2a4b0594f86095a23225fa053e6c82f9049e768d694cdd92b776ba832eb23"
 );
 test_instr!(
     IBT,
-    "ef5747209c3a2aff11d3f6bb8ab2c8651a5b32b68ea7271f2a290f13f4b4a340"
+    "6b91f2ae7fe5baa507cac7301a574bcaeb3c620b54b6cbbc984f856c9fe2847b"
 );
 test_instr!(
     INC,
-    "587b3f81700a4f33b22c493a438c73d004580a7d990a29db05ff7eb8a74b8dbc"
+    "9135c00c86992b5d7c7f1ba44af065b9eac038b593f566aeac5629d61ee2283b"
 );
 test_instr!(
     IWT,
-    "8f9723fd9dc60671f2fe8533c2bbe440f00159d629022dbafb2480934e2d1603"
+    "89186701e498c5da2a3a1aa870d579488efd8acf2da279b91ca9804ee58f13ee"
 );
 test_instr!(
     LMULT,
-    "d516286af434eed3c51bc0cd6189a0bbd72f92ff0433c81a5630e6293626fe31"
+    "6f05945702e61311bd2182f71ac77e950bf4698a9033fc77cb442f5acdd7afa6"
 );
 test_instr!(
     LOB,
-    "77d1a740819d2175f7bce8a0b4307da68a7c63920d961f58f79ef58059e118cf"
+    "b6d4db11dc08e752ccd83fcde4ec1ed1ace45bdae25e3554a02907da5eb33a39"
 );
 test_instr!(
     LSR,
-    "bf88436e72e07c1b1af87a8b07db76475090967d92a00965e3e954436ce36dc8"
+    "5e727d5ab2c2f315302983ecd8b273df32352a8f6089c21190bec6fd5e077df9"
 );
 test_instr!(
     MERGE,
-    "e9fe1f2f7a24612b0d43ea5241b64b3c2453d0f824b3152c7d4cb85d1525e25c"
+    "750a9a687534ca1b1da80d761a9e49231fdce05c41136f836c96f83597164aff"
 );
 test_instr!(
     MOVE,
-    "11e1dec10dc452784a6595f36ee536e696f0236fcbfb130398db4f26194db669"
+    "75ca16694291e5a6f0ec8411b99e6a400f891d528f50255085811fcdca6f117c"
 );
 test_instr!(
     MOVES,
-    "5cbf50d260ca51353385caf88e19d80118670fc848b2391c3659e7121854f834"
+    "006835e6e83201ae6226ecc94d3f21527b4add86f31d69c34201e6713783566a"
 );
 test_instr!(
     MULT,
-    "91501add6875282f548b05a631f11f55dcfd297153cbee1058c5a45f264df0b9"
+    "8b109131643148461871c83f87fb5f523195e77732a4029fe9f90e657a5acfc3"
 );
 test_instr!(
     NOT,
-    "0df76d9fc716575400c4c6baaf53f284f59cf8b6ba066c013c150167e1c1652e"
+    "760b0db4e974bbcb6831c860543cde95fa036e9f94c00d45c2438ffa7b79db74"
 );
 test_instr!(
     OR,
-    "3247f4d2ff8df0f040a1c87295cda3655d5900a96bea94723a0fdf1029369cf1"
+    "88b0aa43c98688bb16ff331ac9d565b6bb4dcf911ede5b88cd10c439858f403c"
 );
 test_instr!(
     ROL,
-    "a1aef52d36c0c402e9b070164b5a9950df77110c755e08a03262b825fb60b7b0"
+    "73f6c69f1d085ca757b9c1f28b38b0001260293a91577ff9181b653aaa81c0a8"
 );
 test_instr!(
     ROR,
-    "4f4e399186f472bab253216754c03f9da93f7b54376951167ce30cd9311ff6f7"
+    "b7aa09e3486e8a86c8ec0734f81133e975e0dcc56baf0df0a3fe0efec0e49aac"
 );
 test_instr!(
     SBC,
-    "5ca8e8b3fd757c6624c12ab24933fa1877fdfdf5f1e93e456af06cf1eaf2cada"
+    "e279f33482cdab3170a262b8adde4039097bb0faa39ac5c6b18eca021e178d9f"
 );
 test_instr!(
     SEX,
-    "0111d224c50333ca7a15649593a1978b27ab6a157d7b9d2296e35cf917dfa9b9"
+    "51c05a209bd65a691ad82ec34182ab3e19eb1e495c7661b560ab89933f9f3a7d"
 );
 test_instr!(
     SUB,
-    "1e79664b574ef3a418f8896763e3a7a78d6cf9d82e883f662574e389c9ea5bd2"
+    "1b1e74709ea984e55969a449b07021a3f17d8fa51e4df0d29c726022c24be37c"
 );
 test_instr!(
     SWAP,
-    "c3e00447f24cadf80768bc563c24c1e7bbd1e56fed95b6e9ce5129a4da2dd0d9"
+    "134b19db5c6ecc653277fc3015fa1f9c33f33203542ab6d29d386c2fbf049d10"
 );
 test_instr!(
     UMULT,
-    "673674cfd30ca0303eaf551edf2ac3410412e5a1c6e5a1254acb8ca1801296f9"
+    "e5f4802df3d82fd441654aacacb983cafa9db799dd108705d85df632c61892af"
 );
 test_instr!(
     XOR,
-    "cd0d145aa76c202c872d59e03866aee5ab82c183283a991c4b308ed521325918"
+    "91add3c8db1a2ee96b046b6ab075cf8f031fc5907082b078d8fd7d8127c1f0fa"
 );
 
 test!(
     GSU2BPP256x128FillPoly,
     "2BPP/FillPoly/256x128/GSU2BPP256x128FillPoly.sfc",
-    "316379e7206c2123b309fd680fe9b5c78cc6cdbcbb51970bb686f720aa52d59b"
+    "58438705947af2c993df4948b195336da924be41cf491f7417b7f1305ec0eae0"
 );
 test!(
     GSU2BPP256x160FillPoly,
     "2BPP/FillPoly/256x160/GSU2BPP256x160FillPoly.sfc",
-    "569b52d85ad936c0eece352371ab8261e2805696193edd269ed6bd3dcea89968"
+    "780cc8b72fe5ec66cd223191143d8ad2b098e9e7728c63f19615788982469832"
 );
 test!(
     GSU2BPP256x192FillPoly,
     "2BPP/FillPoly/256x192/GSU2BPP256x192FillPoly.sfc",
-    "aef15107dd671afe9425aa7cf0fc7aa60149d4afeb75d2c383e80fc2fc9e258f"
+    "aff488c325ee30437df54b35d10a0deb05d07da840f7c791c1bb837a026c3f4f"
 );
 test!(
     GSU2BPP256x128PlotLine,
     "2BPP/PlotLine/256x128/GSU2BPP256x128PlotLine.sfc",
-    "ff0ac8f638021d73c9f306a8d2107f9fa4977f1d514a593d9ae192692660c758"
+    "0ef2b646771caea308a07e12305bad503d9df6ba055f0a8bce1002c77ce513aa"
 );
 test!(
     GSU2BPP256x160PlotLine,
     "2BPP/PlotLine/256x160/GSU2BPP256x160PlotLine.sfc",
-    "af7a05949c8b377d6220d4d050bc2eec8999b79b7138eccdb59961167a6cf1b6"
+    "a071cae220ced16963fe8b11a07fdc85b7c2dfce47068b7c8d2edf8c34bc7bf3"
 );
 test!(
     GSU2BPP256x192PlotLine,
     "2BPP/PlotLine/256x192/GSU2BPP256x192PlotLine.sfc",
-    "1e6e5a4cb414770083905f0c5d7f06cfe45fbabdac8eea91b7c8ab4ccce0f519"
+    "b0e13fa29e55f8925da490c0c4d43af28302e31667c539257f07d63899b6c35b"
 );
 test!(
     GSU2BPP256x128PlotPixel,
     "2BPP/PlotPixel/256x128/GSU2BPP256x128PlotPixel.sfc",
-    "99c4a4357aa6062cb6eec3339e8b67931467b4006977442116157596764acd0e"
+    "b772874b1c7486b0b1f5a37a4d0bf831a4cce3bfde21771cc9ee95aa3a60e2d6"
 );
 test!(
     GSU2BPP256x160PlotPixel,
     "2BPP/PlotPixel/256x160/GSU2BPP256x160PlotPixel.sfc",
-    "ca21634435f0585f51e84d7fb1bd37c674d264c00be46175eb9f648487ff3e44"
+    "2690a92601c03760544da8d3231c9ebf7a04540bf8bcbfb3c58f1681698d1a1a"
 );
 test!(
     GSU2BPP256x192PlotPixel,
     "2BPP/PlotPixel/256x192/GSU2BPP256x192PlotPixel.sfc",
-    "9f1168626ef71fe00e5371b7b21271a6ee2cb903ff437a8483b79afa9695fec2"
+    "3c81ad682940a530e87ac29e06ef505f9012f2e1fca6a46e67afb42a81ec21c3"
 );
 test!(
     GSU4BPP256x128FillPoly,
     "4BPP/FillPoly/256x128/GSU4BPP256x128FillPoly.sfc",
-    "316379e7206c2123b309fd680fe9b5c78cc6cdbcbb51970bb686f720aa52d59b"
+    "58438705947af2c993df4948b195336da924be41cf491f7417b7f1305ec0eae0"
 );
 test!(
     GSU4BPP256x160FillPoly,
     "4BPP/FillPoly/256x160/GSU4BPP256x160FillPoly.sfc",
-    "569b52d85ad936c0eece352371ab8261e2805696193edd269ed6bd3dcea89968"
+    "780cc8b72fe5ec66cd223191143d8ad2b098e9e7728c63f19615788982469832"
 );
 test!(
     GSU4BPP256x192FillPoly,
     "4BPP/FillPoly/256x192/GSU4BPP256x192FillPoly.sfc",
-    "aef15107dd671afe9425aa7cf0fc7aa60149d4afeb75d2c383e80fc2fc9e258f"
+    "aff488c325ee30437df54b35d10a0deb05d07da840f7c791c1bb837a026c3f4f"
 );
 test!(
     GSU4BPP256x128PlotLine,
     "4BPP/PlotLine/256x128/GSU4BPP256x128PlotLine.sfc",
-    "ff0ac8f638021d73c9f306a8d2107f9fa4977f1d514a593d9ae192692660c758"
+    "0ef2b646771caea308a07e12305bad503d9df6ba055f0a8bce1002c77ce513aa"
 );
 test!(
     GSU4BPP256x160PlotLine,
     "4BPP/PlotLine/256x160/GSU4BPP256x160PlotLine.sfc",
-    "af7a05949c8b377d6220d4d050bc2eec8999b79b7138eccdb59961167a6cf1b6"
+    "a071cae220ced16963fe8b11a07fdc85b7c2dfce47068b7c8d2edf8c34bc7bf3"
 );
 test!(
     GSU4BPP256x192PlotLine,
     "4BPP/PlotLine/256x192/GSU4BPP256x192PlotLine.sfc",
-    "1e6e5a4cb414770083905f0c5d7f06cfe45fbabdac8eea91b7c8ab4ccce0f519"
+    "b0e13fa29e55f8925da490c0c4d43af28302e31667c539257f07d63899b6c35b"
 );
 test!(
     GSU4BPP256x128PlotPixel,
     "4BPP/PlotPixel/256x128/GSU4BPP256x128PlotPixel.sfc",
-    "99c4a4357aa6062cb6eec3339e8b67931467b4006977442116157596764acd0e"
+    "b772874b1c7486b0b1f5a37a4d0bf831a4cce3bfde21771cc9ee95aa3a60e2d6"
 );
 test!(
     GSU4BPP256x160PlotPixel,
     "4BPP/PlotPixel/256x160/GSU4BPP256x160PlotPixel.sfc",
-    "ca21634435f0585f51e84d7fb1bd37c674d264c00be46175eb9f648487ff3e44"
+    "2690a92601c03760544da8d3231c9ebf7a04540bf8bcbfb3c58f1681698d1a1a"
 );
 test!(
     GSU4BPP256x192PlotPixel,
     "4BPP/PlotPixel/256x192/GSU4BPP256x192PlotPixel.sfc",
-    "9f1168626ef71fe00e5371b7b21271a6ee2cb903ff437a8483b79afa9695fec2"
+    "3c81ad682940a530e87ac29e06ef505f9012f2e1fca6a46e67afb42a81ec21c3"
 );
 test!(
     GSU8BPP256x128FillPoly,
     "8BPP/FillPoly/256x128/GSU8BPP256x128FillPoly.sfc",
-    "316379e7206c2123b309fd680fe9b5c78cc6cdbcbb51970bb686f720aa52d59b"
+    "58438705947af2c993df4948b195336da924be41cf491f7417b7f1305ec0eae0"
 );
 test!(
     GSU8BPP256x160FillPoly,
     "8BPP/FillPoly/256x160/GSU8BPP256x160FillPoly.sfc",
-    "569b52d85ad936c0eece352371ab8261e2805696193edd269ed6bd3dcea89968"
+    "780cc8b72fe5ec66cd223191143d8ad2b098e9e7728c63f19615788982469832"
 );
 test!(
     GSU8BPP256x192FillPoly,
     "8BPP/FillPoly/256x192/GSU8BPP256x192FillPoly.sfc",
-    "aef15107dd671afe9425aa7cf0fc7aa60149d4afeb75d2c383e80fc2fc9e258f"
+    "aff488c325ee30437df54b35d10a0deb05d07da840f7c791c1bb837a026c3f4f"
 );
 test!(
     GSU8BPP256x128PlotLine,
     "8BPP/PlotLine/256x128/GSU8BPP256x128PlotLine.sfc",
-    "ff0ac8f638021d73c9f306a8d2107f9fa4977f1d514a593d9ae192692660c758"
+    "0ef2b646771caea308a07e12305bad503d9df6ba055f0a8bce1002c77ce513aa"
 );
 test!(
     GSU8BPP256x160PlotLine,
     "8BPP/PlotLine/256x160/GSU8BPP256x160PlotLine.sfc",
-    "af7a05949c8b377d6220d4d050bc2eec8999b79b7138eccdb59961167a6cf1b6"
+    "a071cae220ced16963fe8b11a07fdc85b7c2dfce47068b7c8d2edf8c34bc7bf3"
 );
 test!(
     GSU8BPP256x192PlotLine,
     "8BPP/PlotLine/256x192/GSU8BPP256x192PlotLine.sfc",
-    "1e6e5a4cb414770083905f0c5d7f06cfe45fbabdac8eea91b7c8ab4ccce0f519"
+    "b0e13fa29e55f8925da490c0c4d43af28302e31667c539257f07d63899b6c35b"
 );
 test!(
     GSU8BPP256x128PlotPixel,
     "8BPP/PlotPixel/256x128/GSU8BPP256x128PlotPixel.sfc",
-    "99c4a4357aa6062cb6eec3339e8b67931467b4006977442116157596764acd0e"
+    "b772874b1c7486b0b1f5a37a4d0bf831a4cce3bfde21771cc9ee95aa3a60e2d6"
 );
 test!(
     GSU8BPP256x160PlotPixel,
     "8BPP/PlotPixel/256x160/GSU8BPP256x160PlotPixel.sfc",
-    "ca21634435f0585f51e84d7fb1bd37c674d264c00be46175eb9f648487ff3e44"
+    "2690a92601c03760544da8d3231c9ebf7a04540bf8bcbfb3c58f1681698d1a1a"
 );
 test!(
     GSU8BPP256x192PlotPixel,
     "8BPP/PlotPixel/256x192/GSU8BPP256x192PlotPixel.sfc",
-    "9f1168626ef71fe00e5371b7b21271a6ee2cb903ff437a8483b79afa9695fec2"
+    "3c81ad682940a530e87ac29e06ef505f9012f2e1fca6a46e67afb42a81ec21c3"
 );

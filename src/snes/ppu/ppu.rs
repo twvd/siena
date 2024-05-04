@@ -15,8 +15,8 @@ use std::sync::Arc;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-pub const SCREEN_WIDTH: usize = 8 * 32;
-pub const SCREEN_HEIGHT: usize = 8 * 28;
+pub const SCREEN_WIDTH: usize = 512;
+pub const SCREEN_HEIGHT: usize = 448;
 
 // The entire screen should be shifted up by 1 scanline
 const SCANLINE_OUTPUT_OFFSET: isize = -1;
@@ -185,19 +185,24 @@ where
 
     pub fn render_scanline(&mut self, scanline: usize, output_offset: isize) {
         let output_line = usize::try_from((scanline as isize) + output_offset).unwrap();
-        if output_line >= SCREEN_HEIGHT {
-            return;
-        }
+        let upper_line = output_line * 2;
+        let lower_line = upper_line + 1;
+
         let mut t_state = self.state.clone();
         let t_buffer = self.renderer.as_mut().unwrap().get_buffer();
 
         self.pool.execute(move || {
             let line = t_state.render_scanline(scanline);
             for (x, color) in line.into_iter().enumerate() {
-                let idx = ((output_line * SCREEN_WIDTH) + x) * 4;
-                t_buffer[idx].store(color.2.into(), Ordering::Release);
-                t_buffer[idx + 1].store(color.1.into(), Ordering::Release);
-                t_buffer[idx + 2].store(color.0.into(), Ordering::Release);
+                let idx_upper = ((upper_line * SCREEN_WIDTH) + x) * 4;
+                t_buffer[idx_upper].store(color.2.into(), Ordering::Release);
+                t_buffer[idx_upper + 1].store(color.1.into(), Ordering::Release);
+                t_buffer[idx_upper + 2].store(color.0.into(), Ordering::Release);
+
+                let idx_lower = ((lower_line * SCREEN_WIDTH) + x) * 4;
+                t_buffer[idx_lower].store(color.2.into(), Ordering::Release);
+                t_buffer[idx_lower + 1].store(color.1.into(), Ordering::Release);
+                t_buffer[idx_lower + 2].store(color.0.into(), Ordering::Release);
             }
         });
     }
