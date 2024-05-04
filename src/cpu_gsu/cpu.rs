@@ -34,7 +34,6 @@ pub struct CpuGsu {
     pub verbose: bool,
     pub regs: RegisterFile,
     pub cycles: Ticks,
-    pub cache: Vec<u8>,
     pub rom: Vec<u8>,
     pub ram: Vec<u8>,
     pub bram: Vec<u8>,
@@ -43,8 +42,15 @@ pub struct CpuGsu {
     pub dreg: usize,
     last_ramaddr: u16,
 
+    /// Cache
+    pub cache: Vec<u8>,
+
+    /// Cache valid markers (per cache line)
     pub cache_valid: [bool; CACHE_LINES],
+
     rom_buffer: u8,
+
+    // Memory map
     map: GsuMap,
     pub ram_mask: usize,
     pub rom_mask: usize,
@@ -77,56 +83,47 @@ impl CpuGsu {
         c
     }
 
+    /// Invalidates the entire cache
     pub fn cache_flush(&mut self) {
         self.cache_valid = [false; CACHE_LINES];
     }
 
+    /// Returns the current cache base address, including bank
     pub fn get_cache_base(&self) -> GsuAddress {
         (GsuAddress::from(self.regs.read(Register::PBR)) << 16)
             | GsuAddress::from(self.regs.read(Register::CBR))
     }
 
-    pub fn determine_bus(&self, fulladdr: GsuAddress) -> GsuBus {
-        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
-
-        // Check cache
+    /// Returns the cache line the specified address lives in or
+    /// None if it is outside the cache region.
+    fn get_addr_cache_line(&self, addr: GsuAddress) -> Option<usize> {
         let cache_base = self.get_cache_base() as usize;
-        if (cache_base..=(cache_base + CACHE_SIZE)).contains(&(fulladdr as usize)) {
-            let cache_line = ((fulladdr as usize) - cache_base) / CACHE_LINE_SIZE;
-            if self.cache_valid[cache_line] {
-                return GsuBus::Cache;
-            }
+        if (cache_base..(cache_base + CACHE_SIZE)).contains(&(addr as usize)) {
+            return Some(((addr as usize) - cache_base) / CACHE_LINE_SIZE);
         }
+        None
+    }
 
-        match self.map {
-            GsuMap::SuperFX1 => match (bank & !0x80, addr) {
-                (0x00..=0x3F, 0x8000..=0xFFFF) => GsuBus::ROM,
-                (0x40..=0x5F, _) => GsuBus::ROM,
-                (0x70..=0x71, _) => GsuBus::RAM,
-                (0x78, _) => GsuBus::RAM,
-                _ => GsuBus::Cache, // ? open bus
-            },
-            GsuMap::SuperFX2 => match (bank & !0x80, addr) {
-                (0x00..=0x3F, _) => GsuBus::ROM,
-                (0x40..=0x5F, _) => GsuBus::ROM,
-                (0x70..=0x71, _) => GsuBus::RAM,
-                _ => GsuBus::Cache, // ? open bus
-            },
+    /// Reads a byte from the cache or None if address is not cached.
+    fn read_cache(&mut self, addr: GsuAddress) -> Option<u8> {
+        if let Some(cache_line) = self.get_addr_cache_line(addr) {
+            let cache_line_pos = (addr as usize) % CACHE_LINE_SIZE;
+            let cache_line_offset = cache_line * CACHE_LINE_SIZE;
+
+            if !self.cache_valid[cache_line] {
+                // Fill cache line now
+                for i in cache_line_offset..(cache_line_offset + CACHE_LINE_SIZE) {
+                    self.cache[i] = self.read_bus_tick(self.get_cache_base() + (i as GsuAddress));
+                }
+                self.cache_valid[cache_line] = true;
+            }
+            return Some(self.cache[cache_line_offset + cache_line_pos]);
         }
+        None
     }
 
     pub fn read_bus(&self, fulladdr: GsuAddress) -> u8 {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
-
-        // Check cache. Note: get_cache_base() includes PBR
-        //let cache_base = self.get_cache_base() as usize;
-        //if (cache_base..=(cache_base + CACHE_SIZE)).contains(&(fulladdr as usize)) {
-        //    let cache_line = (fulladdr as usize - cache_base) / CACHE_LINE_SIZE;
-        //    let cache_line_pos = (fulladdr as usize - cache_base) % CACHE_LINE_SIZE;
-        //    if self.cache_valid[cache_line] {
-        //        return self.cache[(cache_line * CACHE_LINE_SIZE) + cache_line_pos];
-        //    }
-        //}
 
         let bank = bank & !0x80;
         match self.map {
@@ -185,23 +182,8 @@ impl CpuGsu {
             self.regs.set_r15(self.regs.get_r15().wrapping_add(1));
         }
 
-        return self.read_bus_tick(pc);
-        let cache_base = self.get_cache_base() as usize;
-        if (cache_base..(cache_base + CACHE_SIZE)).contains(&(pc as usize)) {
-            // PC in cache region
-            let cache_line = (pc as usize - cache_base) / CACHE_LINE_SIZE;
-            let cache_line_pos = (pc as usize - cache_base) % CACHE_LINE_SIZE;
-            let cache_pos = pc as usize - cache_base;
-            if !self.cache_valid[cache_line] {
-                // Cache miss, load to cache
-                self.cache[cache_pos] = self.read_bus_tick(pc);
-                if cache_line_pos == (CACHE_LINE_SIZE - 1) {
-                    // Mark cache line valid
-                    self.cache_valid[cache_line] = true;
-                }
-            }
-
-            self.cache[cache_pos]
+        if let Some(b) = self.read_cache(pc) {
+            b
         } else {
             self.read_bus_tick(pc)
         }
