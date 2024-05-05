@@ -122,6 +122,31 @@ impl CpuGsu {
         None
     }
 
+    pub fn determine_bus(&self, fulladdr: GsuAddress) -> GsuBus {
+        if let Some(cache_line) = self.get_addr_cache_line(fulladdr) {
+            if self.cache_valid[cache_line] {
+                return GsuBus::Cache;
+            }
+        }
+
+        let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
+        match self.map {
+            GsuMap::SuperFX1 => match (bank & !0x80, addr) {
+                (0x00..=0x3F, 0x8000..=0xFFFF) => GsuBus::ROM,
+                (0x40..=0x5F, _) => GsuBus::ROM,
+                (0x70..=0x71, _) => GsuBus::RAM,
+                (0x78, _) => GsuBus::RAM,
+                _ => GsuBus::Cache, // ? open bus
+            },
+            GsuMap::SuperFX2 => match (bank & !0x80, addr) {
+                (0x00..=0x3F, _) => GsuBus::ROM,
+                (0x40..=0x5F, _) => GsuBus::ROM,
+                (0x70..=0x71, _) => GsuBus::RAM,
+                _ => GsuBus::Cache, // ? open bus
+            },
+        }
+    }
+
     pub fn read_bus(&self, fulladdr: GsuAddress) -> u8 {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
 
@@ -158,14 +183,24 @@ impl CpuGsu {
         (self.read_bus(fulladdr) as u16) | ((self.read_bus(gsu_addr_add(fulladdr, 1)) as u16) << 8)
     }
 
-    fn read_bus_tick(&self, fulladdr: GsuAddress) -> u8 {
+    fn read_bus_tick(&mut self, fulladdr: GsuAddress) -> u8 {
         // TODO bus access clear check
-        // TODO wait states based on location
+
+        // Cycles counted as if GSU is running on 21MHz
+        let cycles = match self.determine_bus(fulladdr) {
+            GsuBus::ROM if self.regs.is_high_speed() => 5,
+            GsuBus::ROM => 6, // actually 3
+            GsuBus::RAM if self.regs.is_high_speed() => 5,
+            GsuBus::RAM => 6, // actually 3
+            GsuBus::Cache if self.regs.is_high_speed() => 1,
+            GsuBus::Cache => 2, // actually 1
+        };
+        self.cycles += cycles;
 
         self.read_bus(fulladdr)
     }
 
-    pub fn read16_bus_tick(&self, fulladdr: GsuAddress) -> u16 {
+    pub fn read16_bus_tick(&mut self, fulladdr: GsuAddress) -> u16 {
         (self.read_bus_tick(fulladdr) as u16)
             | ((self.read_bus_tick(gsu_addr_add(fulladdr, 1)) as u16) << 8)
     }
@@ -218,7 +253,7 @@ impl CpuGsu {
     }
 
     fn get_speed_factor(&self) -> Ticks {
-        if self.regs.read(Register::CLSR) & 1 != 0 {
+        if self.regs.is_high_speed() {
             1
         } else {
             2
@@ -1067,12 +1102,12 @@ impl CpuGsu {
             ),
         }
 
-        Ok((self.cycles - start_cycles) * self.get_speed_factor())
+        Ok(self.cycles - start_cycles)
     }
 
     #[inline(always)]
     fn cycles(&mut self, cycles: Ticks) -> Result<()> {
-        self.cycles += cycles;
+        self.cycles += cycles * self.get_speed_factor();
 
         Ok(())
     }

@@ -461,6 +461,10 @@ impl RegisterFile {
     pub fn set_r15(&mut self, v: u16) {
         self.r[15] = v;
     }
+
+    pub fn is_high_speed(&self) -> bool {
+        self.read(Register::CLSR) & 1 != 0
+    }
 }
 
 impl fmt::Display for RegisterFile {

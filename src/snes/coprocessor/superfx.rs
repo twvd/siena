@@ -41,7 +41,6 @@ impl BusMember<Address> for SuperFX {
         let (_bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
         let mut cpu = self.cpu.borrow_mut();
 
-        //println!("SuperFX read: {:04X}", addr);
         match addr {
             0x3000..=0x301F => {
                 // Rxx registers
@@ -91,8 +90,6 @@ impl BusMember<Address> for SuperFX {
     fn write(&mut self, fulladdr: Address, val: u8) -> Option<()> {
         let (_bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
         let mut cpu = self.cpu.borrow_mut();
-
-        //println!("SuperFX write: {:04X} {:02X}", addr, val);
 
         match addr {
             0x3000..=0x301D => {
