@@ -1,3 +1,4 @@
+use super::cpu::GsuAddress;
 use std::fmt;
 
 use num_derive::{FromPrimitive, ToPrimitive};
@@ -87,6 +88,9 @@ pub enum ScreenHeight {
     H192 = 0b100000,
     Obj = 0b100100,
 }
+
+const SCMR_RAN: u8 = 1 << 3;
+const SCMR_RON: u8 = 1 << 4;
 
 /// Bit-width of a register (see Register::width())
 #[derive(Debug, Eq, PartialEq)]
@@ -448,6 +452,14 @@ impl RegisterFile {
         ScreenHeight::from_u8(self.scmr & SCMR_HEIGHT_MASK).unwrap()
     }
 
+    pub fn get_scmr_ran(&self) -> bool {
+        self.scmr & SCMR_RAN != 0
+    }
+
+    pub fn get_scmr_ron(&self) -> bool {
+        self.scmr & SCMR_RON != 0
+    }
+
     pub fn get_clr_r15_shadow(&mut self) -> Option<u16> {
         let v = self.r15_shadow;
         self.r15_shadow = None;
@@ -464,6 +476,11 @@ impl RegisterFile {
 
     pub fn is_high_speed(&self) -> bool {
         self.read(Register::CLSR) & 1 != 0
+    }
+
+    pub fn get_full_pc(&self) -> GsuAddress {
+        let pc_bank = GsuAddress::from(self.read(Register::PBR)) << 16;
+        pc_bank | GsuAddress::from(self.get_r15())
     }
 }
 

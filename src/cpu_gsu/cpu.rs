@@ -206,8 +206,7 @@ impl CpuGsu {
     }
 
     fn fetch(&mut self) -> u8 {
-        let pc_bank = GsuAddress::from(self.regs.read(Register::PBR)) << 16;
-        let pc = pc_bank | GsuAddress::from(self.regs.get_r15());
+        let pc = self.regs.get_full_pc();
 
         if let Some(branch_pc) = self.regs.get_clr_r15_shadow() {
             // Branch scheduled, now in delay slot
@@ -261,6 +260,13 @@ impl CpuGsu {
     }
 
     pub fn step(&mut self) -> Result<Ticks> {
+        // Check if code region is available
+        match self.determine_bus(self.regs.get_full_pc()) {
+            GsuBus::ROM if !self.regs.get_scmr_ron() => return Ok(1),
+            GsuBus::RAM if !self.regs.get_scmr_ran() => return Ok(1),
+            _ => (),
+        }
+
         let start_cycles = self.cycles;
         let instr = self.fetch();
 
@@ -478,14 +484,12 @@ impl CpuGsu {
             }
             (0x3D, _, _) => {
                 // ALT1
-                self.regs
-                    .write_flags(&[(Flag::ALT1, true)]);
+                self.regs.write_flags(&[(Flag::ALT1, true)]);
                 self.cycles(1)?;
             }
             (0x3E, _, _) => {
                 // ALT2
-                self.regs
-                    .write_flags(&[(Flag::ALT2, true)]);
+                self.regs.write_flags(&[(Flag::ALT2, true)]);
                 self.cycles(1)?;
             }
             (0x3F, _, _) => {
@@ -1108,7 +1112,6 @@ impl CpuGsu {
     #[inline(always)]
     fn cycles(&mut self, cycles: Ticks) -> Result<()> {
         self.cycles += cycles * self.get_speed_factor();
-
         Ok(())
     }
 
