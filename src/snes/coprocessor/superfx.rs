@@ -129,7 +129,7 @@ impl BusMember<Address> for SuperFX {
             }
             0x3030 => {
                 let curval = cpu.regs.read(Register::SFR);
-                if curval & 0x10 == 0 && val & 0x10 != 0 {
+                if curval & 0x20 == 0 && val & 0x20 != 0 {
                     println!(
                         "SuperFX resume {:02X} {:04X}",
                         cpu.regs.pbr,

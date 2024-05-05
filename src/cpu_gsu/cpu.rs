@@ -476,22 +476,22 @@ impl CpuGsu {
                 }
                 self.cycles(1)?;
             }
-            (0x3D, _, false) => {
+            (0x3D, _, _) => {
                 // ALT1
                 self.regs
-                    .write_flags(&[(Flag::ALT1, true), (Flag::B, false)]);
+                    .write_flags(&[(Flag::ALT1, true)]);
                 self.cycles(1)?;
             }
-            (0x3E, false, false) => {
+            (0x3E, _, _) => {
                 // ALT2
                 self.regs
-                    .write_flags(&[(Flag::ALT2, true), (Flag::B, false)]);
+                    .write_flags(&[(Flag::ALT2, true)]);
                 self.cycles(1)?;
             }
-            (0x3F, false, false) => {
+            (0x3F, _, _) => {
                 // ALT3
                 self.regs
-                    .write_flags(&[(Flag::ALT1, true), (Flag::ALT2, true), (Flag::B, false)]);
+                    .write_flags(&[(Flag::ALT1, true), (Flag::ALT2, true)]);
                 self.cycles(1)?;
             }
             (0x40..=0x4B, false, false) => {
