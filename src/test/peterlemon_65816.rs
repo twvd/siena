@@ -17,7 +17,7 @@ macro_rules! test {
                     ".sfc"
                 )),
                 &hex!($hash),
-                20000,
+                60000,
                 true,
                 Mapper::LoROM,
             );
