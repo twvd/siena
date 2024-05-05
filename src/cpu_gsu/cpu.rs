@@ -54,6 +54,10 @@ pub struct CpuGsu {
     map: GsuMap,
     pub ram_mask: usize,
     pub rom_mask: usize,
+
+    pixelcache_x: usize,
+    pixelcache_y: usize,
+    pixelcache_drawn: u8,
 }
 
 impl CpuGsu {
@@ -77,6 +81,9 @@ impl CpuGsu {
             map,
             ram_mask,
             rom_mask: (rom.len() - 1),
+            pixelcache_x: 0,
+            pixelcache_y: 0,
+            pixelcache_drawn: 0,
         };
 
         c.rom[0..rom.len()].copy_from_slice(rom);
@@ -195,7 +202,7 @@ impl CpuGsu {
             GsuBus::Cache if self.regs.is_high_speed() => 1,
             GsuBus::Cache => 2, // actually 1
         };
-        self.cycles += cycles;
+        self.cycles_raw(cycles);
 
         self.read_bus(fulladdr)
     }
@@ -326,6 +333,7 @@ impl CpuGsu {
             (0x00, false, false) => {
                 // STOP
                 println!("sfx stopped");
+                self.pixelcache_flush();
                 self.regs
                     .write_flags(&[(Flag::G, false), (Flag::IRQ, true)]);
 
@@ -529,18 +537,16 @@ impl CpuGsu {
                 // PLOT
                 self.pixel_draw();
                 let _ = self.regs.read_inc(Register::R1);
-                // TODO real cycle count
                 self.cycles(1)?;
             }
             (0x4C, true, false) => {
                 // RPIX
-                // TODO pixel cache
+                self.pixelcache_flush();
 
                 let result = self.pixel_read();
                 self.regs.write_r(dreg, result);
                 self.regs
                     .write_flags(&[(Flag::Z, result == 0), (Flag::S, result & 0x8000 != 0)]);
-                // TODO real cycle count
                 self.cycles(1)?;
             }
             (0x4D, false, false) => {
@@ -1115,6 +1121,26 @@ impl CpuGsu {
         Ok(())
     }
 
+    #[inline(always)]
+    fn cycles_raw(&mut self, cycles: Ticks) {
+        self.cycles += cycles;
+    }
+
+    fn pixelcache_flush(&mut self) {
+        if self.pixelcache_drawn != 0 {
+            let bpp = self.regs.get_scmr_bpp();
+
+            // Count cycles for read AND write
+            if self.regs.is_high_speed() {
+                self.cycles_raw(2 * 5 * bpp.num_bitplanes());
+            } else {
+                self.cycles_raw(2 * 6 * bpp.num_bitplanes());
+            }
+        }
+
+        self.pixelcache_drawn = 0;
+    }
+
     fn pixel_draw(&mut self) {
         let x = (self.regs.read(Register::R1) as usize) & 0xFF;
         let y = (self.regs.read(Register::R2) as usize) & 0xFF;
@@ -1127,6 +1153,12 @@ impl CpuGsu {
         } else {
             ocolor
         };
+
+        if (x & 0xF8) != self.pixelcache_x || y != self.pixelcache_y {
+            self.pixelcache_flush();
+            self.pixelcache_x = x & 0xF8;
+            self.pixelcache_y = y;
+        }
 
         // Transparency
         let bpp = self.regs.get_scmr_bpp();
@@ -1141,6 +1173,8 @@ impl CpuGsu {
             }
         }
 
+        self.pixelcache_drawn |= 1 << (x & 0x07);
+
         let row_addr = self.xy_to_row_addr(x, y);
         let bit = 1 << (7 - (x & 7));
 
@@ -1152,6 +1186,10 @@ impl CpuGsu {
             } else {
                 self.ram[addr] &= !bit;
             }
+        }
+
+        if self.pixelcache_drawn == 0xFF {
+            self.pixelcache_flush();
         }
     }
 
