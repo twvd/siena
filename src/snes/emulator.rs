@@ -26,6 +26,7 @@ pub enum Schedule {
     SPC700 = 2,
     DSP1 = 3,
     SuperFX = 4,
+    SA1 = 5,
 }
 
 pub struct Emulator<T>
@@ -95,6 +96,9 @@ where
         // Initialize scheduling for co-processors
         if emu.cpu.bus.cartridge.co_dsp1.is_none() {
             emu.schedule_next[Schedule::DSP1] = Ticks::MAX;
+        }
+        if emu.cpu.bus.cartridge.co_sa1.is_none() {
+            emu.schedule_next[Schedule::SA1] = Ticks::MAX;
         }
         if emu.cpu.bus.cartridge.co_superfx.is_none() {
             emu.schedule_next[Schedule::SuperFX] = Ticks::MAX;
@@ -269,6 +273,10 @@ where
                 // 1.024 MHz
                 let mut apu = self.cpu.bus.apu.lock().unwrap();
                 Ok(apu.tick(1)? * 21)
+            }
+            Schedule::SA1 => {
+                // ~10.74 MHz
+                Ok(self.cpu.bus.cartridge.co_sa1.as_mut().unwrap().tick(1)? * 2)
             }
             Schedule::SuperFX => {
                 // 20 MHz (or 10, then CPU will double cycles)
