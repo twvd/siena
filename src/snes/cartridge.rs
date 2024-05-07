@@ -263,6 +263,23 @@ impl Cartridge {
             mapper: Mapper::LoROM,
         };
 
+        // ROM/RAM masks
+        if c.get_ram_size() > 0 {
+            c.ram_mask = c.get_ram_size() - 1;
+        }
+        if c.get_rom_size() != rom.len() {
+            println!(
+                "WARNING! ROM size in header ({}) doesn't match actual length ({})",
+                c.get_rom_size(),
+                rom.len()
+            );
+        }
+        c.rom_mask = Self::saturate_mask(rom.len() - 1);
+        println!(
+            "ROM mask: {:06X} - RAM mask: {:06X}",
+            c.rom_mask, c.ram_mask
+        );
+
         // Detect / initialize co-processor
         match c.get_coprocessor() {
             Some(CoProcessor::DSPx) => {
@@ -299,7 +316,7 @@ impl Cartridge {
             }
             Some(CoProcessor::SA1) => {
                 println!("SA-1 co-processor detected");
-                c.co_sa1 = Some(SA1::new(rom));
+                c.co_sa1 = Some(SA1::new(rom, c.rom_mask));
             }
             Some(c) => println!("Warning: unimplemented co-processor: {:?}", c),
             None => (),
@@ -316,21 +333,6 @@ impl Cartridge {
             _ => panic!("Cannot determine mapper"),
         };
         println!("Selected mapper: {}", c.mapper);
-        if c.get_ram_size() > 0 {
-            c.ram_mask = c.get_ram_size() - 1;
-        }
-        if c.get_rom_size() != rom.len() {
-            println!(
-                "WARNING! ROM size in header ({}) doesn't match actual length ({})",
-                c.get_rom_size(),
-                rom.len()
-            );
-        }
-        c.rom_mask = Self::saturate_mask(rom.len() - 1);
-        println!(
-            "ROM mask: {:06X} - RAM mask: {:06X}",
-            c.rom_mask, c.ram_mask
-        );
         Ok(c)
     }
 
