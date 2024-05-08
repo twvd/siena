@@ -74,17 +74,15 @@ where
             videoformat,
         );
 
-        // Fetch reset vector address
-        let reset = bus.read16(0xFFFC);
         println!(
             "Reset at PC {:06X}, NMI at {:06X}, IRQ at {:06X}",
-            reset,
+            bus.read16(0xFFFC),
             bus.read16(0xFFEA),
             bus.read16(0xFFEE)
         );
 
         // Initialize S-CPU
-        let cpu = Cpu65816::<Mainbus<T>>::new(bus, reset);
+        let cpu = Cpu65816::<Mainbus<T>>::new(bus);
 
         let mut emu = Self {
             cpu,

@@ -24,7 +24,7 @@ pub struct SA1 {
 impl SA1 {
     pub fn new(rom: &[u8], rom_mask: usize) -> Self {
         Self {
-            cpu: RefCell::new(Cpu65816::new(Sa1Bus::new(rom.to_owned(), rom_mask), 0)),
+            cpu: RefCell::new(Cpu65816::new(Sa1Bus::new(rom.to_owned(), rom_mask))),
         }
     }
 }

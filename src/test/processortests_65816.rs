@@ -89,7 +89,7 @@ fn run_testcase(testcase: &Value, check_trace: bool, multi_steps: bool) {
         bus.write(addr, val);
     }
 
-    let mut cpu = Cpu65816::<Testbus<Address>>::new(bus, 0);
+    let mut cpu = Cpu65816::<Testbus<Address>>::new_pc(bus, 0);
     cpu.regs = regs_initial.clone();
     cpu.bus.reset_trace();
 

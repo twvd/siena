@@ -19,34 +19,68 @@ pub struct Cpu65816<TBus: Bus<Address>> {
     pub regs: RegisterFile,
     pub cycles: Ticks,
     pub wait_for_int: bool,
+
+    /// Interrupt vector address for COP software interrupt
+    pub intvec_cop: Address,
+
+    /// Interrupt vector address for BRK software interrupt
+    pub intvec_brk: Address,
+
+    /// Interrupt vector address for non-maskable interrupt
+    pub intvec_nmi: Address,
+
+    /// Interrupt vector address for non-maskable interrupt
+    pub intvec_int: Address,
+
+    /// Reset vector address
+    pub vec_reset: Address,
 }
 
 impl<TBus> Cpu65816<TBus>
 where
     TBus: Bus<Address>,
 {
-    const INTVEC_COP: Address = 0x00FFE4;
-    const INTVEC_BRK: Address = 0x00FFE6;
-    const INTVEC_NMI: Address = 0x00FFEA;
-    const INTVEC_INT: Address = 0x00FFEE;
-
-    pub fn new(bus: TBus, reset_addr: u16) -> Self {
-        let mut cpu = Self {
+    fn _new(bus: TBus) -> Self {
+        Self {
             verbose: false,
             verbose_wai: false,
             bus,
             regs: RegisterFile::new(),
             cycles: 0,
             wait_for_int: false,
-        };
-        cpu.regs.pc = reset_addr;
-        cpu.regs.p = (1 << Flag::M.to_u8().unwrap())
+            intvec_cop: 0x00FFE4,
+            intvec_brk: 0x00FFE6,
+            intvec_nmi: 0x00FFEA,
+            intvec_int: 0x00FFEE,
+            vec_reset: 0x00FFFC,
+        }
+    }
+
+    pub fn new(bus: TBus) -> Self {
+        let mut cpu = Self::_new(bus);
+        cpu.reset();
+        cpu
+    }
+
+    pub fn new_pc(bus: TBus, pc: u16) -> Self {
+        let mut cpu = Self::_new(bus);
+        cpu.reset_pc(pc);
+        cpu
+    }
+
+    pub fn reset(&mut self) {
+        let pc = self.read16_tick_a16(self.vec_reset);
+        self.reset_pc(pc);
+    }
+
+    pub fn reset_pc(&mut self, pc: u16) {
+        self.regs = RegisterFile::new();
+        self.regs.pc = pc;
+        self.regs.p = (1 << Flag::M.to_u8().unwrap())
             | (1 << Flag::X.to_u8().unwrap())
             | (1 << Flag::I.to_u8().unwrap());
-        cpu.regs.s = 0x01FF;
-        cpu.regs.emulation = true;
-
-        cpu
+        self.regs.s = 0x01FF;
+        self.regs.emulation = true;
     }
 
     pub fn dump_state(&self) -> String {
@@ -99,7 +133,7 @@ where
                 self.wait_for_int = false;
                 self.verbose_wai = false;
             }
-            self.dispatch_interrupt(Self::INTVEC_NMI)?;
+            self.dispatch_interrupt(self.intvec_nmi)?;
         } else if self.bus.get_int() {
             if self.wait_for_int {
                 if self.verbose {
@@ -110,7 +144,7 @@ where
                 self.verbose_wai = false;
             }
             if !self.regs.test_flag(Flag::I) {
-                self.dispatch_interrupt(Self::INTVEC_INT)?;
+                self.dispatch_interrupt(self.intvec_int)?;
             }
         } else if self.wait_for_int {
             if self.verbose && !self.verbose_wai {
@@ -409,8 +443,8 @@ where
             InstructionType::JSR => self.op_jsr(instr),
             InstructionType::RTS => self.op_rts(),
             InstructionType::RTL => self.op_rtl(),
-            InstructionType::BRK => self.op_swint(instr, Self::INTVEC_BRK),
-            InstructionType::COP => self.op_swint(instr, Self::INTVEC_COP),
+            InstructionType::BRK => self.op_swint(instr, self.intvec_brk),
+            InstructionType::COP => self.op_swint(instr, self.intvec_cop),
             InstructionType::RTI => self.op_rti(),
             InstructionType::STP => panic!("STP encountered"),
             InstructionType::WAI => {
