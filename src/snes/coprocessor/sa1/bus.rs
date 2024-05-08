@@ -23,6 +23,11 @@ pub struct Sa1Bus {
     pub sa1_cnv: Address,
     /// SA-1 CPU IRQ vector
     pub sa1_civ: Address,
+
+    mcnt: u8,
+    ma: u16,
+    mb: u16,
+    mr: u64,
 }
 
 impl Sa1Bus {
@@ -37,6 +42,30 @@ impl Sa1Bus {
             sa1_crv: 0,
             sa1_cnv: 0,
             sa1_civ: 0,
+
+            mcnt: 0,
+            ma: 0,
+            mb: 0,
+            mr: 0,
+        }
+    }
+
+    fn arithmetic_start(&mut self) {
+        match self.mcnt & 0x03 {
+            // Multiply
+            0 => self.mr = ((self.ma as i16 as i32) * (self.mb as i16 as i32)) as u64,
+            // Division
+            1 => {
+                let quotient = (self.ma as i16 as i32) / (self.mb as i32);
+                let remainder = (self.ma as i16 as i32) % (self.mb as i32);
+                self.mr = (quotient as u64) | ((remainder as u64) << 16);
+            }
+            // MultiplySum
+            2 => self.mr += ((self.ma as i16 as i32) * (self.mb as i16 as i32)) as u64,
+            // Reserved
+            3 => unreachable!(),
+
+            _ => unreachable!(),
         }
     }
 }
@@ -49,7 +78,16 @@ impl Bus<Address> for Sa1Bus {
         // so any cartridge access is forwarded here.
         let val = match (bank, addr) {
             // I/O ports
-            (0x00..=0x3F | 0x80..=0xBF, 0x2200..=0x23FF) => None,
+            (0x00..=0x3F | 0x80..=0xBF, 0x2200..=0x23FF) => match addr {
+                // SA-1 MR - Arithmetic Result
+                0x2306 => Some((self.mr >> 0) as u8),
+                0x2307 => Some((self.mr >> 8) as u8),
+                0x2308 => Some((self.mr >> 16) as u8),
+                0x2309 => Some((self.mr >> 24) as u8),
+                0x230A => Some((self.mr >> 32) as u8),
+
+                _ => None,
+            },
 
             // I-RAM (not re-mappable, SA-1 only!)
             (0x00..=0x3F | 0x80..=0xBF, 0x0000..=0x07FF) => Some(self.iram[addr]),
@@ -108,6 +146,24 @@ impl Bus<Address> for Sa1Bus {
                 // SNES CIV - SA-1 CPU IRQ Vector
                 0x2207 => self.sa1_civ = Address::from(val) | (self.sa1_civ & 0xFF00),
                 0x2208 => self.sa1_civ = (Address::from(val) << 8) | (self.sa1_civ & 0xFF),
+
+                // SA-1 MCNT - Arithmetic Control
+                0x2250 => {
+                    self.mcnt = val;
+                    if val & 1 != 0 {
+                        self.mr = 0;
+                    }
+                }
+                // SA-1 MA - Arithmetic Parameter A
+                0x2251 => self.ma = u16::from(val) | (self.ma & 0xFF00),
+                0x2252 => self.ma = (u16::from(val) << 8) | (self.ma & 0xFF),
+                // SA-1 MB - Arithmetic Parameter B
+                0x2253 => self.mb = u16::from(val) | (self.mb & 0xFF00),
+                0x2254 => {
+                    self.mb = (u16::from(val) << 8) | (self.mb & 0xFF);
+                    self.arithmetic_start();
+                }
+
                 _ => println!(
                     "SA-1 unimplemented I/O write {:06X} = {:02X}",
                     fulladdr, val
