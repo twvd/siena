@@ -14,6 +14,15 @@ pub struct Sa1Bus {
     pub rom_mask: usize,
     pub bwram: Vec<u8>,
     pub iram: Vec<u8>,
+
+    /// SA-1 CPU control
+    pub sa1_cpu_ctrl: u8,
+    /// SA-1 CPU Reset vector
+    pub sa1_crv: Address,
+    /// SA-1 CPU NMI vector
+    pub sa1_cnv: Address,
+    /// SA-1 CPU IRQ vector
+    pub sa1_civ: Address,
 }
 
 impl Sa1Bus {
@@ -23,6 +32,11 @@ impl Sa1Bus {
             rom_mask,
             bwram: vec![0; BWRAM_SIZE],
             iram: vec![0; IRAM_SIZE],
+
+            sa1_cpu_ctrl: 0x20,
+            sa1_crv: 0,
+            sa1_cnv: 0,
+            sa1_civ: 0,
         }
     }
 }
@@ -82,7 +96,23 @@ impl Bus<Address> for Sa1Bus {
         // so any cartridge access is forwarded here.
         match (bank, addr) {
             // I/O ports
-            //(0x00..=0x3F | 0x80..=0xBF, 0x2200..=0x23FF) => ,
+            (0x00..=0x3F | 0x80..=0xBF, 0x2200..=0x23FF) => match addr {
+                // SNES CCNT - SA-1 CPU Control
+                0x2200 => self.sa1_cpu_ctrl = val,
+                // SNES CRV - SA-1 CPU Reset Vector
+                0x2203 => self.sa1_crv = Address::from(val) | (self.sa1_crv & 0xFF00),
+                0x2204 => self.sa1_crv = (Address::from(val) << 8) | (self.sa1_crv & 0xFF),
+                // SNES CNV - SA-1 CPU NMI Vector
+                0x2205 => self.sa1_cnv = Address::from(val) | (self.sa1_cnv & 0xFF00),
+                0x2206 => self.sa1_cnv = (Address::from(val) << 8) | (self.sa1_cnv & 0xFF),
+                // SNES CIV - SA-1 CPU IRQ Vector
+                0x2207 => self.sa1_civ = Address::from(val) | (self.sa1_civ & 0xFF00),
+                0x2208 => self.sa1_civ = (Address::from(val) << 8) | (self.sa1_civ & 0xFF),
+                _ => println!(
+                    "SA-1 unimplemented I/O write {:06X} = {:02X}",
+                    fulladdr, val
+                ),
+            },
 
             // I-RAM (not re-mappable, SA-1 only!)
             (0x00..=0x3F | 0x80..=0xBF, 0x0000..=0x07FF) => self.iram[addr] = val,

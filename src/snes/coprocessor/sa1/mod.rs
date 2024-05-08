@@ -19,12 +19,16 @@ const BWRAM_SIZE: usize = 256 * 1024;
 pub struct SA1 {
     /// CPU core
     pub cpu: RefCell<Cpu65816<Sa1Bus>>,
+
+    /// SA-1 CPU control shadow register
+    pub cpu_ctrl: u8,
 }
 
 impl SA1 {
     pub fn new(rom: &[u8], rom_mask: usize) -> Self {
         Self {
             cpu: RefCell::new(Cpu65816::new(Sa1Bus::new(rom.to_owned(), rom_mask))),
+            cpu_ctrl: 0x20,
         }
     }
 }
@@ -33,8 +37,26 @@ impl Tickable for SA1 {
     fn tick(&mut self, ticks: Ticks) -> Result<Ticks> {
         let mut cpu = self.cpu.borrow_mut();
 
-        //cpu.tick(ticks)
-        Ok(ticks)
+        // ??? do these have the extra indirection?
+        cpu.vec_reset = cpu.bus.sa1_crv;
+        cpu.intvec_nmi = cpu.bus.sa1_cnv;
+        cpu.intvec_int = cpu.bus.sa1_civ;
+
+        if self.cpu_ctrl != cpu.bus.sa1_cpu_ctrl {
+            if self.cpu_ctrl & 0x20 != 0 && cpu.bus.sa1_cpu_ctrl & 0x20 == 0 {
+                let pc = cpu.bus.sa1_crv as u16;
+                cpu.reset_pc(pc);
+                println!("SA-1 go @ {:04X}", cpu.regs.pc);
+            }
+
+            self.cpu_ctrl = cpu.bus.sa1_cpu_ctrl;
+        }
+
+        if self.cpu_ctrl & 0x20 == 0 {
+            cpu.tick(ticks)
+        } else {
+            Ok(0)
+        }
     }
 }
 
