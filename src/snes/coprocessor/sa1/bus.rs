@@ -72,6 +72,7 @@ pub struct Sa1Bus {
     mr: u64,
 
     bmap: u8,
+    pub(super) bmaps: u8,
 
     /// SNES CPU control
     pub scnt: u8,
@@ -106,6 +107,7 @@ impl Sa1Bus {
             mr: 0,
 
             bmap: 0,
+            bmaps: 0,
 
             scnt: 0,
             sie: 0,
@@ -161,7 +163,6 @@ impl Bus<Address> for Sa1Bus {
                     if self.snes_irq {
                         val |= SFR_IRQ;
                     }
-                    println!("SFR read: {:02X}", val);
                     Some(val)
                 }
                 // SA-1 CFR - SA-1 CPU Flag Read
@@ -173,7 +174,6 @@ impl Bus<Address> for Sa1Bus {
                     if self.sa1_irq {
                         val |= CFR_IRQ;
                     }
-                    println!("CFR read: {:02X}", val);
                     Some(val)
                 }
                 // SA-1 MR - Arithmetic Result
@@ -192,7 +192,7 @@ impl Bus<Address> for Sa1Bus {
             // I-RAM (not re-mappable)
             (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x37FF) => Some(self.iram[addr - 0x3000]),
 
-            // BW-RAM (mappable 8K block)
+            // BW-RAM (mappable 8K block), SA-1 side (BMAP)
             (0x00..=0x3F | 0x80..=0xBF, 0x6000..=0x7FFF) => {
                 Some(self.bwram[(addr - 0x6000) + ((self.bmap & 0x7F) as usize) * 0x2000])
             }
@@ -236,7 +236,6 @@ impl Bus<Address> for Sa1Bus {
                 // SNES CCNT - SA-1 CPU Control
                 0x2200 => {
                     self.ccnt = val;
-                    println!("CCNT = {:02X}", val);
                     if val & CCNT_NMI != 0 {
                         self.sa1_nmi = true;
                     }
@@ -250,7 +249,6 @@ impl Bus<Address> for Sa1Bus {
 
                 // SNES SIC - SNES CPU Int Clear
                 0x2202 => {
-                    println!("SIC = {:02X}", val);
                     if val & SIC_IRQ != 0 {
                         self.snes_irq = false;
                     }
@@ -268,7 +266,6 @@ impl Bus<Address> for Sa1Bus {
 
                 // SA-1 SCNT - SNES CPU Control
                 0x2209 => {
-                    println!("SCNT = {:02X}", val);
                     self.scnt = val;
                     if val & SCNT_IRQ != 0 {
                         self.snes_irq = true;
@@ -280,7 +277,6 @@ impl Bus<Address> for Sa1Bus {
 
                 // SA-1 CIC - SA-1 CPU Int Clear
                 0x220B => {
-                    println!("CIC = {:02X}", val);
                     if val & CIC_NMI != 0 {
                         self.sa1_nmi = false;
                     }
@@ -288,6 +284,9 @@ impl Bus<Address> for Sa1Bus {
                         self.sa1_irq = false;
                     }
                 }
+
+                // SNES BMAPS - SA-1 CPU BW-RAM
+                0x2224 => self.bmaps = val,
 
                 // SA-1 BMAP - SA-1 CPU BW-RAM
                 0x2225 => {
@@ -326,9 +325,10 @@ impl Bus<Address> for Sa1Bus {
             // I-RAM (not re-mappable)
             (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x37FF) => self.iram[addr - 0x3000] = val,
 
-            // BW-RAM (mappable 8K block)
-            // TODO MMC mapping
-            (0x00..=0x3F | 0x80..=0xBF, 0x6000..=0x7FFF) => self.bwram[addr - 0x6000] = val,
+            // BW-RAM (mappable 8K block), SA-1 side (BMAP)
+            (0x00..=0x3F | 0x80..=0xBF, 0x6000..=0x7FFF) => {
+                self.bwram[(addr - 0x6000) + ((self.bmap & 0x7F) as usize) * 0x2000] = val
+            }
 
             // BW-RAM (not re-mappable)
             (0x40..=0x4F, _) => self.bwram[addr + ((bank & 0x03) * 0x10000)] = val,
@@ -345,19 +345,11 @@ impl Bus<Address> for Sa1Bus {
     }
 
     fn get_nmi(&mut self) -> bool {
-        let v = self.sa1_nmi && self.cie & CIE_NMI != 0;
-        if v {
-            println!("SA1 NMI!");
-        }
-        v
+        self.sa1_nmi && self.cie & CIE_NMI != 0
     }
 
     fn get_int(&mut self) -> bool {
-        let v = self.sa1_irq && self.cie & CIE_IRQ != 0;
-        if v {
-            println!("SA1 IRQ!");
-        }
-        v
+        self.sa1_irq && self.cie & CIE_IRQ != 0
     }
 }
 

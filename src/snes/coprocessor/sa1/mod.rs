@@ -44,11 +44,7 @@ impl SA1 {
     /// Interrupt line for S-CPU
     pub fn get_int(&self) -> bool {
         let cpu = self.cpu.borrow();
-        let v = cpu.bus.snes_irq && cpu.bus.sie & SIE_IRQ != 0;
-        if v {
-            println!("SNES IRQ!");
-        }
-        v
+        cpu.bus.snes_irq && cpu.bus.sie & SIE_IRQ != 0
     }
 }
 
@@ -87,14 +83,17 @@ impl BusMember<Address> for SA1 {
             (0x00..=0x3F | 0x80..=0xBF, 0x2200..=0x23FF) |
             // I-RAM (not re-mappable)
             (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x37FF) |
-            // BW-RAM (mappable 8K block)
-            (0x00..=0x3F | 0x80..=0xBF, 0x6000..=0x7FFF) |
             // LoROM (mappable)
             (0x00..=0x3F | 0x80..=0xBF, 0x8000..=0xFFFF) |
             // BW-RAM (not re-mappable)
             (0x40..=0x4F, _) |
             // HiROM
             (0xC0..=0xFF, _) => Some(cpu.bus.read(fulladdr)),
+
+            // BW-RAM (mappable 8K block), SNES side (BMAPS)
+            (0x00..=0x3F | 0x80..=0xBF, 0x6000..=0x7FFF) => {
+                Some(cpu.bus.bwram[(addr - 0x6000) + ((cpu.bus.bmaps & 0x1F) as usize) * 0x2000])
+            }
 
             // Handled by SNES
             _ => None,
@@ -113,14 +112,18 @@ impl BusMember<Address> for SA1 {
             (0x00..=0x3F | 0x80..=0xBF, 0x2200..=0x23FF) |
             // I-RAM (not re-mappable)
             (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x37FF) |
-            // BW-RAM (mappable 8K block)
-            (0x00..=0x3F | 0x80..=0xBF, 0x6000..=0x7FFF) |
             // LoROM (mappable)
             (0x00..=0x3F | 0x80..=0xBF, 0x8000..=0xFFFF) |
             // BW-RAM (not re-mappable)
             (0x40..=0x4F, _) |
             // HiROM
             (0xC0..=0xFF, _) => Some(cpu.bus.write(fulladdr, val)),
+
+            // BW-RAM (mappable 8K block), SNES side (BMAPS)
+            (0x00..=0x3F | 0x80..=0xBF, 0x6000..=0x7FFF) => {
+                let bmaps = cpu.bus.bmaps;
+                Some(cpu.bus.bwram[(addr - 0x6000) + ((bmaps & 0x1F) as usize) * 0x2000] = val)
+            }
 
             // Handled by SNES
             _ => None,
