@@ -20,6 +20,8 @@ pub struct Cpu65816<TBus: Bus<Address>> {
     pub cycles: Ticks,
     pub wait_for_int: bool,
 
+    nmi_edge: bool,
+
     /// Interrupt vector address for COP software interrupt
     pub intvec_cop: Address,
 
@@ -48,6 +50,7 @@ where
             regs: RegisterFile::new(),
             cycles: 0,
             wait_for_int: false,
+            nmi_edge: false,
             intvec_cop: 0x00FFE4,
             intvec_brk: 0x00FFE6,
             intvec_nmi: 0x00FFEA,
@@ -124,7 +127,14 @@ where
     /// Executes one CPU step (one instruction).
     pub fn step(&mut self) -> Result<Ticks> {
         let start_cycles = self.cycles;
-        if self.bus.get_clr_nmi() {
+        let nmi_state = self.bus.get_nmi();
+
+        if !nmi_state {
+            self.nmi_edge = false;
+        }
+
+        if nmi_state && !self.nmi_edge {
+            self.nmi_edge = true;
             if self.wait_for_int {
                 if self.verbose {
                     println!("{} CPU awoken (NMI)", self.cycles);

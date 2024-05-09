@@ -733,6 +733,9 @@ impl Cartridge {
         if let Some(sfx) = self.co_superfx.as_mut() {
             return sfx.get_int();
         }
+        if let Some(sa1) = self.co_sa1.as_mut() {
+            return sa1.get_int();
+        }
 
         false
     }

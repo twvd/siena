@@ -22,7 +22,7 @@ pub trait BusMember<T: PrimInt> {
 pub trait Bus<T: PrimInt + WrappingAdd>: Tickable {
     fn read(&self, addr: T) -> u8;
     fn write(&mut self, addr: T, val: u8);
-    fn get_clr_nmi(&mut self) -> bool;
+    fn get_nmi(&mut self) -> bool;
     fn get_int(&mut self) -> bool;
 
     // TODO this is pretty awful

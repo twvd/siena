@@ -898,7 +898,9 @@ where
         self.write_no_ws(fulladdr, val)
     }
 
-    fn get_clr_nmi(&mut self) -> bool {
+    fn get_nmi(&mut self) -> bool {
+        // This is latched because a rising + falling edge while CPU is paused during
+        // DMA should still be serviced after the CPU resumes.
         let v = self.intreq_nmi;
         self.intreq_nmi = false;
         v

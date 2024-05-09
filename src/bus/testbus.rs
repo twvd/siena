@@ -94,7 +94,7 @@ where
         self.mem.insert(addr, val);
     }
 
-    fn get_clr_nmi(&mut self) -> bool {
+    fn get_nmi(&mut self) -> bool {
         false
     }
     fn get_int(&mut self) -> bool {

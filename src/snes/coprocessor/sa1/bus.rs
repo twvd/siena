@@ -6,6 +6,48 @@ use super::{BWRAM_SIZE, IRAM_SIZE};
 use crate::bus::{Address, Bus, ADDRESS_MASK};
 use crate::tickable::{Tickable, Ticks};
 
+// CCNT (SNES -> SA-1) bits
+pub(super) const CCNT_NMI: u8 = 1 << 4;
+pub(super) const CCNT_RESET: u8 = 1 << 5;
+pub(super) const CCNT_WAIT: u8 = 1 << 6;
+pub(super) const CCNT_IRQ: u8 = 1 << 7;
+/// Startup value of CCNT
+pub(super) const CCNT_DEFAULT: u8 = CCNT_RESET;
+
+// SCNT (SA-1 -> SNES) bits
+pub(super) const SCNT_IRQ: u8 = 1 << 7;
+
+// SIE (SNES CPU Int enable)
+pub(super) const SIE_IRQ: u8 = 1 << 7;
+
+// CFR (SA-1 CPU Status Flag Read)
+// TODO NMI/IRQ vector
+// TODO character conversion DMA
+pub(super) const CFR_NMI: u8 = 1 << 4;
+pub(super) const CFR_IRQ: u8 = 1 << 7;
+
+// SFR (SNES CPU Status Flag Read)
+// TODO NMI/IRQ vector
+// TODO character conversion DMA
+pub(super) const SFR_IRQ: u8 = 1 << 7;
+
+// SIC (SNES CPU Int Clear)
+// TODO character conversion DMA
+pub(super) const SIC_IRQ: u8 = 1 << 7;
+
+// CIC (SA-1 CPU Int Clear)
+// TODO character conversion DMA
+pub(super) const CIC_NMI: u8 = 1 << 4;
+pub(super) const CIC_IRQ: u8 = 1 << 7;
+
+// CIE (SA-1 CPU Int Enable)
+// TODO DMA / Timer
+pub(super) const CIE_NMI: u8 = 1 << 4;
+pub(super) const CIE_IRQ: u8 = 1 << 7;
+
+// BMAP (SA-1 CPU BW-RAM Mapping to 6000h-7FFFh)
+pub(super) const BMAP_BITMAP: u8 = 1 << 7;
+
 /// Peripherals as they face the SA-1 65816
 #[serbia]
 #[derive(Serialize, Deserialize)]
@@ -16,7 +58,7 @@ pub struct Sa1Bus {
     pub iram: Vec<u8>,
 
     /// SA-1 CPU control
-    pub sa1_cpu_ctrl: u8,
+    pub ccnt: u8,
     /// SA-1 CPU Reset vector
     pub sa1_crv: Address,
     /// SA-1 CPU NMI vector
@@ -28,6 +70,21 @@ pub struct Sa1Bus {
     ma: u16,
     mb: u16,
     mr: u64,
+
+    bmap: u8,
+
+    /// SNES CPU control
+    pub scnt: u8,
+
+    /// SNES Interrupt enable
+    pub sie: u8,
+
+    /// SA-1 Interrupt enable
+    pub cie: u8,
+
+    pub sa1_irq: bool,
+    pub sa1_nmi: bool,
+    pub snes_irq: bool,
 }
 
 impl Sa1Bus {
@@ -38,7 +95,7 @@ impl Sa1Bus {
             bwram: vec![0; BWRAM_SIZE],
             iram: vec![0; IRAM_SIZE],
 
-            sa1_cpu_ctrl: 0x20,
+            ccnt: CCNT_DEFAULT,
             sa1_crv: 0,
             sa1_cnv: 0,
             sa1_civ: 0,
@@ -47,6 +104,15 @@ impl Sa1Bus {
             ma: 0,
             mb: 0,
             mr: 0,
+
+            bmap: 0,
+
+            scnt: 0,
+            sie: 0,
+            cie: 0,
+            sa1_irq: false,
+            sa1_nmi: false,
+            snes_irq: false,
         }
     }
 
@@ -79,6 +145,37 @@ impl Bus<Address> for Sa1Bus {
         let val = match (bank, addr) {
             // I/O ports
             (0x00..=0x3F | 0x80..=0xBF, 0x2200..=0x23FF) => match addr {
+                // SNES CRV - SA-1 CPU Reset Vector
+                0x2203 => Some(self.sa1_crv as u8),
+                0x2204 => Some((self.sa1_crv >> 8) as u8),
+                // SNES CNV - SA-1 CPU NMI Vector
+                0x2205 => Some(self.sa1_cnv as u8),
+                0x2206 => Some((self.sa1_cnv >> 8) as u8),
+                // SNES CIV - SA-1 CPU IRQ Vector
+                0x2207 => Some(self.sa1_civ as u8),
+                0x2208 => Some((self.sa1_civ >> 8) as u8),
+
+                // SNES SFR - SNES CPU Flag Read
+                0x2300 => {
+                    let mut val = self.scnt & 0x0F;
+                    if self.snes_irq {
+                        val |= SFR_IRQ;
+                    }
+                    println!("SFR read: {:02X}", val);
+                    Some(val)
+                }
+                // SA-1 CFR - SA-1 CPU Flag Read
+                0x2301 => {
+                    let mut val = self.ccnt & 0x0F;
+                    if self.sa1_nmi {
+                        val |= CFR_NMI;
+                    }
+                    if self.sa1_irq {
+                        val |= CFR_IRQ;
+                    }
+                    println!("CFR read: {:02X}", val);
+                    Some(val)
+                }
                 // SA-1 MR - Arithmetic Result
                 0x2306 => Some((self.mr >> 0) as u8),
                 0x2307 => Some((self.mr >> 8) as u8),
@@ -96,8 +193,9 @@ impl Bus<Address> for Sa1Bus {
             (0x00..=0x3F | 0x80..=0xBF, 0x3000..=0x37FF) => Some(self.iram[addr - 0x3000]),
 
             // BW-RAM (mappable 8K block)
-            // TODO MMC mapping
-            (0x00..=0x3F | 0x80..=0xBF, 0x6000..=0x7FFF) => Some(self.bwram[addr - 0x6000]),
+            (0x00..=0x3F | 0x80..=0xBF, 0x6000..=0x7FFF) => {
+                Some(self.bwram[(addr - 0x6000) + ((self.bmap & 0x7F) as usize) * 0x2000])
+            }
 
             // LoROM (mappable)
             // TODO MMC mapping
@@ -136,7 +234,28 @@ impl Bus<Address> for Sa1Bus {
             // I/O ports
             (0x00..=0x3F | 0x80..=0xBF, 0x2200..=0x23FF) => match addr {
                 // SNES CCNT - SA-1 CPU Control
-                0x2200 => self.sa1_cpu_ctrl = val,
+                0x2200 => {
+                    self.ccnt = val;
+                    println!("CCNT = {:02X}", val);
+                    if val & CCNT_NMI != 0 {
+                        self.sa1_nmi = true;
+                    }
+                    if val & CCNT_IRQ != 0 {
+                        self.sa1_irq = true;
+                    }
+                }
+
+                // SNES SIE - SNES CPU Int Enable
+                0x2201 => self.sie = val,
+
+                // SNES SIC - SNES CPU Int Clear
+                0x2202 => {
+                    println!("SIC = {:02X}", val);
+                    if val & SIC_IRQ != 0 {
+                        self.snes_irq = false;
+                    }
+                }
+
                 // SNES CRV - SA-1 CPU Reset Vector
                 0x2203 => self.sa1_crv = Address::from(val) | (self.sa1_crv & 0xFF00),
                 0x2204 => self.sa1_crv = (Address::from(val) << 8) | (self.sa1_crv & 0xFF),
@@ -146,6 +265,37 @@ impl Bus<Address> for Sa1Bus {
                 // SNES CIV - SA-1 CPU IRQ Vector
                 0x2207 => self.sa1_civ = Address::from(val) | (self.sa1_civ & 0xFF00),
                 0x2208 => self.sa1_civ = (Address::from(val) << 8) | (self.sa1_civ & 0xFF),
+
+                // SA-1 SCNT - SNES CPU Control
+                0x2209 => {
+                    println!("SCNT = {:02X}", val);
+                    self.scnt = val;
+                    if val & SCNT_IRQ != 0 {
+                        self.snes_irq = true;
+                    }
+                }
+
+                // SA-1 CIE - SA-1 CPU Int Enable
+                0x220A => self.cie = val,
+
+                // SA-1 CIC - SA-1 CPU Int Clear
+                0x220B => {
+                    println!("CIC = {:02X}", val);
+                    if val & CIC_NMI != 0 {
+                        self.sa1_nmi = false;
+                    }
+                    if val & CIC_IRQ != 0 {
+                        self.sa1_irq = false;
+                    }
+                }
+
+                // SA-1 BMAP - SA-1 CPU BW-RAM
+                0x2225 => {
+                    self.bmap = val;
+                    if val & BMAP_BITMAP != 0 {
+                        todo!();
+                    }
+                }
 
                 // SA-1 MCNT - Arithmetic Control
                 0x2250 => {
@@ -194,12 +344,20 @@ impl Bus<Address> for Sa1Bus {
         ADDRESS_MASK
     }
 
-    fn get_clr_nmi(&mut self) -> bool {
-        false
+    fn get_nmi(&mut self) -> bool {
+        let v = self.sa1_nmi && self.cie & CIE_NMI != 0;
+        if v {
+            println!("SA1 NMI!");
+        }
+        v
     }
 
     fn get_int(&mut self) -> bool {
-        false
+        let v = self.sa1_irq && self.cie & CIE_IRQ != 0;
+        if v {
+            println!("SA1 IRQ!");
+        }
+        v
     }
 }
 

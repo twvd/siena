@@ -150,7 +150,7 @@ impl Bus<SpcAddress> for Apubus {
         SPC_ADDRESS_MASK
     }
 
-    fn get_clr_nmi(&mut self) -> bool {
+    fn get_nmi(&mut self) -> bool {
         // TODO refactor this trait to remove this
         unreachable!()
     }

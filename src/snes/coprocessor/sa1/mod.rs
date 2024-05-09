@@ -9,7 +9,7 @@ use crate::bus::{Address, Bus, BusMember};
 use crate::cpu_65816::cpu::Cpu65816;
 use crate::tickable::{Tickable, Ticks};
 
-use bus::Sa1Bus;
+use bus::*;
 
 const IRAM_SIZE: usize = 2 * 1024;
 const BWRAM_SIZE: usize = 256 * 1024;
@@ -21,15 +21,34 @@ pub struct SA1 {
     pub cpu: RefCell<Cpu65816<Sa1Bus>>,
 
     /// SA-1 CPU control shadow register
-    pub cpu_ctrl: u8,
+    pub ccnt: u8,
 }
 
 impl SA1 {
     pub fn new(rom: &[u8], rom_mask: usize) -> Self {
+        let mut cpu = Cpu65816::new(Sa1Bus::new(rom.to_owned(), rom_mask));
+
+        // Address of CRV
+        cpu.vec_reset = 0x2203;
+        // Address of CNV
+        cpu.intvec_nmi = 0x2205;
+        // Address of CIV
+        cpu.intvec_int = 0x2207;
+
         Self {
-            cpu: RefCell::new(Cpu65816::new(Sa1Bus::new(rom.to_owned(), rom_mask))),
-            cpu_ctrl: 0x20,
+            cpu: RefCell::new(cpu),
+            ccnt: CCNT_DEFAULT,
         }
+    }
+
+    /// Interrupt line for S-CPU
+    pub fn get_int(&self) -> bool {
+        let cpu = self.cpu.borrow();
+        let v = cpu.bus.snes_irq && cpu.bus.sie & SIE_IRQ != 0;
+        if v {
+            println!("SNES IRQ!");
+        }
+        v
     }
 }
 
@@ -37,22 +56,17 @@ impl Tickable for SA1 {
     fn tick(&mut self, ticks: Ticks) -> Result<Ticks> {
         let mut cpu = self.cpu.borrow_mut();
 
-        // ??? do these have the extra indirection?
-        cpu.vec_reset = cpu.bus.sa1_crv;
-        cpu.intvec_nmi = cpu.bus.sa1_cnv;
-        cpu.intvec_int = cpu.bus.sa1_civ;
-
-        if self.cpu_ctrl != cpu.bus.sa1_cpu_ctrl {
-            if self.cpu_ctrl & 0x20 != 0 && cpu.bus.sa1_cpu_ctrl & 0x20 == 0 {
-                let pc = cpu.bus.sa1_crv as u16;
-                cpu.reset_pc(pc);
+        if self.ccnt != cpu.bus.ccnt {
+            if self.ccnt & CCNT_RESET != 0 && cpu.bus.ccnt & CCNT_RESET == 0 {
+                cpu.reset();
                 println!("SA-1 go @ {:04X}", cpu.regs.pc);
             }
 
-            self.cpu_ctrl = cpu.bus.sa1_cpu_ctrl;
+            self.ccnt = cpu.bus.ccnt;
         }
 
-        if self.cpu_ctrl & 0x20 == 0 {
+        // Run CPU if not in WAIT or RESET
+        if self.ccnt & (CCNT_WAIT | CCNT_RESET) == 0 {
             cpu.tick(ticks)
         } else {
             Ok(0)
