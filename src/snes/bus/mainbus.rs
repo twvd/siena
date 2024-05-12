@@ -497,9 +497,7 @@ where
             0x7E..=0x7F => Some(self.wram[((bank - 0x7E) * WRAM_BANK_SIZE) + addr]),
 
             // System area
-            // This is supposed to run until bank 0xBF, but some LoROM games expect it to
-            // expand further to 0xFF?
-            0x00..=0x3F | 0x80..=0xFF => match addr {
+            0x00..=0x3F | 0x80..=0xBF => match addr {
                 // WRAM mirror
                 0x0000..=0x1FFF => Some(self.wram[addr]),
                 // Picture Processing Unit
@@ -682,9 +680,7 @@ where
             0x7E..=0x7F => Some(self.wram[((bank - 0x7E) * WRAM_BANK_SIZE) + addr] = val),
 
             // System area
-            // This is supposed to run until bank 0xBF, but some LoROM games expect it to
-            // expand further to 0xFF?
-            0x00..=0x3F | 0x80..=0xFF => match addr {
+            0x00..=0x3F | 0x80..=0xBF => match addr {
                 // WRAM mirror
                 0x0000..=0x1FFF => Some(self.wram[addr] = val),
                 // Picture Processing Unit
