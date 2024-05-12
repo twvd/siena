@@ -267,14 +267,22 @@ impl Cartridge {
         if c.get_ram_size() > 0 {
             c.ram_mask = c.get_ram_size() - 1;
         }
-        if c.get_rom_size() != rom.len() {
+        if c.get_rom_size() != c.rom.len() {
             println!(
                 "WARNING! ROM size in header ({}) doesn't match actual length ({})",
                 c.get_rom_size(),
                 rom.len()
             );
+            if c.get_rom_size() > c.rom.len() {
+                println!(
+                    "Padding ROM from {} to {} bytes",
+                    c.rom.len(),
+                    c.get_rom_size()
+                );
+                c.rom.resize(c.get_rom_size(), 0xFF);
+            }
         }
-        c.rom_mask = Self::saturate_mask(rom.len() - 1);
+        c.rom_mask = Self::saturate_mask(c.rom.len() - 1);
         println!(
             "ROM mask: {:06X} - RAM mask: {:06X}",
             c.rom_mask, c.ram_mask
@@ -395,10 +403,14 @@ impl Cartridge {
         let (bank, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
         match (bank, addr) {
             (0x00..=0x3F | 0x80..=0xFF, 0x8000..=0xFFFF) => {
-                Some(self.rom[(addr - 0x8000 + (bank & !0x80) * 0x8000) & self.rom_mask])
+                Some(self.rom[((addr & !0x8000) + (bank & !0x80) * 0x8000) & self.rom_mask])
             }
             (0x70..=0x7D, 0x0000..=0x7FFF) if self.has_ram() => {
                 Some(self.ram[(bank - 0x70) * 0x8000 + addr & self.ram_mask])
+            }
+            (0x40..=0x7D | 0xC0..=0xFF, 0x0000..=0x7FFF) if !self.has_ram() => {
+                // Lower bank mirrors for carts without SRAM
+                Some(self.rom[((addr & !0x8000) + (bank & !0xC0) * 0x8000) & self.rom_mask])
             }
             _ => None,
         }
