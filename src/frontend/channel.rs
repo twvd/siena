@@ -10,8 +10,6 @@ pub struct ChannelRenderer {
     displaybuffer: DisplayBuffer,
     sender: Sender<DisplayBuffer>,
     receiver: Receiver<DisplayBuffer>,
-    width: usize,
-    height: usize,
 }
 
 impl ChannelRenderer {
@@ -28,8 +26,6 @@ impl Renderer for ChannelRenderer {
             displaybuffer: new_displaybuffer(width, height),
             sender,
             receiver,
-            width,
-            height,
         })
     }
 
@@ -39,10 +35,11 @@ impl Renderer for ChannelRenderer {
 
     /// Renders changes to screen
     fn update(&mut self) -> Result<()> {
-        let buffer = std::mem::replace(
-            &mut self.displaybuffer,
-            new_displaybuffer(self.width, self.height),
-        );
+        // Copy the current buffer as fresh backbuffer so it is possible to
+        // do partial updates of the previous frame.
+        let new_buffer = self.displaybuffer.clone();
+        let buffer = std::mem::replace(&mut self.displaybuffer, new_buffer);
+
         match self.sender.try_send(buffer) {
             Err(TrySendError::Full(_)) => Ok(()),
             e => Ok(e?),

@@ -276,13 +276,27 @@ impl PPUState {
         self.bgmode & 0x07
     }
 
+    /// Returns if the PPU is currently in horizontal high res mode.
+    pub(super) fn in_highres_h(&self) -> bool {
+        match self.get_screen_mode() {
+            5 | 6 => true,
+            _ => false,
+        }
+    }
+
+    /// Returns if the PPU is currently in vertical high res mode.
+    pub(super) fn in_highres_v(&self) -> bool {
+        self.in_highres_h() && self.setini & 1 != 0
+    }
+
     /// Returns the horizontal scaling factor of the active PPU mode,
     /// for backgrounds, based on the full resolution (512).
     /// Does not look at pseudo high res.
     pub(super) fn get_screen_mode_scale_bg(&self) -> usize {
-        match self.get_screen_mode() {
-            5 | 6 => 1,
-            _ => 2,
+        if self.in_highres_h() {
+            1
+        } else {
+            2
         }
     }
 
@@ -290,9 +304,10 @@ impl PPUState {
     /// for sprites, based on the full resolution (512).
     /// Does not look at pseudo high res.
     pub(super) fn get_screen_mode_scale_sprites(&self) -> usize {
-        match self.get_screen_mode() {
-            5 | 6 => 2,
-            _ => 1,
+        if self.in_highres_h() {
+            2
+        } else {
+            1
         }
     }
 

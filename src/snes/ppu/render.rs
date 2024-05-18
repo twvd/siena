@@ -309,7 +309,8 @@ impl PPUState {
 
     fn render_scanline_screen(
         &mut self,
-        scanline: usize,
+        scanline_bg: usize,
+        scanline_sprites: usize,
         layermask: u8,
         backdrop: SnesColor,
         windows: WindowState,
@@ -322,166 +323,166 @@ impl PPUState {
             0 => {
                 // 4 layers, 2bpp (4 colors)
                 // Sprites with priority 3
-                self.render_scanline_sprites(scanline, &mut state, 3);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 3);
                 // BG1 tiles with priority 1
-                self.render_scanline_bglayer(scanline, 0, &mut state, true);
+                self.render_scanline_bglayer(scanline_bg, 0, &mut state, true);
                 // BG2 tiles with priority 1
-                self.render_scanline_bglayer(scanline, 1, &mut state, true);
+                self.render_scanline_bglayer(scanline_bg, 1, &mut state, true);
                 // Sprites with priority 2
-                self.render_scanline_sprites(scanline, &mut state, 2);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 2);
                 // BG1 tiles with priority 0
-                self.render_scanline_bglayer(scanline, 0, &mut state, false);
+                self.render_scanline_bglayer(scanline_bg, 0, &mut state, false);
                 // BG2 tiles with priority 0
-                self.render_scanline_bglayer(scanline, 1, &mut state, false);
+                self.render_scanline_bglayer(scanline_bg, 1, &mut state, false);
                 // Sprites with priority 1
-                self.render_scanline_sprites(scanline, &mut state, 1);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 1);
                 // BG3 tiles with priority 1
-                self.render_scanline_bglayer(scanline, 2, &mut state, true);
+                self.render_scanline_bglayer(scanline_bg, 2, &mut state, true);
                 // BG4 tiles with priority 1
-                self.render_scanline_bglayer(scanline, 3, &mut state, true);
+                self.render_scanline_bglayer(scanline_bg, 3, &mut state, true);
                 // Sprites with priority 0
-                self.render_scanline_sprites(scanline, &mut state, 0);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 0);
                 // BG3 tiles with priority 0
-                self.render_scanline_bglayer(scanline, 2, &mut state, false);
+                self.render_scanline_bglayer(scanline_bg, 2, &mut state, false);
                 // BG4 tiles with priority 0
-                self.render_scanline_bglayer(scanline, 3, &mut state, false);
+                self.render_scanline_bglayer(scanline_bg, 3, &mut state, false);
             }
             1 => {
                 let bg3_prio = self.bgmode & (1 << 3) != 0;
                 // BG3 tiles with priority 1 if bit 3 of $2105 is set
                 if bg3_prio {
-                    self.render_scanline_bglayer(scanline, 2, &mut state, true);
+                    self.render_scanline_bglayer(scanline_bg, 2, &mut state, true);
                 }
                 // Sprites with priority 3
-                self.render_scanline_sprites(scanline, &mut state, 3);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 3);
                 // BG1 tiles with priority 1
-                self.render_scanline_bglayer(scanline, 0, &mut state, true);
+                self.render_scanline_bglayer(scanline_bg, 0, &mut state, true);
                 // BG2 tiles with priority 1
-                self.render_scanline_bglayer(scanline, 1, &mut state, true);
+                self.render_scanline_bglayer(scanline_bg, 1, &mut state, true);
                 // Sprites with priority 2
-                self.render_scanline_sprites(scanline, &mut state, 2);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 2);
                 // BG1 tiles with priority 0
-                self.render_scanline_bglayer(scanline, 0, &mut state, false);
+                self.render_scanline_bglayer(scanline_bg, 0, &mut state, false);
                 // BG2 tiles with priority 0
-                self.render_scanline_bglayer(scanline, 1, &mut state, false);
+                self.render_scanline_bglayer(scanline_bg, 1, &mut state, false);
                 // Sprites with priority 1
-                self.render_scanline_sprites(scanline, &mut state, 1);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 1);
                 // BG3 tiles with priority 1 if bit 3 of $2105 is clear
                 if !bg3_prio {
-                    self.render_scanline_bglayer(scanline, 2, &mut state, true);
+                    self.render_scanline_bglayer(scanline_bg, 2, &mut state, true);
                 }
                 // Sprites with priority 0
-                self.render_scanline_sprites(scanline, &mut state, 0);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 0);
                 // BG3 tiles with priority 0
-                self.render_scanline_bglayer(scanline, 2, &mut state, false);
+                self.render_scanline_bglayer(scanline_bg, 2, &mut state, false);
             }
             2 => {
                 // 2 layers, bg1: 4bpp (16 colors), bg2: 4bpp (16 colors)
                 // bg3: Offset-per-tile
                 // Sprites with priority 3
-                self.render_scanline_sprites(scanline, &mut state, 3);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 3);
                 // BG1 tiles with priority 1
-                self.render_scanline_bglayer(scanline, 0, &mut state, true);
+                self.render_scanline_bglayer(scanline_bg, 0, &mut state, true);
                 // Sprites with priority 2
-                self.render_scanline_sprites(scanline, &mut state, 2);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 2);
                 // BG2 tiles with priority 1
-                self.render_scanline_bglayer(scanline, 1, &mut state, true);
+                self.render_scanline_bglayer(scanline_bg, 1, &mut state, true);
                 // Sprites with priority 1
-                self.render_scanline_sprites(scanline, &mut state, 1);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 1);
                 // BG1 tiles with priority 0
-                self.render_scanline_bglayer(scanline, 0, &mut state, false);
+                self.render_scanline_bglayer(scanline_bg, 0, &mut state, false);
                 // Sprites with priority 0
-                self.render_scanline_sprites(scanline, &mut state, 0);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 0);
                 // BG2 tiles with priority 0
-                self.render_scanline_bglayer(scanline, 1, &mut state, false);
+                self.render_scanline_bglayer(scanline_bg, 1, &mut state, false);
             }
             3 => {
                 // 2 layers, bg1: 8bpp (256 colors)
                 // bg2: 4bpp (16 colors)
                 // Sprites with priority 3
-                self.render_scanline_sprites(scanline, &mut state, 3);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 3);
                 // BG1 tiles with priority 1
-                self.render_scanline_bglayer(scanline, 0, &mut state, true);
+                self.render_scanline_bglayer(scanline_bg, 0, &mut state, true);
                 // Sprites with priority 2
-                self.render_scanline_sprites(scanline, &mut state, 2);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 2);
                 // BG2 tiles with priority 1
-                self.render_scanline_bglayer(scanline, 1, &mut state, true);
+                self.render_scanline_bglayer(scanline_bg, 1, &mut state, true);
                 // Sprites with priority 1
-                self.render_scanline_sprites(scanline, &mut state, 1);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 1);
                 // BG1 tiles with priority 0
-                self.render_scanline_bglayer(scanline, 0, &mut state, false);
+                self.render_scanline_bglayer(scanline_bg, 0, &mut state, false);
                 // Sprites with priority 0
-                self.render_scanline_sprites(scanline, &mut state, 0);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 0);
                 // BG2 tiles with priority 0
-                self.render_scanline_bglayer(scanline, 1, &mut state, false);
+                self.render_scanline_bglayer(scanline_bg, 1, &mut state, false);
             }
             4 => {
                 // 2 layers, bg1: 8bpp (256 colors)
                 // bg2: 2bpp (16 colors)
                 // Sprites with priority 3
-                self.render_scanline_sprites(scanline, &mut state, 3);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 3);
                 // BG1 tiles with priority 1
-                self.render_scanline_bglayer(scanline, 0, &mut state, true);
+                self.render_scanline_bglayer(scanline_bg, 0, &mut state, true);
                 // Sprites with priority 2
-                self.render_scanline_sprites(scanline, &mut state, 2);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 2);
                 // BG2 tiles with priority 1
-                self.render_scanline_bglayer(scanline, 1, &mut state, true);
+                self.render_scanline_bglayer(scanline_bg, 1, &mut state, true);
                 // Sprites with priority 1
-                self.render_scanline_sprites(scanline, &mut state, 1);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 1);
                 // BG1 tiles with priority 0
-                self.render_scanline_bglayer(scanline, 0, &mut state, false);
+                self.render_scanline_bglayer(scanline_bg, 0, &mut state, false);
                 // Sprites with priority 0
-                self.render_scanline_sprites(scanline, &mut state, 0);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 0);
                 // BG2 tiles with priority 0
-                self.render_scanline_bglayer(scanline, 1, &mut state, false);
+                self.render_scanline_bglayer(scanline_bg, 1, &mut state, false);
             }
             5 => {
                 // 2 layers, bg1: 4bpp (16 colors)
                 // bg2: 2bpp (4 colors)
                 // Sprites with priority 3
-                self.render_scanline_sprites(scanline, &mut state, 3);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 3);
                 // BG1 tiles with priority 1
-                self.render_scanline_bglayer(scanline, 0, &mut state, true);
+                self.render_scanline_bglayer(scanline_bg, 0, &mut state, true);
                 // Sprites with priority 2
-                self.render_scanline_sprites(scanline, &mut state, 2);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 2);
                 // BG2 tiles with priority 1
-                self.render_scanline_bglayer(scanline, 1, &mut state, true);
+                self.render_scanline_bglayer(scanline_bg, 1, &mut state, true);
                 // Sprites with priority 1
-                self.render_scanline_sprites(scanline, &mut state, 1);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 1);
                 // BG1 tiles with priority 0
-                self.render_scanline_bglayer(scanline, 0, &mut state, false);
+                self.render_scanline_bglayer(scanline_bg, 0, &mut state, false);
                 // Sprites with priority 0
-                self.render_scanline_sprites(scanline, &mut state, 0);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 0);
                 // BG2 tiles with priority 0
-                self.render_scanline_bglayer(scanline, 1, &mut state, false);
+                self.render_scanline_bglayer(scanline_bg, 1, &mut state, false);
             }
             6 => {
                 // 1 layer, bg1: 4bpp (16 colors)
                 // Sprites with priority 3
-                self.render_scanline_sprites(scanline, &mut state, 3);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 3);
                 // BG1 tiles with priority 1
-                self.render_scanline_bglayer(scanline, 0, &mut state, true);
+                self.render_scanline_bglayer(scanline_bg, 0, &mut state, true);
                 // Sprites with priority 2
-                self.render_scanline_sprites(scanline, &mut state, 2);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 2);
                 // Sprites with priority 1
-                self.render_scanline_sprites(scanline, &mut state, 1);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 1);
                 // BG1 tiles with priority 0
-                self.render_scanline_bglayer(scanline, 0, &mut state, false);
+                self.render_scanline_bglayer(scanline_bg, 0, &mut state, false);
                 // Sprites with priority 0
-                self.render_scanline_sprites(scanline, &mut state, 0);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 0);
             }
             7 => {
                 // TODO extbg
                 // Sprites with priority 3
-                self.render_scanline_sprites(scanline, &mut state, 3);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 3);
                 // Sprites with priority 2
-                self.render_scanline_sprites(scanline, &mut state, 2);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 2);
                 // Sprites with priority 1
-                self.render_scanline_sprites(scanline, &mut state, 1);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 1);
                 // BG1
-                self.render_scanline_mode7(scanline, 0, &mut state);
+                self.render_scanline_mode7(scanline_bg, 0, &mut state);
                 // Sprites with priority 0
-                self.render_scanline_sprites(scanline, &mut state, 0);
+                self.render_scanline_sprites(scanline_sprites, &mut state, 0);
             }
             _ => unreachable!(),
         }
@@ -489,17 +490,23 @@ impl PPUState {
         state
     }
 
-    pub fn render_scanline(&mut self, scanline: usize) -> ArrayVec<Color, SCREEN_WIDTH> {
+    pub fn render_scanline(
+        &mut self,
+        scanline_bg: usize,
+        scanline_sprites: usize,
+    ) -> ArrayVec<Color, SCREEN_WIDTH> {
         let windows = self.render_windows();
         let mainscreen = self.render_scanline_screen(
-            scanline,
+            scanline_bg,
+            scanline_sprites,
             self.tm & !self.dbg_layermask,
             self.cgram_to_color(0),
             windows.clone(),
             self.tmw,
         );
         let subscreen = self.render_scanline_screen(
-            scanline,
+            scanline_bg,
+            scanline_sprites,
             if self.cgwsel & (1 << 1) != 0 {
                 // Enable backdrop + bg + obj
                 self.ts & !self.dbg_layermask
@@ -524,20 +531,24 @@ impl PPUState {
                 continue;
             }
 
-            let pixel = match self.get_screen_mode() {
+            let pixel = if self.in_highres_h() {
                 // Mode 5/6 do not support color math
-                5 | 6 => mainscreen.paletted[x],
-                _ => self.apply_colormath(
+                mainscreen.paletted[x]
+            } else {
+                self.apply_colormath(
                     mainscreen.paletted[x],
                     subscreen.paletted[x],
                     mainscreen.layer[x],
                     subscreen.layer[x],
                     mainscreen.window.math[x],
                     mainscreen.palette[x],
-                ),
+                )
             };
 
-            // Apply master brightness and output
+            // Apply master brightness, convert to host colors and output
+            //
+            // Outside of high-res modes we scale up horizontally by two
+            // to stretch the image to the high-res resolution.
             for _ in 0..scale {
                 out.push(pixel.apply_brightness(brightness).to_native());
             }

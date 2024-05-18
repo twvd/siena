@@ -263,12 +263,7 @@ impl BusMember<Address> for PPUState {
             }
 
             // SETINI - Display Control 2 (W)
-            0x2133 => {
-                if self.setini != val {
-                    println!("setini = {:02X}", val);
-                }
-                Some(self.setini = val)
-            }
+            0x2133 => Some(self.setini = val),
 
             _ => None,
         }

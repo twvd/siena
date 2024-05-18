@@ -184,25 +184,52 @@ where
     }
 
     pub fn render_scanline(&mut self, scanline: usize, output_offset: isize) {
-        let output_line = usize::try_from((scanline as isize) + output_offset).unwrap();
-        let upper_line = output_line * 2;
-        let lower_line = upper_line + 1;
-
         let mut t_state = self.state.clone();
         let t_buffer = self.renderer.as_mut().unwrap().get_buffer();
 
+        // Sprites are always rendered on "full" pixels, even in highres.
+        let scanline_sprites = scanline;
+
+        let scanline_bg = if t_state.in_highres_v() {
+            // If vertical high res is enabled, every other scanline is updated
+            // every other frame.
+            scanline * 2 + if self.interlace_frame { 0 } else { 1 }
+        } else {
+            // For non-vertical high res, all scanlines are duplicated so
+            // the size of the frame buffer is the size of a high res frame.
+            scanline
+        };
+
+        let output_line = usize::try_from((scanline_bg as isize) + output_offset).unwrap();
+        let upper_line = if t_state.in_highres_v() {
+            output_line
+        } else {
+            output_line * 2
+        };
+
+        // Frames in which the 'even' scanlines are updated, we skip the
+        // last line because it falls off the edge of the frame
+        // ('odd line' frames render one extra line)
+        if t_state.in_highres_v() && !self.interlace_frame && output_line >= SCREEN_HEIGHT {
+            return;
+        }
+
         self.pool.execute(move || {
-            let line = t_state.render_scanline(scanline);
+            let line = t_state.render_scanline(scanline_bg, scanline_sprites);
             for (x, color) in line.into_iter().enumerate() {
                 let idx_upper = ((upper_line * SCREEN_WIDTH) + x) * 4;
                 t_buffer[idx_upper].store(color.2.into(), Ordering::Release);
                 t_buffer[idx_upper + 1].store(color.1.into(), Ordering::Release);
                 t_buffer[idx_upper + 2].store(color.0.into(), Ordering::Release);
 
-                let idx_lower = ((lower_line * SCREEN_WIDTH) + x) * 4;
-                t_buffer[idx_lower].store(color.2.into(), Ordering::Release);
-                t_buffer[idx_lower + 1].store(color.1.into(), Ordering::Release);
-                t_buffer[idx_lower + 2].store(color.0.into(), Ordering::Release);
+                if !t_state.in_highres_v() {
+                    // Outside of high res, duplicate every line to scale up
+                    let lower_line = upper_line + 1;
+                    let idx_lower = ((lower_line * SCREEN_WIDTH) + x) * 4;
+                    t_buffer[idx_lower].store(color.2.into(), Ordering::Release);
+                    t_buffer[idx_lower + 1].store(color.1.into(), Ordering::Release);
+                    t_buffer[idx_lower + 2].store(color.0.into(), Ordering::Release);
+                }
             }
         });
     }
