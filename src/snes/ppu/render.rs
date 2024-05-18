@@ -9,6 +9,8 @@ use arrayvec::ArrayVec;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
+use std::iter;
+
 const LAYER_BACKDROP: u8 = 255;
 const LAYER_SPRITES: u8 = 4;
 pub struct RenderState {
@@ -501,6 +503,17 @@ impl PPUState {
         scanline_bg: usize,
         scanline_sprites: usize,
     ) -> ArrayVec<Color, SCREEN_WIDTH> {
+        let brightness = (self.inidisp & 0x0F) as usize;
+        let scale = self.get_screen_mode_scale_bg();
+        let mut out: ArrayVec<Color, SCREEN_WIDTH> = ArrayVec::new();
+
+        if brightness == 0 || self.inidisp & 0x80 != 0 {
+            // Force blank or no brightness
+            return ArrayVec::from_iter(
+                iter::repeat(SnesColor::BLACK.to_native()).take(SCREEN_WIDTH),
+            );
+        }
+
         let windows = self.render_windows();
         let mainscreen = self.render_scanline_screen(
             scanline_bg,
@@ -526,17 +539,7 @@ impl PPUState {
         );
 
         // Send line to screen buffer
-        let scale = self.get_screen_mode_scale_bg();
-        let brightness = (self.inidisp & 0x0F) as usize;
-
-        let mut out: ArrayVec<Color, SCREEN_WIDTH> = ArrayVec::new();
         for x in 0..(SCREEN_WIDTH / scale) {
-            if brightness == 0 || self.inidisp & 0x80 != 0 {
-                // Force blank or no brightness
-                out.push(SnesColor::BLACK.to_native());
-                continue;
-            }
-
             let pixel = if self.in_highres_h() {
                 // Mode 5/6 do not support color math
                 mainscreen.paletted[x]
