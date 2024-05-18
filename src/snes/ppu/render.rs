@@ -167,7 +167,13 @@ impl PPUState {
             return;
         }
 
-        let bghofs = self.bgxhofs[bg] as usize;
+        // For high res modes, double BGxHOFS, because the SNES can still
+        // only scroll in the resolution of the non-high res modes.
+        let bghofs = if self.in_highres_h() {
+            self.bgxhofs[bg] as usize * 2
+        } else {
+            self.bgxhofs[bg] as usize
+        };
         let bgvofs = self.bgxvofs[bg] as usize;
         let (tilewidth, tileheight) = self.get_bg_tile_size(bg);
         let scale = self.get_screen_mode_scale_bg();
