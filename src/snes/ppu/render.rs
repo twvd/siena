@@ -270,46 +270,48 @@ impl PPUState {
                 continue;
             }
 
-            if (e.y..(e.y + e.height)).contains(&scanline) {
-                for x in e.x..(e.x + e.width as i32) {
-                    if (x * scale as i32) >= state.idx.len() as i32 || x < 0 {
-                        // Outside of visible area.
-                        continue;
-                    }
+            if !(e.y..(e.y + e.height)).contains(&scanline) {
+                continue;
+            }
 
-                    if state.window.sprites[x as usize]
-                        && state.windowlayermask & (1 << LAYER_SPRITES) != 0
-                    {
-                        // Masked by window.
-                        continue;
-                    }
+            for x in e.x..(e.x + e.width as i32) {
+                if (x * scale as i32) >= state.idx.len() as i32 || x < 0 {
+                    // Outside of visible area.
+                    continue;
+                }
 
-                    // Coordinates within the tile
-                    let (in_x, in_y) = (
-                        ((x - e.x) % TILE_WIDTH as i32) as usize,
-                        ((scanline - e.y) % TILE_HEIGHT) as usize,
-                    );
-                    // Sub-tile coordinates
-                    let (t_x, t_y) = (
-                        ((x - e.x) / TILE_WIDTH as i32) as usize,
-                        ((scanline - e.y) / TILE_HEIGHT) as usize,
-                    );
-                    // Should be positive from here on
-                    let x = (x as usize) * scale;
+                if state.window.sprites[x as usize]
+                    && state.windowlayermask & (1 << LAYER_SPRITES) != 0
+                {
+                    // Masked by window.
+                    continue;
+                }
 
-                    let sprite = self.get_sprite_tile(&e, t_x, t_y);
+                // Coordinates within the tile
+                let (in_x, in_y) = (
+                    ((x - e.x) % TILE_WIDTH as i32) as usize,
+                    ((scanline - e.y) % TILE_HEIGHT) as usize,
+                );
+                // Sub-tile coordinates
+                let (t_x, t_y) = (
+                    ((x - e.x) / TILE_WIDTH as i32) as usize,
+                    ((scanline - e.y) / TILE_HEIGHT) as usize,
+                );
+                // Should be positive from here on
+                let x = (x as usize) * scale;
 
-                    let coloridx = sprite.get_coloridx(in_x, in_y, &self.vram);
-                    if coloridx == 0 || state.idx[x] != 0 {
-                        continue;
-                    }
+                let sprite = self.get_sprite_tile(&e, t_x, t_y);
 
-                    for ix in x..(x + scale) {
-                        state.idx[ix] = coloridx;
-                        state.palette[ix] = sprite.oam.palette();
-                        state.paletted[ix] = self.sprite_cindex_to_color(&sprite, coloridx);
-                        state.layer[ix] = LAYER_SPRITES;
-                    }
+                let coloridx = sprite.get_coloridx(in_x, in_y, &self.vram);
+                if coloridx == 0 || state.idx[x] != 0 {
+                    continue;
+                }
+
+                for ix in x..(x + scale) {
+                    state.idx[ix] = coloridx;
+                    state.palette[ix] = sprite.oam.palette();
+                    state.paletted[ix] = self.sprite_cindex_to_color(&sprite, coloridx);
+                    state.layer[ix] = LAYER_SPRITES;
                 }
             }
         }

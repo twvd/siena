@@ -257,7 +257,6 @@ impl PPUState {
     }
 
     pub(super) fn get_bg_map_addr(&self, bg: usize) -> usize {
-        debug_assert!((0..4).contains(&bg));
         (self.bgxsc[bg] >> 2) as usize * 1024
     }
 

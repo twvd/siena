@@ -306,8 +306,10 @@ where
                     self.vblank = true;
                     self.intreq_vblank = true;
 
-                    // Reload OAMADD
-                    self.state.oamadd_addr.set(self.state.oamadd_reload.get());
+                    // Reload OAMADD (only outside of force blank)
+                    if self.state.inidisp & 0x80 == 0 {
+                        self.state.oamadd_addr.set(self.state.oamadd_reload.get());
+                    }
                 }
             } else {
                 if self.vblank {
