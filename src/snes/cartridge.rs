@@ -51,6 +51,7 @@ pub enum CoProcessor {
     SA1 = 3,
     SDD1 = 4,
     SRTC = 5,
+    SuperGameboy = 14,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, FromPrimitive)]
@@ -338,6 +339,7 @@ impl Cartridge {
             (MapMode::HiROM, Some(CoProcessor::DSPx)) => Mapper::HiROMDSP1,
             (_, Some(CoProcessor::SuperFX)) => c.mapper,
             (MapMode::SA1, Some(CoProcessor::SA1)) => Mapper::SA1,
+            (MapMode::LoROM, Some(CoProcessor::SuperGameboy)) => Mapper::LoROM,
             _ => panic!("Cannot determine mapper"),
         };
         println!("Selected mapper: {}", c.mapper);
