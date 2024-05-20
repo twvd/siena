@@ -67,7 +67,7 @@ impl Bus<SpcAddress> for Apubus {
             // DSP register address
             0x00F2 => self.dsp_addr as u8,
             // DSP data out
-            0x00F3 => self.dsp_stub[self.dsp_addr],
+            0x00F3 => self.dsp_stub[self.dsp_addr & 0x7F],
             // Ports
             0x00F4..=0x00F7 => {
                 let ports = self.ports.read().unwrap();
@@ -115,9 +115,13 @@ impl Bus<SpcAddress> for Apubus {
                 }
             }
             // DSP register address
-            0x00F2 => self.dsp_addr = usize::from(val & 0x7F),
+            0x00F2 => self.dsp_addr = usize::from(val),
             // DSP data out
-            0x00F3 => self.dsp_stub[self.dsp_addr] = val,
+            0x00F3 => {
+                if self.dsp_addr < 0x80 {
+                    self.dsp_stub[self.dsp_addr] = val;
+                }
+            }
             // Ports
             0x00F4..=0x00F7 => {
                 let mut ports = self.ports.write().unwrap();
