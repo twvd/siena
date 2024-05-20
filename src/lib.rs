@@ -1,9 +1,11 @@
 pub mod bus;
 pub mod cpu_65816;
 pub mod cpu_gsu;
+pub mod cpu_sm83;
 pub mod cpu_spc700;
 pub mod cpu_upd77c25;
 pub mod frontend;
+pub mod gameboy;
 pub mod snes;
 pub mod tickable;
 pub mod util;
