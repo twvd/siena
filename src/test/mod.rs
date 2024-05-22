@@ -3,6 +3,7 @@ pub mod peterlemon_bank;
 pub mod peterlemon_gsu;
 pub mod peterlemon_ppu;
 pub mod processortests_65816;
+pub mod processortests_sm83;
 pub mod processortests_spc700;
 
 use itertools::Itertools;
