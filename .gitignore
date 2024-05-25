@@ -4,3 +4,4 @@
 .*.swt
 state_*.json
 *.rom
+*.bin

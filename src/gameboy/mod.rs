@@ -1,2 +1,9 @@
+pub mod apu;
 pub mod bus;
+pub mod cartridge;
+pub mod joypad;
+pub mod lcd;
+pub mod lcd_oam;
+pub mod serial;
 pub mod tickable;
+pub mod timer;

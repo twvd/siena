@@ -1,13 +1,11 @@
 use super::super::apu::APU;
 use super::super::cartridge::cartridge::Cartridge;
-use super::super::cpu::cpu;
+use crate::cpu_sm83::cpu;
 use super::super::joypad::Joypad;
 use super::super::lcd::{LCDController, LCDStatMode};
-use super::super::serial::Serial;
 use super::super::timer::Timer;
 use super::bus::{Bus, BusMember};
-use crate::input::input::Input;
-use crate::tickable::{Tickable, Ticks, ONE_MCYCLE};
+use crate::gameboy::tickable::{Tickable, Ticks, ONE_MCYCLE};
 
 use anyhow::Result;
 
@@ -75,9 +73,6 @@ pub struct Gameboybus {
     /// OAM DMA Transfer source address
     oamdma_addr: u16,
 
-    /// Serial port controller
-    serial: Serial,
-
     /// Double speed mode
     double_speed: bool,
 }
@@ -90,19 +85,7 @@ impl Gameboybus {
         cart: Rc<RefCell<dyn Cartridge>>,
         bootrom: Option<&[u8]>,
         lcd: LCDController,
-        input: Box<dyn Input>,
         cgb: bool,
-    ) -> Self {
-        Self::new_with_serial(cart, bootrom, lcd, input, cgb, Serial::new_null())
-    }
-
-    pub fn new_with_serial(
-        cart: Rc<RefCell<dyn Cartridge>>,
-        bootrom: Option<&[u8]>,
-        lcd: LCDController,
-        input: Box<dyn Input>,
-        cgb: bool,
-        serial: Serial,
     ) -> Self {
         let mut bus = Gameboybus {
             cgb,
@@ -117,11 +100,10 @@ impl Gameboybus {
 
             lcd,
             timer: Timer::from_div(0xAC), // Value after boot ROM
-            joypad: Joypad::new(input),
+            joypad: Joypad::new(),
             apu: APU::new(),
 
             intflags: cpu::INT_VBLANK, // VBlank is set after boot ROM
-            serial,
 
             vramdma_src: 0,
             vramdma_dest: 0,
@@ -150,9 +132,6 @@ impl Gameboybus {
         }
         if self.timer.get_clr_intreq() {
             self.intflags |= cpu::INT_TIMER;
-        }
-        if self.serial.get_clr_intreq() {
-            self.intflags |= cpu::INT_SERIAL;
         }
     }
 
@@ -311,7 +290,7 @@ impl BusMember for Gameboybus {
             0xFF00 => self.joypad.read(),
 
             // I/O - Serial transfer
-            0xFF01..=0xFF02 => self.serial.read(addr as u16),
+            0xFF01..=0xFF02 => 0,
 
             // I/O - Timer
             0xFF04..=0xFF07 => self.timer.read(addr as u16),
@@ -416,7 +395,7 @@ impl BusMember for Gameboybus {
             0xFF00 => self.joypad.write(val),
 
             // I/O - Serial transfer
-            0xFF01..=0xFF02 => self.serial.write(addr as u16, val),
+            0xFF01..=0xFF02 => (),
 
             // Timer
             0xFF04..=0xFF07 => self.timer.write(addr as u16, val),
@@ -497,7 +476,6 @@ impl Tickable for Gameboybus {
         } else {
             self.timer.tick(ticks)?;
         }
-        self.serial.tick(ticks)?;
 
         self.update_intflags();
 
