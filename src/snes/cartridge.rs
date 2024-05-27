@@ -123,6 +123,8 @@ pub struct Cartridge {
     pub co_sa1: Option<SA1>,
 
     /// Super Gameboy co-processor
+    // TODO serialization
+    #[serde(skip)]
     pub co_sgb: Option<SuperGameboy>,
 }
 
@@ -335,7 +337,7 @@ impl Cartridge {
             }
             Some(CoProcessor::SuperGameboy) => {
                 println!("Super Gameboy detected");
-                c.co_sgb = Some(SuperGameboy::new());
+                c.co_sgb = Some(SuperGameboy::new()?);
             }
             Some(c) => println!("Warning: unimplemented co-processor: {:?}", c),
             None => (),

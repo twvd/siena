@@ -27,6 +27,7 @@ pub enum Schedule {
     DSP1 = 3,
     SuperFX = 4,
     SA1 = 5,
+    SuperGameboy = 6,
 }
 
 pub struct Emulator<T>
@@ -100,6 +101,9 @@ where
         }
         if emu.cpu.bus.cartridge.co_superfx.is_none() {
             emu.schedule_next[Schedule::SuperFX] = Ticks::MAX;
+        }
+        if emu.cpu.bus.cartridge.co_sgb.is_none() {
+            emu.schedule_next[Schedule::SuperGameboy] = Ticks::MAX;
         }
 
         Ok(emu)
@@ -292,6 +296,9 @@ where
                 // 7.6 - 8 MHz ?
                 // 2 master cycles leans towards faster, but works well..
                 Ok(self.cpu.bus.cartridge.co_dsp1.as_mut().unwrap().tick(1)? * 2)
+            }
+            Schedule::SuperGameboy => {
+                Ok(self.cpu.bus.cartridge.co_sgb.as_mut().unwrap().tick(1)? * 5)
             }
         }
     }

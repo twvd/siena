@@ -709,8 +709,8 @@ impl LCDController {
         }
 
         //for (x, c) in line.into_iter().enumerate() {
-            // TODO
-            //self.output.set_pixel(x, scanline as usize, c.color.into());
+        // TODO
+        //self.output.set_pixel(x, scanline as usize, c.color.into());
         //}
 
         // Reset current state of tracked registers for next scanline
@@ -1016,7 +1016,13 @@ impl BusMember for LCDController {
 mod tests {
     use super::*;
 
-    use crate::display::display::NullDisplay;
+    fn lcd() -> LCDController {
+        LCDController::new(false)
+    }
+
+    fn lcd_cgb() -> LCDController {
+        LCDController::new(true)
+    }
 
     #[test]
     fn tile_decode() {
@@ -1037,7 +1043,7 @@ mod tests {
             }
         }
 
-        let mut c = LCDController::new(Box::new(NullDisplay::new()), false);
+        let mut c = lcd();
         assert_eq!(c.get_stat_mode(), LCDStatMode::Search);
 
         for _ in 0..LCDController::VBLANK_START {
@@ -1053,7 +1059,7 @@ mod tests {
 
     #[test]
     fn vblank() {
-        let mut c = LCDController::new(Box::new(NullDisplay::new()), false);
+        let mut c = lcd();
         for _ in
             (LCDController::DOTS_INIT as usize)..(LCD_H * LCDController::DOTS_PER_LINE as usize)
         {
@@ -1065,7 +1071,7 @@ mod tests {
 
     #[test]
     fn int_stat_lyc() {
-        let mut c = LCDController::new(Box::new(NullDisplay::new()), false);
+        let mut c = lcd();
         c.write(0xFF45, 10);
         c.write(0xFF41, LCDS_INT_LYC);
         c.get_clr_intreq_stat(); // Clear STAT write glitch
@@ -1088,7 +1094,7 @@ mod tests {
 
     #[test]
     fn int_stat_vblank() {
-        let mut c = LCDController::new(Box::new(NullDisplay::new()), false);
+        let mut c = lcd();
         c.write(0xFF41, LCDS_INT_STAT_VBLANK);
         c.get_clr_intreq_stat(); // Clear STAT write glitch
 
@@ -1107,7 +1113,7 @@ mod tests {
 
     #[test]
     fn int_stat_hblank() {
-        let mut c = LCDController::new(Box::new(NullDisplay::new()), false);
+        let mut c = lcd();
         c.write(0xFF41, LCDS_INT_STAT_HBLANK);
         c.get_clr_intreq_stat(); // Clear STAT write glitch
 
@@ -1126,7 +1132,7 @@ mod tests {
 
     #[test]
     fn int_stat_oam() {
-        let mut c = LCDController::new(Box::new(NullDisplay::new()), false);
+        let mut c = lcd();
 
         while c.get_stat_mode() == LCDStatMode::Search {
             c.tick(Ticks::from_t(1)).unwrap();
@@ -1150,7 +1156,7 @@ mod tests {
 
     #[test]
     fn int_stat_quirk() {
-        let mut c = LCDController::new(Box::new(NullDisplay::new()), false);
+        let mut c = lcd();
 
         assert_eq!(c.get_stat_mode(), LCDStatMode::Search);
 
@@ -1191,7 +1197,7 @@ mod tests {
 
     #[test]
     fn int_vblank() {
-        let mut c = LCDController::new(Box::new(NullDisplay::new()), false);
+        let mut c = lcd();
 
         c.tick(Ticks::from_t(1)).unwrap();
         assert!(!c.get_clr_intreq_vblank());
@@ -1208,7 +1214,7 @@ mod tests {
 
     #[test]
     fn int_vblank_lcdc_disable() {
-        let mut c = LCDController::new(Box::new(NullDisplay::new()), false);
+        let mut c = lcd();
 
         c.write(0xFF40, LCDC_ENABLE);
         c.tick(Ticks::from_t(1)).unwrap();
@@ -1276,19 +1282,19 @@ mod tests {
 
     #[test]
     fn cram_bg() {
-        let mut c = LCDController::new(Box::new(NullDisplay::new()), true);
+        let mut c = lcd_cgb();
         test_cram(0xFF68, 0xFF69, &mut c);
     }
 
     #[test]
     fn cram_obj() {
-        let mut c = LCDController::new(Box::new(NullDisplay::new()), true);
+        let mut c = lcd_cgb();
         test_cram(0xFF6A, 0xFF6B, &mut c);
     }
 
     #[test]
     fn vram_bank_switching() {
-        let mut c = LCDController::new(Box::new(NullDisplay::new()), true);
+        let mut c = lcd_cgb();
 
         c.write(0x8000, 0xAA);
         assert_eq!(c.vram[0], 0xAA);

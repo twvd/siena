@@ -1,30 +1,46 @@
 use std::cell::Cell;
+use std::fs;
 
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
 
 use crate::bus::{Address, BusMember};
+use crate::cpu_sm83::cpu::CpuSm83;
+use crate::gameboy::bus::gbbus::Gameboybus;
+use crate::gameboy::cartridge::cartridge;
+use crate::gameboy::lcd::LCDController;
 use crate::tickable::{Tickable, Ticks};
 
-/// Suoer Gameboy co-processor
-#[derive(Serialize, Deserialize)]
+/// Super Gameboy co-processor
 pub struct SuperGameboy {
     pub rownr: Cell<u16>,
     pub buffernr: Cell<u8>,
+
+    pub cpu: CpuSm83<Gameboybus>,
 }
 
 impl SuperGameboy {
-    pub fn new() -> Self {
-        Self {
+    pub fn new() -> Result<Self> {
+        let rom_game = fs::read("rom/test.gb")?;
+        let rom_boot = fs::read("sgb_boot.bin")?;
+
+        let cart = cartridge::load(&rom_game);
+        println!("Loaded Gameboy cartridge: {}", cart);
+
+        let lcd = LCDController::new(false);
+        let bus = Gameboybus::new(cart, Some(&rom_boot), lcd, false);
+        let cpu = CpuSm83::new(bus, false);
+
+        Ok(Self {
             rownr: Cell::new(0x11 << 4),
             buffernr: Cell::new(0),
-        }
+            cpu,
+        })
     }
 }
 
 impl Tickable for SuperGameboy {
-    fn tick(&mut self, ticks: Ticks) -> Result<Ticks> {
-        Ok(1)
+    fn tick(&mut self, _ticks: Ticks) -> Result<Ticks> {
+        self.cpu.step()
     }
 }
 

@@ -1,18 +1,16 @@
 use super::super::apu::APU;
 use super::super::cartridge::cartridge::Cartridge;
-use crate::cpu_sm83::cpu;
 use super::super::joypad::Joypad;
 use super::super::lcd::{LCDController, LCDStatMode};
 use super::super::timer::Timer;
 use super::bus::{Bus, BusMember};
+use crate::cpu_sm83::cpu;
 use crate::gameboy::tickable::{Tickable, Ticks, ONE_MCYCLE};
 
 use anyhow::Result;
 
-use std::cell::RefCell;
 use std::cmp;
 use std::fmt;
-use std::rc::Rc;
 
 #[allow(dead_code)]
 const BOOTROM_SIZE_DMG: usize = 0x100;
@@ -29,7 +27,7 @@ const VRAMDMA_BLOCK_SIZE: usize = 0x10;
 pub struct Gameboybus {
     cgb: bool,
 
-    cart: Rc<RefCell<dyn Cartridge>>,
+    cart: Box<dyn Cartridge>,
     boot_rom: [u8; BOOTROM_SIZE_CGB],
 
     boot_rom_enabled: bool,
@@ -82,7 +80,7 @@ impl Gameboybus {
     const WRAM_BANKS: usize = 8;
 
     pub fn new(
-        cart: Rc<RefCell<dyn Cartridge>>,
+        cart: Box<dyn Cartridge>,
         bootrom: Option<&[u8]>,
         lcd: LCDController,
         cgb: bool,
@@ -258,13 +256,13 @@ impl BusMember for Gameboybus {
             0x0200..=0x08FF if self.boot_rom_enabled && self.cgb => self.boot_rom[addr],
 
             // Cartridge ROM
-            0x0000..=0x7FFF => self.cart.borrow().read(addr as u16),
+            0x0000..=0x7FFF => self.cart.read(addr as u16),
 
             // Video RAM
             0x8000..=0x9FFF => self.lcd.read(addr as u16),
 
             // External (cartridge) RAM
-            0xA000..=0xBFFF => self.cart.borrow().read(addr as u16),
+            0xA000..=0xBFFF => self.cart.read(addr as u16),
 
             // Working RAM (bank 0)
             0xC000..=0xCFFF => self.wram[addr - 0xC000],
@@ -363,13 +361,13 @@ impl BusMember for Gameboybus {
 
         match addr {
             // Cartridge ROM
-            0x0000..=0x7FFF => self.cart.borrow_mut().write(addr as u16, val),
+            0x0000..=0x7FFF => self.cart.write(addr as u16, val),
 
             // Video RAM
             0x8000..=0x9FFF => self.lcd.write(addr as u16, val),
 
             // External (cartridge) RAM
-            0xA000..=0xBFFF => self.cart.borrow_mut().write(addr as u16, val),
+            0xA000..=0xBFFF => self.cart.write(addr as u16, val),
 
             // Working RAM (bank 0)
             0xC000..=0xCFFF => self.wram[addr - 0xC000] = val,
@@ -409,6 +407,7 @@ impl BusMember for Gameboybus {
             // I/O - Boot ROM disable
             0xFF50 => {
                 if val > 0 && self.boot_rom_enabled {
+                    println!("Gameboy boot ROM done!");
                     self.boot_rom_enabled = false;
                 }
             }
@@ -495,43 +494,35 @@ impl Tickable for Gameboybus {
 
 impl fmt::Display for Gameboybus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.cart.borrow().dump_state())
+        write!(f, "{}", self.cart.dump_state())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::display::display::NullDisplay;
     use crate::gameboy::cartridge::romonly::RomOnly;
     use crate::gameboy::lcd::LCDController;
-    use crate::input::input::NullInput;
 
     use num_traits::ToPrimitive;
 
     fn gbbus() -> Gameboybus {
-        let cart: Rc<RefCell<dyn Cartridge>> =
-            Rc::new(RefCell::new(RomOnly::new(&[0xAA_u8; 32 * 1024])));
-        let lcd = LCDController::new(Box::new(NullDisplay::new()), false);
-        let input = Box::new(NullInput::new());
-        Gameboybus::new(Rc::clone(&cart), None, lcd, input, false)
+        let cart: Box<dyn Cartridge> = Box::new(RomOnly::new(&[0xAA_u8; 32 * 1024]));
+        let lcd = LCDController::new(false);
+        Gameboybus::new(cart, None, lcd, false)
     }
 
     fn gbbus_cgb() -> Gameboybus {
-        let cart: Rc<RefCell<dyn Cartridge>> =
-            Rc::new(RefCell::new(RomOnly::new(&[0xAA_u8; 32 * 1024])));
-        let lcd = LCDController::new(Box::new(NullDisplay::new()), false);
-        let input = Box::new(NullInput::new());
-        Gameboybus::new(Rc::clone(&cart), None, lcd, input, true)
+        let cart: Box<dyn Cartridge> = Box::new(RomOnly::new(&[0xAA_u8; 32 * 1024]));
+        let lcd = LCDController::new(false);
+        Gameboybus::new(cart, None, lcd, true)
     }
 
     fn gbbus_bootrom() -> Gameboybus {
-        let cart: Rc<RefCell<dyn Cartridge>> =
-            Rc::new(RefCell::new(RomOnly::new(&[0xAA_u8; 32 * 1024])));
-        let lcd = LCDController::new(Box::new(NullDisplay::new()), false);
+        let cart: Box<dyn Cartridge> = Box::new(RomOnly::new(&[0xAA_u8; 32 * 1024]));
+        let lcd = LCDController::new(false);
         let bootrom = [0xBB_u8; 256];
-        let input = Box::new(NullInput::new());
-        Gameboybus::new(Rc::clone(&cart), Some(&bootrom), lcd, input, false)
+        Gameboybus::new(cart, Some(&bootrom), lcd, false)
     }
 
     #[test]
