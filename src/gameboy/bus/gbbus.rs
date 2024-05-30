@@ -38,7 +38,7 @@ pub struct Gameboybus {
 
     lcd: LCDController,
     timer: Timer,
-    joypad: Joypad,
+    pub joypad: Joypad,
     apu: APU,
 
     /// IF register
