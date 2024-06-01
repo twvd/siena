@@ -3,7 +3,7 @@ use crate::gameboy::lcd_oam::{OAMTable, ObjPriMode};
 use crate::gameboy::tickable::{Tickable, Ticks};
 
 use anyhow::Result;
-use crossbeam_channel::{Receiver, Sender, TrySendError};
+use crossbeam_channel::{Receiver, Sender};
 use num_derive::ToPrimitive;
 use num_traits::ToPrimitive;
 use strum::EnumCount;

@@ -1,3 +1,4 @@
+use enum_map::{Enum, EnumMap};
 use strum::EnumIter;
 
 const JOYPAD_UNUSED: u8 = (1 << 7) | (1 << 6);
@@ -9,7 +10,7 @@ const JOYPAD_IN_UP_SELECT: u8 = 1 << 2;
 const JOYPAD_IN_LEFT_B: u8 = 1 << 1;
 const JOYPAD_IN_RIGHT_A: u8 = 1 << 0;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, EnumIter, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, EnumIter, Ord, PartialOrd, Enum)]
 pub enum Button {
     DPadUp,
     DPadDown,
@@ -24,21 +25,29 @@ pub enum Button {
 pub struct Joypad {
     /// Joypad select bits
     select: u8,
+
+    /// Active inputs
+    state: EnumMap<Button, bool>,
 }
 
 impl Joypad {
     pub fn new() -> Self {
-        Self { select: 0 }
+        Self {
+            select: 0,
+            state: EnumMap::default(),
+        }
     }
 
-    fn read_bit(&self, _b: Button, _bit: u8) -> u8 {
-        // TODO
-        //if self.input.is_pressed(b) {
-        //    0
-        //} else {
-        //    bit
-        //}
-        0
+    pub fn set(&mut self, b: Button, v: bool) {
+        self.state[b] = v;
+    }
+
+    fn read_bit(&self, b: Button, bit: u8) -> u8 {
+        if self.state[b] {
+            0
+        } else {
+            bit
+        }
     }
 
     pub fn read(&self) -> u8 {

@@ -8,6 +8,7 @@ use crate::bus::{Address, BusMember};
 use crate::cpu_sm83::cpu::CpuSm83;
 use crate::gameboy::bus::gbbus::Gameboybus;
 use crate::gameboy::cartridge::cartridge;
+use crate::gameboy::joypad::Button as GbButton;
 use crate::gameboy::lcd::Color as GbColor;
 use crate::gameboy::lcd::LCDController;
 use crate::tickable::{Tickable, Ticks};
@@ -253,6 +254,21 @@ impl BusMember<Address> for SuperGameboy {
                     self.run = val & 0x80 != 0;
                     println!("Gameboy run: {}", self.run);
                 }
+                Some(())
+            }
+            // Controller data - joypad 1
+            0x6004 => {
+                self.cpu
+                    .bus
+                    .joypad
+                    .set(GbButton::DPadRight, val & 0x01 == 0);
+                self.cpu.bus.joypad.set(GbButton::DPadLeft, val & 0x02 == 0);
+                self.cpu.bus.joypad.set(GbButton::DPadUp, val & 0x04 == 0);
+                self.cpu.bus.joypad.set(GbButton::DPadDown, val & 0x08 == 0);
+                self.cpu.bus.joypad.set(GbButton::A, val & 0x10 == 0);
+                self.cpu.bus.joypad.set(GbButton::B, val & 0x20 == 0);
+                self.cpu.bus.joypad.set(GbButton::Select, val & 0x40 == 0);
+                self.cpu.bus.joypad.set(GbButton::Start, val & 0x80 == 0);
                 Some(())
             }
             _ => None,
