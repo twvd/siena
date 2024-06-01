@@ -57,7 +57,7 @@ impl Joypad {
                         | self.read_bit(Button::DPadRight, JOYPAD_IN_RIGHT_A)
                         | self.read_bit(Button::DPadLeft, JOYPAD_IN_LEFT_B)
                 }
-                _ => 0x0F,
+                _ => 0x00,
             }
     }
 
