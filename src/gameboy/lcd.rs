@@ -3,6 +3,7 @@ use crate::gameboy::lcd_oam::{OAMTable, ObjPriMode};
 use crate::gameboy::tickable::{Tickable, Ticks};
 
 use anyhow::Result;
+use crossbeam_channel::{Receiver, Sender, TrySendError};
 use num_derive::ToPrimitive;
 use num_traits::ToPrimitive;
 use strum::EnumCount;
@@ -86,13 +87,14 @@ impl Palette {
     /// Converts a color index to a color from this palette
     fn get_color(&self, cidx: u8) -> Color {
         match self {
-            Palette::DMG(p) => match (p >> (cidx * 2)) & 3 {
-                3 => 0,
-                2 => 0b01000_01000_01000,
-                1 => 0b11000_11000_11000,
-                0 => COLOR_DEFAULT,
-                _ => unreachable!(),
-            },
+            Palette::DMG(p) => ((p >> (cidx * 2)) & 3) as Color,
+            //match (p >> (cidx * 2)) & 3 {
+            //    3 => 0,
+            //    2 => 0b01000_01000_01000,
+            //    1 => 0b11000_11000_11000,
+            //    0 => COLOR_DEFAULT,
+            //    _ => unreachable!(),
+            //},
             Palette::CGB(p) => p[cidx as usize],
         }
     }
@@ -263,6 +265,12 @@ pub struct LCDController {
 
     /// Register change history during mode 3
     reg_history: [[u8; Self::TRANSFER_PERIOD as usize]; RegHist::COUNT],
+
+    /// Scanline output channel
+    line_output: Sender<(usize, Vec<Color>)>,
+
+    /// Receiver for scanline output channel (requestable once)
+    line_output_recv: Option<Receiver<(usize, Vec<Color>)>>,
 }
 
 impl LCDController {
@@ -290,6 +298,8 @@ impl LCDController {
         } else {
             ObjPriMode::Coordinate
         };
+
+        let (sender, receiver) = crossbeam_channel::unbounded();
 
         let mut r = Self {
             cgb,
@@ -325,10 +335,20 @@ impl LCDController {
             skip_frames: 1,
 
             reg_history: [[0; Self::TRANSFER_PERIOD as usize]; RegHist::COUNT],
+
+            line_output: sender,
+            line_output_recv: Some(receiver),
         };
         r.reset();
 
         r
+    }
+
+    /// Gets the scanline output channel receiver
+    /// (can be used once)
+    pub fn get_scanline_output(&mut self) -> Receiver<(usize, Vec<Color>)> {
+        assert!(self.line_output_recv.is_some());
+        std::mem::replace(&mut self.line_output_recv, None).unwrap()
     }
 
     /// Gets current stat mode based on the dot clock
@@ -708,10 +728,13 @@ impl LCDController {
             }
         }
 
-        //for (x, c) in line.into_iter().enumerate() {
-        // TODO
-        //self.output.set_pixel(x, scanline as usize, c.color.into());
-        //}
+        // TODO make a nicer interface
+        self.line_output
+            .send((
+                scanline as usize,
+                line.into_iter().map(|c| c.color.into()).collect::<Vec<_>>(),
+            ))
+            .unwrap();
 
         // Reset current state of tracked registers for next scanline
         self.reg_history[RegHist::BGP.to_usize().unwrap()].fill(self.bgp);
@@ -795,15 +818,16 @@ impl Tickable for LCDController {
         }
 
         // Draw when in transfer mode
-        if old_mode != LCDStatMode::Transfer
-            && new_mode == LCDStatMode::Transfer
-            && !self.in_vblank()
-        {
-            self.draw_scanline(self.ly as isize);
+        if old_mode != LCDStatMode::Transfer && new_mode == LCDStatMode::Transfer {
+            if !self.in_vblank() {
+                self.draw_scanline(self.ly as isize);
 
-            // Window line counter
-            if self.is_window_active() && !self.in_vblank() && self.ly >= self.wy {
-                self.wly += 1;
+                // Window line counter
+                if self.is_window_active() && self.ly >= self.wy {
+                    self.wly += 1;
+                }
+            } else {
+                self.line_output.send((self.ly as usize, vec![])).unwrap();
             }
         }
 

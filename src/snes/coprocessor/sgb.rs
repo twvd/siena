@@ -2,11 +2,13 @@ use std::cell::Cell;
 use std::fs;
 
 use anyhow::Result;
+use crossbeam_channel::Receiver;
 
 use crate::bus::{Address, BusMember};
 use crate::cpu_sm83::cpu::CpuSm83;
 use crate::gameboy::bus::gbbus::Gameboybus;
 use crate::gameboy::cartridge::cartridge;
+use crate::gameboy::lcd::Color as GbColor;
 use crate::gameboy::lcd::LCDController;
 use crate::tickable::{Tickable, Ticks};
 
@@ -15,11 +17,23 @@ use crate::tickable::{Tickable, Ticks};
 /// Both bits low indicates a reset.
 const JOYP_MASK: u8 = 0x30;
 
+/// Amount of scanlines in one display buffer row
+const DISPLAY_ROW_HEIGHT: usize = 8;
+
+/// Amount of display buffers
+const DISPLAY_BUFFERS: usize = 4;
+
+/// Size of a single display buffer
+const DISPLAY_BUFFER_SIZE: usize = 320;
+
+/// Scanline on which Gameboy VBlank starts
+const GB_VBLANK_START: usize = 144;
+
+/// BPP of the Super Gameboy display
+const DISPLAY_BPP: usize = 2;
+
 /// Super Gameboy co-processor
 pub struct SuperGameboy {
-    pub rownr: Cell<u16>,
-    pub buffernr: Cell<u8>,
-
     rom: Vec<u8>,
     pub ticks: Ticks,
     pub cpu: CpuSm83<Gameboybus>,
@@ -30,6 +44,23 @@ pub struct SuperGameboy {
     pub data_packet: [u8; 16],
     pub data_packet_ready: Cell<bool>,
     run: bool,
+
+    scanline_recv: Receiver<(usize, Vec<GbColor>)>,
+
+    /// The rotating character buffers
+    display_buffers: [[u8; DISPLAY_BUFFER_SIZE]; DISPLAY_BUFFERS],
+
+    /// Current display buffer being written
+    display_buffer_w: usize,
+
+    /// Current display buffer selected for read
+    display_buffer_r: usize,
+
+    /// Current read byte position
+    display_buffer_r_byte: Cell<usize>,
+
+    /// Current display row (0x11 = VBlank)
+    display_row: u8,
 }
 
 impl SuperGameboy {
@@ -40,13 +71,12 @@ impl SuperGameboy {
         let cart = cartridge::load(&rom_game);
         println!("Loaded Gameboy cartridge: {}", cart);
 
-        let lcd = LCDController::new(false);
+        let mut lcd = LCDController::new(false);
+        let scanline_recv = lcd.get_scanline_output();
         let bus = Gameboybus::new(cart, Some(&rom_boot), lcd, false);
         let cpu = CpuSm83::new(bus, false);
 
         Ok(Self {
-            rownr: Cell::new(0x11 << 4),
-            buffernr: Cell::new(0),
             ticks: 0,
             cpu,
             joyp_last: 0,
@@ -56,6 +86,13 @@ impl SuperGameboy {
             data_packet: [0; 16],
             data_packet_ready: Cell::new(false),
             run: false,
+            scanline_recv,
+
+            display_buffers: [[0; DISPLAY_BUFFER_SIZE]; DISPLAY_BUFFERS],
+            display_buffer_r: 0,
+            display_buffer_r_byte: Cell::new(0),
+            display_buffer_w: 0,
+            display_row: 0,
             rom: rom_game,
         })
     }
@@ -113,6 +150,42 @@ impl SuperGameboy {
             }
         }
     }
+
+    pub fn poll_display(&mut self) -> Result<()> {
+        while let Ok((scanline, colors)) = self.scanline_recv.try_recv() {
+            if scanline >= GB_VBLANK_START {
+                // In VBlank
+                if self.display_row != 0x11 {
+                    // Just entered VBlank
+                    self.display_row = 0x11;
+                    self.display_buffer_w = (self.display_buffer_w + 1) % DISPLAY_BUFFERS;
+                }
+
+                continue;
+            }
+
+            self.display_row = (scanline / DISPLAY_ROW_HEIGHT) as u8;
+            if scanline % DISPLAY_ROW_HEIGHT == 0 {
+                // Next buffer
+                self.display_buffer_w = (self.display_buffer_w + 1) % DISPLAY_BUFFERS;
+                self.display_buffers[self.display_buffer_w] = [0; DISPLAY_BUFFER_SIZE];
+            }
+
+            // Convert the array of pixels to SNES 8x8 tiles
+            let voffset = (scanline % DISPLAY_ROW_HEIGHT) * DISPLAY_BPP;
+            for (x, c) in colors.into_iter().enumerate() {
+                let poffset = voffset + (x / 8) * (DISPLAY_BPP * 8);
+                let bit = 1 << (7 - (x % 8));
+
+                for bitplane in 0..DISPLAY_BPP {
+                    if c & (1 << bitplane) != 0 {
+                        self.display_buffers[self.display_buffer_w][poffset + bitplane] |= bit;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 impl Tickable for SuperGameboy {
@@ -125,6 +198,7 @@ impl Tickable for SuperGameboy {
         self.ticks += step_ticks;
 
         self.poll_packets();
+        self.poll_display()?;
 
         Ok(step_ticks)
     }
@@ -136,14 +210,7 @@ impl BusMember<Address> for SuperGameboy {
 
         match addr {
             // LCD Character Row and Buffer Write-Row
-            0x6000 => {
-                self.rownr.set((self.rownr.get() + 1) % 0x120);
-                if self.rownr.get() == 0 {
-                    self.buffernr.set((self.buffernr.get() + 1) % 4);
-                }
-                println!("read row: {:X}", self.rownr.get() >> 4);
-                Some((((self.rownr.get() >> 4) as u8) << 3) | (self.buffernr.get()))
-            }
+            0x6000 => Some(((self.display_buffer_w as u8) & 3) | (self.display_row << 3)),
             // Packet available flag
             0x6002 if self.data_packet_ready.get() => Some(1),
             0x6002 => Some(0),
@@ -155,7 +222,17 @@ impl BusMember<Address> for SuperGameboy {
             }
             0x7001..=0x700F => Some(self.data_packet[addr - 0x7000]),
 
-            0x7800 => Some(0xAA),
+            // Character buffer data
+            0x7800 => {
+                let val = if self.display_buffer_r_byte.get() >= 320 {
+                    0xFF
+                } else {
+                    self.display_buffers[self.display_buffer_r][self.display_buffer_r_byte.get()]
+                };
+                self.display_buffer_r_byte
+                    .set((self.display_buffer_r_byte.get() + 1) % 512);
+                Some(val)
+            }
             _ => None,
         }
     }
@@ -163,6 +240,13 @@ impl BusMember<Address> for SuperGameboy {
     fn write(&mut self, fulladdr: Address, val: u8) -> Option<()> {
         let (_, addr) = ((fulladdr >> 16) as usize, (fulladdr & 0xFFFF) as usize);
         match addr {
+            // Character Buffer Read Row Select
+            0x6001 => {
+                self.display_buffer_r = (val & 3) as usize;
+                self.display_buffer_r_byte.set(0);
+                Some(())
+            }
+            // Reset/Multiplayer/Speed Control (W)
             0x6003 => {
                 if self.run != (val & 0x80 != 0) {
                     self.reset_gameboy();
