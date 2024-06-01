@@ -27,8 +27,8 @@ const VRAMDMA_BLOCK_SIZE: usize = 0x10;
 pub struct Gameboybus {
     cgb: bool,
 
-    cart: Box<dyn Cartridge>,
-    boot_rom: [u8; BOOTROM_SIZE_CGB],
+    pub cart: Box<dyn Cartridge>,
+    pub boot_rom: [u8; BOOTROM_SIZE_CGB],
 
     boot_rom_enabled: bool,
 

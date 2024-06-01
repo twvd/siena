@@ -20,6 +20,7 @@ pub struct SuperGameboy {
     pub rownr: Cell<u16>,
     pub buffernr: Cell<u8>,
 
+    rom: Vec<u8>,
     pub ticks: Ticks,
     pub cpu: CpuSm83<Gameboybus>,
     pub joyp_last: u8,
@@ -55,7 +56,19 @@ impl SuperGameboy {
             data_packet: [0; 16],
             data_packet_ready: Cell::new(false),
             run: false,
+            rom: rom_game,
         })
+    }
+
+    pub fn reset_gameboy(&mut self) {
+        let mut lcd = LCDController::new(false);
+        let cart = cartridge::load(&self.rom);
+        let scanline_recv = lcd.get_scanline_output();
+        let bus = Gameboybus::new(cart, Some(&self.cpu.bus.boot_rom), lcd, false);
+        let cpu = CpuSm83::new(bus, false);
+
+        self.cpu = cpu;
+        self.scanline_recv = scanline_recv;
     }
 
     pub fn poll_packets(&mut self) {
@@ -152,7 +165,7 @@ impl BusMember<Address> for SuperGameboy {
         match addr {
             0x6003 => {
                 if self.run != (val & 0x80 != 0) {
-                    // TODO reset
+                    self.reset_gameboy();
                     self.run = val & 0x80 != 0;
                     println!("Gameboy run: {}", self.run);
                 }
