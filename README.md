@@ -11,12 +11,19 @@ Current features and state:
  * Fully functional (native-mode only), cycle accurate 65816 main CPU core
  * Fully functional, cycle accurate SPC700 audio CPU core
  * Functional DMA and HDMA
- * All PPU modes functional, plus color math, offset-per-tile
- * DSP-1 co-processor (LLE)
+ * All PPU modes functional, plus color math, offset-per-tile, high res, interlace
+ * Implemented co-processors:
+   * DSP-1 (LLE)
+   * SuperFX
+   * SA-1 (partially)
+   * Super Gameboy (based on my [Gameboy emulator](https://github.com/twvd/gameboy))
 
 ## Building and running
 
-After checking out the source, run the following command to build and run the emulator, specifying a ROM:
+To run anything, you'll need to obtain the SPC700 IPL and name it spc700.rom in the
+top-level directory.
+
+Run the following command to build and run the emulator, specifying a ROM:
 
 ```sh
 cargo run --release -- path/to/rom.smc
@@ -26,6 +33,13 @@ To build and run with Blargg's S-APU rather than Siena's own APU, you can run:
 
 ```sh
 cargo run --release -F apu_blargg -- path/to/rom.smc
+```
+
+To run a Super Gameboy game, you'll need to obtain the SGB boot ROM (sgb_boot.bin)
+and the SNES Super Gameboy ROM. Then, you can specify the Gameboy Game ROM using `--corom`, e.g.:
+
+```sh
+cargo run --release -- --corom "Tetris.gb" "Super Gameboy.smc"
 ```
 
 ## Tests
