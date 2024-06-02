@@ -1,7 +1,7 @@
 use std::cell::Cell;
 use std::fs;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use crossbeam_channel::Receiver;
 
 use crate::bus::{Address, BusMember};
@@ -65,9 +65,9 @@ pub struct SuperGameboy {
 }
 
 impl SuperGameboy {
-    pub fn new() -> Result<Self> {
-        let rom_game = fs::read("rom/test.gb")?;
-        let rom_boot = fs::read("sgb_boot.bin")?;
+    pub fn new(rom_game: &[u8]) -> Result<Self> {
+        let rom_boot = fs::read("sgb_boot.bin")
+            .with_context(|| "SGB Gameboy boot ROM (sgb_boot.bin) not found")?;
 
         let cart = cartridge::load(&rom_game);
         println!("Loaded Gameboy cartridge: {}", cart);
@@ -94,7 +94,7 @@ impl SuperGameboy {
             display_buffer_r_byte: Cell::new(0),
             display_buffer_w: 0,
             display_row: 0,
-            rom: rom_game,
+            rom: rom_game.to_vec(),
         })
     }
 

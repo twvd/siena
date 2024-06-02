@@ -337,7 +337,11 @@ impl Cartridge {
             }
             Some(CoProcessor::SuperGameboy) => {
                 println!("Super Gameboy detected");
-                c.co_sgb = Some(SuperGameboy::new()?);
+                if let Some(rom) = co_rom {
+                    c.co_sgb = Some(SuperGameboy::new(rom)?);
+                } else {
+                    panic!("Please specify Gameboy ROM using --corom");
+                }
             }
             Some(c) => println!("Warning: unimplemented co-processor: {:?}", c),
             None => (),
