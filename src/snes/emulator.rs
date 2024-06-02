@@ -298,7 +298,8 @@ where
                 Ok(self.cpu.bus.cartridge.co_dsp1.as_mut().unwrap().tick(1)? * 2)
             }
             Schedule::SuperGameboy => {
-                Ok(self.cpu.bus.cartridge.co_sgb.as_mut().unwrap().tick(1)? * 5)
+                // Divider handled by co-processor as it is configurable
+                Ok(self.cpu.bus.cartridge.co_sgb.as_mut().unwrap().tick(1)?)
             }
         }
     }

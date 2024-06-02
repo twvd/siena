@@ -3,6 +3,8 @@ use std::fs;
 
 use anyhow::{Context, Result};
 use crossbeam_channel::Receiver;
+use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
 
 use crate::bus::{Address, BusMember};
 use crate::cpu_sm83::cpu::CpuSm83;
@@ -33,6 +35,29 @@ const GB_VBLANK_START: usize = 144;
 /// BPP of the Super Gameboy display
 const DISPLAY_BPP: usize = 2;
 
+#[derive(FromPrimitive)]
+enum SGBDivider {
+    /// 5 MHz
+    Div4 = 0,
+    /// 4 MHz
+    Div5 = 1,
+    /// 3 MHz
+    Div7 = 2,
+    /// 2.3 MHz
+    Div9 = 3,
+}
+
+impl SGBDivider {
+    pub fn to_div(&self) -> Ticks {
+        match self {
+            SGBDivider::Div4 => 4,
+            SGBDivider::Div5 => 5,
+            SGBDivider::Div7 => 7,
+            SGBDivider::Div9 => 9,
+        }
+    }
+}
+
 /// Super Gameboy co-processor
 pub struct SuperGameboy {
     rom: Vec<u8>,
@@ -62,6 +87,9 @@ pub struct SuperGameboy {
 
     /// Current display row (0x11 = VBlank)
     display_row: u8,
+
+    /// SNES master clock divider
+    clockdiv: SGBDivider,
 }
 
 impl SuperGameboy {
@@ -95,6 +123,7 @@ impl SuperGameboy {
             display_buffer_w: 0,
             display_row: 0,
             rom: rom_game.to_vec(),
+            clockdiv: SGBDivider::Div5,
         })
     }
 
@@ -170,6 +199,9 @@ impl SuperGameboy {
                 // Next buffer
                 self.display_buffer_w = (self.display_buffer_w + 1) % DISPLAY_BUFFERS;
                 self.display_buffers[self.display_buffer_w] = [0; DISPLAY_BUFFER_SIZE];
+                if self.display_buffer_w == self.display_buffer_r {
+                    println!("SNES running too slow! Scanline {}", scanline);
+                }
             }
 
             // Convert the array of pixels to SNES 8x8 tiles
@@ -201,7 +233,7 @@ impl Tickable for SuperGameboy {
         self.poll_packets();
         self.poll_display()?;
 
-        Ok(step_ticks)
+        Ok(step_ticks * self.clockdiv.to_div())
     }
 }
 
@@ -254,6 +286,7 @@ impl BusMember<Address> for SuperGameboy {
                     self.run = val & 0x80 != 0;
                     println!("Gameboy run: {}", self.run);
                 }
+                self.clockdiv = SGBDivider::from_u8(val & 3).unwrap();
                 Some(())
             }
             // Controller data - joypad 1
