@@ -91,18 +91,19 @@ where
             "{} - {}\n --> {}",
             self.cycles,
             self.regs,
-            self.peek_next_instr().unwrap()
+            self.peek_next_instr()
         )
     }
 
     /// Fetches and decodes the next instruction at PC
-    pub fn peek_next_instr(&self) -> Result<Instruction> {
+    pub fn peek_next_instr(&self) -> Instruction {
         let mut busiter = BusIterator::new_from(&self.bus, self.regs.get_full_pc());
         Instruction::decode(
             &mut busiter,
             self.regs.test_flag(Flag::M),
             self.regs.test_flag(Flag::X),
         )
+        .expect("65816 instruction decode error")
     }
 
     /// Fetches and decodes the next instruction at PC
@@ -116,8 +117,8 @@ where
             p += 1;
 
             match Instruction::decode(&mut fetched.clone().into_iter(), m, x) {
-                Err(_) => fetched.push(self.read_tick(pc)),
-                Ok(i) => break i,
+                None => fetched.push(self.read_tick(pc)),
+                Some(i) => break i,
             }
         };
 
