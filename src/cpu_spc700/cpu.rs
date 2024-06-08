@@ -36,14 +36,14 @@ where
             "{} - {}\n --> {}",
             self.cycles,
             self.regs,
-            self.peek_next_instr().unwrap()
+            self.peek_next_instr()
         )
     }
 
     /// Fetches and decodes the next instruction at PC
-    pub fn peek_next_instr(&self) -> Result<Instruction> {
+    pub fn peek_next_instr(&self) -> Instruction {
         let mut busiter = BusIterator::new_from(&self.bus, self.regs.pc);
-        Instruction::decode(&mut busiter)
+        Instruction::decode(&mut busiter).expect("SPC700 instruction decode error")
     }
 
     /// Fetches and decodes the next instruction at PC
@@ -53,8 +53,8 @@ where
         for i in 0.. {
             let pc = self.regs.pc as SpcAddress;
             match Instruction::decode(&mut fetched.clone().into_iter()) {
-                Err(_) => fetched.push(self.read_tick(pc.wrapping_add(i))),
-                Ok(i) => return Ok(i),
+                None => fetched.push(self.read_tick(pc.wrapping_add(i))),
+                Some(instruction) => return Ok(instruction),
             }
         }
 

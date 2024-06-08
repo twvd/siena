@@ -1,8 +1,6 @@
 use std::fmt;
 
-use anyhow::Result;
 use arrayvec::ArrayVec;
-use thiserror::Error;
 
 use super::instruction_table::INSTRUCTION_TABLE;
 use super::regs::Register;
@@ -123,12 +121,6 @@ pub enum InstructionType {
     ROL,
 }
 
-#[derive(Debug, Error)]
-enum DecodeErr {
-    #[error("End of instruction stream")]
-    EndOfStream,
-}
-
 /// A decoded instruction
 pub struct Instruction {
     /// Reference to definition in instruction table
@@ -146,12 +138,13 @@ pub struct Instruction {
 
 impl Instruction {
     /// Try to decode a single instruction from an iterator.
-    pub fn decode(stream: &mut impl Iterator<Item = u8>) -> Result<Instruction> {
+    pub fn decode(stream: &mut impl Iterator<Item = u8>) -> Option<Instruction> {
         let mut raw: ArrayVec<u8, MAX_INSTRUCTION_LEN> = ArrayVec::new();
-        let mut rd = || -> Result<u8> {
-            let b = stream.next().ok_or(DecodeErr::EndOfStream)?;
+        let mut rd = || -> Option<u8> {
+            // Assuming the stream wraps at the end, no errors will be thrown.
+            let b = stream.next()?;
             raw.push(b);
-            Ok(b)
+            Some(b)
         };
 
         let opcode = rd()?;
@@ -174,7 +167,7 @@ impl Instruction {
             immediate[0] = args[0];
         }
 
-        Ok(Instruction {
+        Some(Instruction {
             def,
             immediate,
             raw,
