@@ -332,7 +332,6 @@ impl CpuGsu {
         match (instr, alt1, alt2) {
             (0x00, false, false) => {
                 // STOP
-                println!("sfx stopped");
                 self.pixelcache_flush();
                 self.regs
                     .write_flags(&[(Flag::G, false), (Flag::IRQ, true)]);

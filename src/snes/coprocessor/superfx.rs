@@ -120,7 +120,6 @@ impl BusMember<Address> for SuperFX {
 
                 // If PC (R15) is written, start execution
                 if addr & 1 != 0 && !cpu.regs.test_flag(Flag::G) {
-                    println!("SuperFX go {:02X} {:04X}", cpu.regs.pbr, newval);
                     cpu.regs.get_clr_r15_shadow();
                     cpu.regs.write_flags(&[(Flag::G, true)]);
                 }
@@ -129,13 +128,6 @@ impl BusMember<Address> for SuperFX {
             }
             0x3030 => {
                 let curval = cpu.regs.read(Register::SFR);
-                if curval & 0x20 == 0 && val & 0x20 != 0 {
-                    println!(
-                        "SuperFX resume {:02X} {:04X}",
-                        cpu.regs.pbr,
-                        cpu.regs.read(Register::R15)
-                    );
-                }
                 Some(
                     cpu.regs
                         .write(Register::SFR, (curval & 0xFF00) | (val as u16)),
