@@ -506,7 +506,12 @@ impl PPUState {
         scanline_sprites: usize,
     ) -> ArrayVec<Color, SCREEN_WIDTH> {
         let brightness = (self.inidisp & 0x0F) as usize;
-        let scale = self.get_screen_mode_scale_bg();
+        let pseudo_highres = self.setini & (1 << 3) != 0;
+        let scale = if pseudo_highres {
+            1
+        } else {
+            self.get_screen_mode_scale_bg()
+        };
         let mut out: ArrayVec<Color, SCREEN_WIDTH> = ArrayVec::new();
 
         if brightness == 0 || self.inidisp & 0x80 != 0 {
@@ -528,7 +533,7 @@ impl PPUState {
         let subscreen = self.render_scanline_screen(
             scanline_bg,
             scanline_sprites,
-            if self.cgwsel & (1 << 1) != 0 {
+            if pseudo_highres || self.cgwsel & (1 << 1) != 0 {
                 // Enable backdrop + bg + obj
                 self.ts & !self.dbg_layermask
             } else {
@@ -542,7 +547,23 @@ impl PPUState {
 
         // Send line to screen buffer
         for x in 0..(SCREEN_WIDTH / scale) {
-            let pixel = if self.in_highres_h() {
+            let pixel = if pseudo_highres {
+                // Pseudo high-res
+                let x = x / 2;
+                self.apply_colormath(
+                    if x % 2 == 0 {
+                        // Left-most pixel is from subscreen
+                        subscreen.paletted[x]
+                    } else {
+                        mainscreen.paletted[x]
+                    },
+                    self.coldata,
+                    mainscreen.layer[x],
+                    subscreen.layer[x],
+                    mainscreen.window.math[x],
+                    mainscreen.palette[x],
+                )
+            } else if self.in_highres_h() {
                 // Mode 5/6 do not support color math
                 mainscreen.paletted[x]
             } else {
