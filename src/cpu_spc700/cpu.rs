@@ -1137,11 +1137,12 @@ where
         let a = self.regs.read(Register::YA);
         let b = self.read16_tick_a8(self.map_pageflag(instr.imm8(0)));
 
-        let (result, result_c) = a.overflowing_add(!b);
+        let result = i32::from(a) + i32::from(!b) + 1;
+
         self.regs.write_flags(&[
-            (Flag::Z, result == 0),
+            (Flag::Z, result as u16 == 0),
             (Flag::N, result & 0x8000 != 0),
-            (Flag::C, result_c),
+            (Flag::C, result > u16::MAX.into()),
         ]);
 
         Ok(())
