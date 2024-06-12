@@ -104,7 +104,10 @@ where
     pub const CYCLES_PER_SCANLINE: usize = 341; // including H-blank
     pub const SCANLINES_PER_FRAME: usize = 262; // including V-blank
     pub const VBLANK_START: usize = 225;
+    pub const VISIBLE_LINES: usize = 224;
+
     pub const LINE_HBLANK_START: usize = 274;
+    pub const H_RENDER: usize = 22;
 
     pub fn new(renderer: TRenderer, fps: u64, videoformat: VideoFormat) -> Self {
         let desired_frametime = if fps == 0 { 0 } else { 1_000_000 / fps };
@@ -286,6 +289,20 @@ where
         self.cycles =
             (self.cycles + ticks) % (Self::CYCLES_PER_SCANLINE * Self::SCANLINES_PER_FRAME);
 
+        if self.get_current_h() == Self::H_RENDER {
+            let line = self.get_current_scanline();
+
+            // Scanline 0 is discarded by the original hardware, so
+            // scanline 1 becomes the top of the frame. However, H/V-interrupts,
+            // HDMA, etc are still executed for scanline 0, so we only discard
+            // it here and shift the whole frame up by 1.
+            if (line as isize) < ((Self::VISIBLE_LINES as isize) - SCANLINE_OUTPUT_OFFSET)
+                && (line as isize) + SCANLINE_OUTPUT_OFFSET >= 0
+            {
+                self.render_scanline(line, SCANLINE_OUTPUT_OFFSET);
+            }
+        }
+
         if self.in_hblank() {
             if !self.hblank {
                 // Entered HBlank
@@ -311,53 +328,40 @@ where
                         self.state.oamadd_addr.set(self.state.oamadd_reload.get());
                     }
                 }
-            } else {
-                if self.vblank {
-                    // VBlank period has ended
-                    self.vblank = false;
+            } else if self.vblank {
+                // VBlank period has ended
+                self.vblank = false;
 
-                    // Toggle interlace frame bit in STAT78
-                    self.interlace_frame = !self.interlace_frame;
+                // Toggle interlace frame bit in STAT78
+                self.interlace_frame = !self.interlace_frame;
 
-                    // Roll over the VRAM buffer so any changes during the last frame
-                    // reflect in the next frame.
-                    self.state.vram = Arc::new(self.vram.clone());
+                // Roll over the VRAM buffer so any changes during the last frame
+                // reflect in the next frame.
+                self.state.vram = Arc::new(self.vram.clone());
 
-                    // Send frame to the screen
-                    // Wait for threadpool workers to finish all scanlines
-                    self.pool.join();
+                // Send frame to the screen
+                // Wait for threadpool workers to finish all scanlines
+                self.pool.join();
 
-                    // Present frame to the screen
-                    let renderer = self.renderer.as_mut().unwrap();
-                    renderer.update()?;
+                // Present frame to the screen
+                let renderer = self.renderer.as_mut().unwrap();
+                renderer.update()?;
 
-                    // Sync to desired framerate
-                    let frametime = self.last_frame.elapsed().as_micros() as u64;
-                    if frametime < self.desired_frametime {
-                        sleep(Duration::from_micros(self.desired_frametime - frametime));
-                    }
-                    self.last_frame = Instant::now();
-
-                    self.vi_count += 1;
-                    if self.vi_time.elapsed().as_secs() >= 2 {
-                        println!(
-                            "PPU: {:0.2} VBlank/sec",
-                            self.vi_count as f32 / self.vi_time.elapsed().as_secs_f32()
-                        );
-                        self.vi_count = 0;
-                        self.vi_time = Instant::now();
-                    }
+                // Sync to desired framerate
+                let frametime = self.last_frame.elapsed().as_micros() as u64;
+                if frametime < self.desired_frametime {
+                    sleep(Duration::from_micros(self.desired_frametime - frametime));
                 }
+                self.last_frame = Instant::now();
 
-                // Scanline 0 is discarded by the original hardware, so
-                // scanline 1 becomes the top of the frame. However, H/V-interrupts,
-                // HDMA, etc are still executed for scanline 0, so we only discard
-                // it here and shift the whole frame up by 1.
-                if (self.last_scanline as isize)
-                    < ((SCREEN_HEIGHT as isize) - SCANLINE_OUTPUT_OFFSET)
-                    && (self.last_scanline as isize) + SCANLINE_OUTPUT_OFFSET >= 0
-                {
-                    self.render_scanline(self.last_scanline, SCANLINE_OUTPUT_OFFSET);
+                self.vi_count += 1;
+                if self.vi_time.elapsed().as_secs() >= 2 {
+                    println!(
+                        "PPU: {:0.2} VBlank/sec",
+                        self.vi_count as f32 / self.vi_time.elapsed().as_secs_f32()
+                    );
+                    self.vi_count = 0;
+                    self.vi_time = Instant::now();
                 }
             }
         }
